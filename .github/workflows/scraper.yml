@@ -3,6 +3,15 @@ name: SmartMoney Scraper
 on:
   # Déclenchement manuel
   workflow_dispatch:
+    inputs:
+      use_test_data:
+        description: 'Use test data instead of real scraping'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
   
   # Ou programmé (tous les jours à 14h UTC)
   schedule:
@@ -51,7 +60,14 @@ jobs:
         mkdir -p data/raw/dataroma
         mkdir -p data/processed
     
+    - name: Generate test data (if requested or first run)
+      if: github.event.inputs.use_test_data == 'true' || github.event_name == 'push'
+      run: |
+        echo "📊 Generating test data to verify pipeline..."
+        python -m src.test_data_generator
+    
     - name: Run HedgeFollow scrapers
+      if: github.event.inputs.use_test_data != 'true'
       run: |
         echo "Starting HedgeFollow scrapers..."
         python -m src.hedgefollow.funds || echo "Funds scraper failed"
@@ -61,6 +77,7 @@ jobs:
       continue-on-error: true
     
     - name: Run Dataroma scrapers
+      if: github.event.inputs.use_test_data != 'true'
       run: |
         echo "Starting Dataroma scrapers..."
         python -m src.dataroma.managers || echo "Managers scraper failed"
@@ -79,45 +96,70 @@ jobs:
       run: |
         echo "=== Files in data/raw/hedgefollow ==="
         ls -la data/raw/hedgefollow/ || echo "No HedgeFollow files"
+        echo ""
         echo "=== Files in data/raw/dataroma ==="
         ls -la data/raw/dataroma/ || echo "No Dataroma files"
+        echo ""
         echo "=== Files in data/processed ==="
         ls -la data/processed/ || echo "No processed files"
     
-    - name: Create dummy file if no data
+    - name: Show sample data
+      if: always()
       run: |
-        # Create at least one file to have something in the artifact
-        if [ ! "$(ls -A data/processed/)" ]; then
-          echo "ticker,company_name,smartmoney_score" > data/processed/placeholder.csv
-          echo "NO_DATA,No data scraped,0" >> data/processed/placeholder.csv
-        fi
+        echo "=== Sample HedgeFollow funds data ==="
+        head -5 data/raw/hedgefollow/funds_top.csv 2>/dev/null || echo "No funds data"
+        echo ""
+        echo "=== Sample Dataroma grand portfolio ==="
+        head -5 data/raw/dataroma/grand_portfolio_*.csv 2>/dev/null || echo "No grand portfolio data"
+        echo ""
+        echo "=== Sample Universe data ==="
+        head -10 data/processed/universe_smartmoney_*.csv 2>/dev/null || echo "No universe data"
     
     - name: Upload results as artifacts
       uses: actions/upload-artifact@v4
-      if: always()  # Upload even if previous steps failed
+      if: always()
       with:
         name: scraped-data
         path: |
           data/
         retention-days: 30
-        if-no-files-found: warn  # Just warn if no files found
+        if-no-files-found: warn
     
     - name: Summary
       if: always()
       run: |
         echo "### 📊 Scraping Summary" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
+        
+        if [ "${{ github.event.inputs.use_test_data }}" == "true" ]; then
+          echo "ℹ️ **Using TEST DATA**" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "🌐 **Using REAL SCRAPING**" >> $GITHUB_STEP_SUMMARY
+        fi
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
         echo "#### HedgeFollow Files:" >> $GITHUB_STEP_SUMMARY
         echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-        ls -la data/raw/hedgefollow/ 2>/dev/null || echo "No files" >> $GITHUB_STEP_SUMMARY
+        ls -lh data/raw/hedgefollow/ 2>/dev/null || echo "No files" >> $GITHUB_STEP_SUMMARY
         echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
+        
         echo "#### Dataroma Files:" >> $GITHUB_STEP_SUMMARY
         echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-        ls -la data/raw/dataroma/ 2>/dev/null || echo "No files" >> $GITHUB_STEP_SUMMARY
+        ls -lh data/raw/dataroma/ 2>/dev/null || echo "No files" >> $GITHUB_STEP_SUMMARY
         echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
+        
         echo "#### Processed Files:" >> $GITHUB_STEP_SUMMARY
         echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-        ls -la data/processed/ 2>/dev/null || echo "No files" >> $GITHUB_STEP_SUMMARY
+        ls -lh data/processed/ 2>/dev/null || echo "No files" >> $GITHUB_STEP_SUMMARY
         echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Show top stocks if universe exists
+        if ls data/processed/universe_smartmoney_*.csv 1> /dev/null 2>&1; then
+          echo "#### Top 5 SmartMoney Stocks:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          head -6 data/processed/universe_smartmoney_*.csv | cut -d',' -f1-4 >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        fi
