@@ -31,10 +31,10 @@ function initializeFunds() {
                 trade_value_millions: 0,        // $ 9.61B → 9610M
                 latest_activity_pct: 0,         // -14.92%
                 latest_activity_shares: '',     // (-41.79M)
-                avg_buy_price: 0,              // $39.59
-                price_change_pct: 0,           // (+585.8%)
-                sector: '',                    // Technology
-                date: ''                       // 2025-09-30
+                avg_buy_price: 0,               // $39.59
+                price_change_pct: 0,            // (+585.8%)
+                sector: '',                     // Technology
+                date: ''                        // 2025-09-30
             };
         }
     }
@@ -252,140 +252,23 @@ function parseFundHeader(lines, fundIndex) {
     return fundParsed ? lineIdx : 0;
 }
 
-// Parser pour format tableau (colonnes séparées par tabs)
-function parseTableFormat(lines, startIdx, fundIndex) {
-    let holdingsParsed = 0;
-    let currentHoldingIndex = 0;
-    
-    // Chercher la ligne d'en-tête du tableau
-    let headerIdx = startIdx;
-    while (headerIdx < lines.length) {
-        if (lines[headerIdx].includes('Stock') && lines[headerIdx].includes('Company')) {
-            headerIdx++;
-            break;
-        }
-        headerIdx++;
-    }
-    
-    // Parser les holdings
-    for (let i = headerIdx; i < lines.length && currentHoldingIndex < NUM_HOLDINGS; i++) {
-        const line = lines[i].trim();
-        if (!line) continue;
-        
-        // Split par tabs
-        const cols = line.split('\t');
-        
-        if (cols.length >= 10) {
-            // Format tableau avec tabs
-            const ticker = cols[0].trim();
-            const company = cols[1].trim();
-            const portfolioPct = parseFloat(cols[2].replace('%', '')) || 0;
-            const deltaPct = parseFloat(cols[3].replace('%', '')) || 0;
-            const shares = parseSharesValue(cols[4]);
-            const value = parseMoneyValue(cols[5]);
-            const tradeValue = parseMoneyValue(cols[6]);
-            const activity = parseActivityValue(cols[7]);
-            const activityShares = parseActivityShares(cols[7]);
-            // colonnes 8 et 9 sont Ownership Hist et Net Ownership (peuvent être vides)
-            const avgPrice = parseMoneyValue(cols[10]); // Average Buy Price
-            const priceChange = parsePriceChange(cols[11]); // Price History (+X%)
-            const sector = cols[12] ? cols[12].trim() : ''; // Sector
-            const date = cols[13] ? cols[13].trim() : ''; // Date
-            
-            // Remplir les données
-            fillHoldingData(fundIndex, currentHoldingIndex, {
-                ticker, company, portfolioPct, deltaPct, shares,
-                value, tradeValue, activity, activityShares, avgPrice, priceChange, sector, date
-            });
-            
-            currentHoldingIndex++;
-            holdingsParsed++;
-        }
-    }
-    
-    return holdingsParsed;
-}
+/* ========= HELPERS & PARSERS POUR LES HOLDINGS ========= */
 
-// Parser pour format vertical (chaque champ sur une ligne)
-function parseVerticalFormat(lines, startIdx, fundIndex) {
-    let holdingsParsed = 0;
-    let currentHoldingIndex = 0;
-    let i = startIdx;
-    
-    // Pattern pour détecter un ticker (1-5 lettres majuscules)
-    const tickerPattern = /^[A-Z]{1,5}(\.[A-Z])?$/;
-    const datePattern = /^\d{4}-\d{2}-\d{2}$/;
-    
-    while (i < lines.length && currentHoldingIndex < NUM_HOLDINGS) {
-        const line = lines[i].trim();
-        
-        // Détecter le début d'un holding (ticker)
-        if (tickerPattern.test(line)) {
-            // Vérifier qu'on a assez de lignes pour un holding complet
-            if (i + 12 < lines.length) {
-                const ticker = line;
-                const company = lines[i + 1].trim();
-                const portfolioPct = parseFloat(lines[i + 2].replace('%', '')) || 0;
-                const deltaPct = parseFloat(lines[i + 3].replace('%', '')) || 0;
-                const shares = parseSharesValue(lines[i + 4]);
-                const value = parseMoneyValue(lines[i + 5]);
-                const tradeValue = parseMoneyValue(lines[i + 6]);
-                const activity = parseActivityValue(lines[i + 7]);
-                const activityShares = parseActivityShares(lines[i + 7]);
-                
-                // Les lignes 8-9 peuvent être vides (Ownership Hist)
-                let avgPriceIdx = i + 10;
-                let sectorIdx = i + 12;
-                let dateIdx = i + 13;
-                
-                // Ajuster si les lignes ownership sont présentes
-                if (lines[i + 8].trim() && !lines[i + 8].includes('$')) {
-                    avgPriceIdx = i + 10;
-                    sectorIdx = i + 12;
-                    dateIdx = i + 13;
-                }
-                
-                const avgPrice = parseMoneyValue(lines[avgPriceIdx]);
-                const priceChange = parsePriceChange(lines[avgPriceIdx]);
-                const sector = lines[sectorIdx] ? lines[sectorIdx].trim() : '';
-                const date = lines[dateIdx] && datePattern.test(lines[dateIdx].trim()) 
-                    ? lines[dateIdx].trim() : '';
-                
-                // Remplir les données
-                fillHoldingData(fundIndex, currentHoldingIndex, {
-                    ticker, company, portfolioPct, deltaPct, shares,
-                    value, tradeValue, activity, activityShares, avgPrice, priceChange, sector, date
-                });
-                
-                currentHoldingIndex++;
-                holdingsParsed++;
-                
-                // Avancer à la prochaine position (13-14 lignes plus loin)
-                i += date ? 14 : 13;
-            } else {
-                i++;
-            }
-        } else {
-            i++;
-        }
-    }
-    
-    return holdingsParsed;
-}
-
-// Fonctions utilitaires de parsing
+// Helpers nombres / montants
 function parseSharesValue(str) {
+    if (!str) return 0;
     const s = str.replace(/,/g, '').trim();
     const match = s.match(/([\d.]+)\s*([MBK])?/i);
     if (!match) return 0;
-    
+
     let value = parseFloat(match[1]) || 0;
     const suffix = (match[2] || '').toUpperCase();
-    
-    if (suffix === 'B') value *= 1000;      // Billion to Million
-    else if (suffix === 'K') value /= 1000; // Thousand to Million
-    else if (!suffix && value > 1000000) value /= 1000000; // Raw number to Million
-    
+
+    // HedgeFollow: M = millions, B = billions, K = milliers
+    if (suffix === 'B') value *= 1000;      // milliards → millions
+    else if (suffix === 'K') value /= 1000; // milliers → millions
+    else if (!suffix && value > 1_000_000) value /= 1_000_000; // brut → millions
+
     return value;
 }
 
@@ -394,68 +277,219 @@ function parseMoneyValue(str) {
     const s = str.replace(/\$/g, '').replace(/,/g, '').trim();
     const match = s.match(/([\d.]+)\s*([MBK])?/i);
     if (!match) return 0;
-    
+
     let value = parseFloat(match[1]) || 0;
     const suffix = (match[2] || '').toUpperCase();
-    
-    if (suffix === 'B') value *= 1000;      // Billion to Million
-    else if (suffix === 'K') value /= 1000; // Thousand to Million
-    
+
+    if (suffix === 'B') value *= 1000;      // milliards → millions
+    else if (suffix === 'K') value /= 1000; // milliers → millions
+
     return value;
 }
 
 function parseActivityValue(str) {
+    if (!str) return 0;
     const match = str.match(/([+-]?\d+\.?\d*)%/);
     return match ? parseFloat(match[1]) : 0;
 }
 
-// Parser le montant shares dans Latest Activity (entre parenthèses)
+// ex: "-36.56% (-4.94M)" → "-4.94M"
 function parseActivityShares(str) {
-    // Chercher le pattern (±XXX.XXM) ou (±XXX.XXB) ou (±XXX.XXK)
+    if (!str) return '';
     const match = str.match(/\(([+-]?[\d.]+[MBK]?)\)/);
-    if (match) {
-        return match[1]; // Retourner tel quel avec le signe et l'unité
-    }
-    return '';
+    return match ? match[1] : '';
 }
 
+// ex: "$14.62 (+959.2%)" → 959.2
 function parsePriceChange(str) {
+    if (!str) return 0;
     const matches = str.match(/\(([+-]?\d+\.?\d*)%\)/g);
-    if (matches) {
-        const lastMatch = matches[matches.length - 1];
-        return parseFloat(lastMatch.replace(/[()%]/g, ''));
-    }
-    return 0;
+    if (!matches || matches.length === 0) return 0;
+    const last = matches[matches.length - 1];
+    return parseFloat(last.replace(/[()%]/g, '')) || 0;
 }
 
-// Remplir les données d'un holding
+// ===== PARSER FORMAT TABLEAU (copie d'une ligne complète avec \t) =====
+// AAPL\tApple Inc\t22.69%\t0.38%\t238.21M\t$ 60.66B\t$ 9.61B\t-14.92% (-41.79M)\t$39.59 (+585.8%)\tTechnology\t2025-09-30
+
+function parseTableFormat(lines, startIdx, fundIndex) {
+    let holdingsParsed = 0;
+    let currentHoldingIndex = 0;
+
+    for (let i = startIdx; i < lines.length && currentHoldingIndex < NUM_HOLDINGS; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        const cols = line.split('\t');
+        // On veut au moins toutes les colonnes du tableau HF
+        if (cols.length < 11) continue;
+
+        const firstColLower = cols[0].toLowerCase();
+        const secondColLower = (cols[1] || '').toLowerCase();
+
+        // Skip ligne d'en-tête
+        if (firstColLower === 'stock' || secondColLower.startsWith('company')) {
+            continue;
+        }
+
+        const ticker        = cols[0].trim();
+        const company       = cols[1].trim();
+        const portfolioPct  = parseFloat(cols[2].replace('%', '')) || 0;
+        const deltaPct      = parseFloat(cols[3].replace('%', '')) || 0;
+        const shares        = parseSharesValue(cols[4]);
+        const value         = parseMoneyValue(cols[5]);
+        const tradeValue    = parseMoneyValue(cols[6]);
+        const activityStr   = cols[7];
+        const activity      = parseActivityValue(activityStr);
+        const activityShares= parseActivityShares(activityStr);
+        const avgPriceLine  = cols[8];
+        const avgPrice      = parseMoneyValue(avgPriceLine);
+        const priceChange   = parsePriceChange(avgPriceLine);
+        const sector        = cols[9] ? cols[9].trim() : '';
+        const date          = cols[10] ? cols[10].trim() : '';
+
+        fillHoldingData(fundIndex, currentHoldingIndex, {
+            ticker,
+            company,
+            portfolioPct,
+            deltaPct,
+            shares,
+            value,
+            tradeValue,
+            activity,
+            activityShares,
+            avgPrice,
+            priceChange,
+            sector,
+            date
+        });
+
+        currentHoldingIndex++;
+        holdingsParsed++;
+    }
+
+    return holdingsParsed;
+}
+
+// ===== PARSER FORMAT VERTICAL =====
+// PLTR
+// Palantir Technologies Inc
+// 2.06%
+// -0.39%
+// 8.57M
+// $ 1.56B
+// $ 786.68M
+// -36.56% (-4.94M)
+// $14.62 (+959.2%)
+// Technology\t2025-09-30
+
+function parseVerticalFormat(lines, startIdx, fundIndex) {
+    let holdingsParsed = 0;
+    let currentHoldingIndex = 0;
+
+    const tickerPattern = /^[A-Z]{1,5}(\.[A-Z])?$/;
+
+    for (let i = startIdx; i < lines.length && currentHoldingIndex < NUM_HOLDINGS;) {
+        const line = lines[i].trim();
+
+        // Cherche un ticker
+        if (!tickerPattern.test(line)) {
+            i++;
+            continue;
+        }
+
+        // On doit avoir au moins 10 lignes pour un holding complet
+        if (i + 9 >= lines.length) break;
+
+        const ticker          = lines[i].trim();
+        const company         = lines[i + 1].trim();
+        const portfolioPct    = parseFloat(lines[i + 2].replace('%', '')) || 0;
+        const deltaPct        = parseFloat(lines[i + 3].replace('%', '')) || 0;
+        const shares          = parseSharesValue(lines[i + 4]);
+        const value           = parseMoneyValue(lines[i + 5]);
+        const tradeValue      = parseMoneyValue(lines[i + 6]);
+        const activityStr     = lines[i + 7];
+        const activity        = parseActivityValue(activityStr);
+        const activityShares  = parseActivityShares(activityStr);
+        const avgPriceLine    = lines[i + 8];
+        const avgPrice        = parseMoneyValue(avgPriceLine);
+        const priceChange     = parsePriceChange(avgPriceLine);
+        const sectorDateLine  = lines[i + 9];
+
+        let sector = '';
+        let date   = '';
+
+        if (sectorDateLine) {
+            const parts = sectorDateLine.split('\t');
+            if (parts.length >= 2) {
+                sector = parts[0].trim();
+                date   = parts[1].trim();
+            } else {
+                // Chercher une date YYYY-MM-DD à la fin
+                const m = sectorDateLine.match(/(.*?)(\d{4}-\d{2}-\d{2})$/);
+                if (m) {
+                    sector = m[1].trim();
+                    date   = m[2];
+                } else {
+                    sector = sectorDateLine.trim();
+                }
+            }
+        }
+
+        fillHoldingData(fundIndex, currentHoldingIndex, {
+            ticker,
+            company,
+            portfolioPct,
+            deltaPct,
+            shares,
+            value,
+            tradeValue,
+            activity,
+            activityShares,
+            avgPrice,
+            priceChange,
+            sector,
+            date
+        });
+
+        currentHoldingIndex++;
+        holdingsParsed++;
+
+        // On avance d'un bloc complet de 10 lignes
+        i += 10;
+    }
+
+    return holdingsParsed;
+}
+
+// Remplir les données d'un holding (inputs + structure JS)
 function fillHoldingData(fundIndex, holdingIndex, data) {
     // Inputs visibles
-    document.getElementById(`ticker-${fundIndex}-${holdingIndex}`).value = data.ticker;
-    document.getElementById(`company-${fundIndex}-${holdingIndex}`).value = data.company;
-    document.getElementById(`pct-${fundIndex}-${holdingIndex}`).value = data.portfolioPct;
-    document.getElementById(`delta-${fundIndex}-${holdingIndex}`).value = data.deltaPct;
-    document.getElementById(`shares-${fundIndex}-${holdingIndex}`).value = data.shares.toFixed(2);
-    document.getElementById(`value-${fundIndex}-${holdingIndex}`).value = data.value.toFixed(2);
+    document.getElementById(`ticker-${fundIndex}-${holdingIndex}`).value   = data.ticker;
+    document.getElementById(`company-${fundIndex}-${holdingIndex}`).value  = data.company;
+    document.getElementById(`pct-${fundIndex}-${holdingIndex}`).value      = data.portfolioPct;
+    document.getElementById(`delta-${fundIndex}-${holdingIndex}`).value    = data.deltaPct;
+    document.getElementById(`shares-${fundIndex}-${holdingIndex}`).value   = data.shares.toFixed(2);
+    document.getElementById(`value-${fundIndex}-${holdingIndex}`).value    = data.value.toFixed(2);
     document.getElementById(`activity-${fundIndex}-${holdingIndex}`).value = data.activity;
     document.getElementById(`avgprice-${fundIndex}-${holdingIndex}`).value = data.avgPrice;
-    document.getElementById(`change-${fundIndex}-${holdingIndex}`).value = data.priceChange;
-    document.getElementById(`sector-${fundIndex}-${holdingIndex}`).value = data.sector;
-    
-    // Structure JS
-    updateHoldingData(fundIndex, holdingIndex, 'ticker', data.ticker);
-    updateHoldingData(fundIndex, holdingIndex, 'company_name', data.company);
-    updateHoldingData(fundIndex, holdingIndex, 'portfolio_pct', data.portfolioPct);
-    updateHoldingData(fundIndex, holdingIndex, 'delta_portfolio_pct', data.deltaPct);
+    document.getElementById(`change-${fundIndex}-${holdingIndex}`).value   = data.priceChange;
+    document.getElementById(`sector-${fundIndex}-${holdingIndex}`).value   = data.sector;
+
+    // Structure JS (ce qui part dans le JSON)
+    updateHoldingData(fundIndex, holdingIndex, 'ticker',                data.ticker);
+    updateHoldingData(fundIndex, holdingIndex, 'company_name',          data.company);
+    updateHoldingData(fundIndex, holdingIndex, 'portfolio_pct',         data.portfolioPct);
+    updateHoldingData(fundIndex, holdingIndex, 'delta_portfolio_pct',   data.deltaPct);
     updateHoldingData(fundIndex, holdingIndex, 'shares_owned_millions', data.shares);
-    updateHoldingData(fundIndex, holdingIndex, 'value_millions', data.value);
-    updateHoldingData(fundIndex, holdingIndex, 'trade_value_millions', data.tradeValue);
-    updateHoldingData(fundIndex, holdingIndex, 'latest_activity_pct', data.activity);
-    updateHoldingData(fundIndex, holdingIndex, 'latest_activity_shares', data.activityShares || '');
-    updateHoldingData(fundIndex, holdingIndex, 'avg_buy_price', data.avgPrice);
-    updateHoldingData(fundIndex, holdingIndex, 'price_change_pct', data.priceChange);
-    updateHoldingData(fundIndex, holdingIndex, 'sector', data.sector);
-    updateHoldingData(fundIndex, holdingIndex, 'date', data.date);
+    updateHoldingData(fundIndex, holdingIndex, 'value_millions',        data.value);
+    updateHoldingData(fundIndex, holdingIndex, 'trade_value_millions',  data.tradeValue);
+    updateHoldingData(fundIndex, holdingIndex, 'latest_activity_pct',   data.activity);
+    updateHoldingData(fundIndex, holdingIndex, 'latest_activity_shares',data.activityShares || '');
+    updateHoldingData(fundIndex, holdingIndex, 'avg_buy_price',         data.avgPrice);
+    updateHoldingData(fundIndex, holdingIndex, 'price_change_pct',      data.priceChange);
+    updateHoldingData(fundIndex, holdingIndex, 'sector',                data.sector);
+    updateHoldingData(fundIndex, holdingIndex, 'date',                  data.date);
 }
 
 // Smart Parser Principal
@@ -868,7 +902,7 @@ function analyzeData() {
     
     // Create analysis summary
     let analysis = '📊 ANALYSE HEDGEFOLLOW - TOP HEDGE FUNDS\n';
-    analysis += '=' .repeat(60) + '\n\n';
+    analysis += '='.repeat(60) + '\n\n';
     
     // Top funds by performance
     analysis += '🏆 TOP FONDS PAR PERFORMANCE:\n';
@@ -915,5 +949,6 @@ window.onload = function() {
     console.log('📋 Format: Exact HedgeFollow (Table ou Vertical)');
     console.log('💾 Auto-save: Enabled (localStorage)');
     console.log('🎯 Parser adaptatif pour Performance 25Q3, 26Q1, etc.');
-    console.log('🔧 Colonnes corrigées: Sector et Activity Shares');
+    console.log('🔧 Colonnes corrigées: Sector, Avg Price, Latest Activity Shares');
 };
+
