@@ -156,10 +156,10 @@ function createFundSections() {
                                 <th>Δ%</th>
                                 <th>Shares (M)</th>
                                 <th>Value ($M)</th>
-<th>Activity %</th>
-<th>Δ Shares (M)</th>
-<th>Avg Price</th>
-<th>Sector</th>
+                                <th>Activity %</th>
+                                <th>Avg Price</th>
+                                <th>Change %</th>
+                                <th>Sector</th>
                             </tr>
                         </thead>
                         <tbody id="holdings-tbody-${i}">
@@ -293,21 +293,11 @@ function parseActivityValue(str) {
     return match ? parseFloat(match[1]) : 0;
 }
 
-// "-34.3% (-645.5k)" -> -0.65  (millions)
+// ex: "-36.56% (-4.94M)" → "-4.94M"
 function parseActivityShares(str) {
-    if (!str) return 0;
-    const match = str.match(/\(([+-]?[\d.]+)\s*([MBK])?\)/i);
-    if (!match) return 0;
-
-    let value = parseFloat(match[1]) || 0;
-    const suffix = (match[2] || '').toUpperCase();
-
-    // on convertit TOUT en millions d'actions
-    if (suffix === 'B') value *= 1000;      // milliards -> millions
-    else if (suffix === 'K') value /= 1000; // milliers -> millions
-    // M ou rien = déjà millions
-
-    return value;
+    if (!str) return '';
+    const match = str.match(/\(([+-]?[\d.]+[MBK]?)\)/);
+    return match ? match[1] : '';
 }
 
 // ex: "$14.62 (+959.2%)" → 959.2
@@ -482,12 +472,11 @@ function fillHoldingData(fundIndex, holdingIndex, data) {
     document.getElementById(`shares-${fundIndex}-${holdingIndex}`).value   = data.shares.toFixed(2);
     document.getElementById(`value-${fundIndex}-${holdingIndex}`).value    = data.value.toFixed(2);
     document.getElementById(`activity-${fundIndex}-${holdingIndex}`).value = data.activity;
-    document.getElementById(`actshares-${fundIndex}-${holdingIndex}`).value =
-        (data.activityShares ?? 0).toFixed ? data.activityShares.toFixed(2) : data.activityShares;
     document.getElementById(`avgprice-${fundIndex}-${holdingIndex}`).value = data.avgPrice;
+    document.getElementById(`change-${fundIndex}-${holdingIndex}`).value   = data.priceChange;
     document.getElementById(`sector-${fundIndex}-${holdingIndex}`).value   = data.sector;
-    
-    // Structure JS (JSON)
+
+    // Structure JS (ce qui part dans le JSON)
     updateHoldingData(fundIndex, holdingIndex, 'ticker',                data.ticker);
     updateHoldingData(fundIndex, holdingIndex, 'company_name',          data.company);
     updateHoldingData(fundIndex, holdingIndex, 'portfolio_pct',         data.portfolioPct);
@@ -496,7 +485,7 @@ function fillHoldingData(fundIndex, holdingIndex, data) {
     updateHoldingData(fundIndex, holdingIndex, 'value_millions',        data.value);
     updateHoldingData(fundIndex, holdingIndex, 'trade_value_millions',  data.tradeValue);
     updateHoldingData(fundIndex, holdingIndex, 'latest_activity_pct',   data.activity);
-    updateHoldingData(fundIndex, holdingIndex, 'latest_activity_shares',data.activityShares || 0);
+    updateHoldingData(fundIndex, holdingIndex, 'latest_activity_shares',data.activityShares || '');
     updateHoldingData(fundIndex, holdingIndex, 'avg_buy_price',         data.avgPrice);
     updateHoldingData(fundIndex, holdingIndex, 'price_change_pct',      data.priceChange);
     updateHoldingData(fundIndex, holdingIndex, 'sector',                data.sector);
@@ -621,20 +610,12 @@ function createHoldingsRows(fundIndex) {
                         onchange="updateHoldingData(${fundIndex}, ${j}, 'shares_owned_millions', parseFloat(this.value) || 0)"></td>
                 <td><input type="number" step="0.01" id="value-${fundIndex}-${j}" style="width: 90px;"
                         onchange="updateHoldingData(${fundIndex}, ${j}, 'value_millions', parseFloat(this.value) || 0)"></td>
-
-                <!-- Activity en % -->
                 <td><input type="number" step="any" id="activity-${fundIndex}-${j}" style="width: 70px;"
                         onchange="updateHoldingData(${fundIndex}, ${j}, 'latest_activity_pct', parseFloat(this.value) || 0)"></td>
-
-                <!-- Δ Shares en millions -->
-                <td><input type="number" step="0.01" id="actshares-${fundIndex}-${j}" style="width: 80px;"
-                        onchange="updateHoldingData(${fundIndex}, ${j}, 'latest_activity_shares', parseFloat(this.value) || 0)"></td>
-
-                <!-- Average buy price -->
                 <td><input type="number" step="0.01" id="avgprice-${fundIndex}-${j}" style="width: 70px;"
                         onchange="updateHoldingData(${fundIndex}, ${j}, 'avg_buy_price', parseFloat(this.value) || 0)"></td>
-
-                <!-- Sector -->
+                <td><input type="number" step="any" id="change-${fundIndex}-${j}" style="width: 70px;"
+                        onchange="updateHoldingData(${fundIndex}, ${j}, 'price_change_pct', parseFloat(this.value) || 0)"></td>
                 <td><input type="text" id="sector-${fundIndex}-${j}" style="width: 100px;"
                         onchange="updateHoldingData(${fundIndex}, ${j}, 'sector', this.value)"></td>
             </tr>
@@ -860,37 +841,29 @@ function loadFromLocalStorage() {
                 document.getElementById(`fund-holdings-${i}`).value = fund.total_holdings;
             }
             
-        fund.holdings.forEach((holding, j) => {
-            if (holding.ticker) {
-                document.getElementById(`ticker-${i}-${j}`).value   = holding.ticker;
-                document.getElementById(`company-${i}-${j}`).value  = holding.company_name;
-                document.getElementById(`pct-${i}-${j}`).value      = holding.portfolio_pct;
-                document.getElementById(`delta-${i}-${j}`).value    = holding.delta_portfolio_pct;
-                document.getElementById(`shares-${i}-${j}`).value   = holding.shares_owned_millions;
-                document.getElementById(`value-${i}-${j}`).value    = holding.value_millions;
-                document.getElementById(`activity-${i}-${j}`).value = holding.latest_activity_pct;
-
-                // Δ Shares (M) - compatible ancienne sauvegarde (string type "-4.94M")
-                let actShares = holding.latest_activity_shares;
-                if (typeof actShares === 'string') {
-                    actShares = parseActivityShares(`(${actShares})`);
+            fund.holdings.forEach((holding, j) => {
+                if (holding.ticker) {
+                    document.getElementById(`ticker-${i}-${j}`).value = holding.ticker;
+                    document.getElementById(`company-${i}-${j}`).value = holding.company_name;
+                    document.getElementById(`pct-${i}-${j}`).value = holding.portfolio_pct;
+                    document.getElementById(`delta-${i}-${j}`).value = holding.delta_portfolio_pct;
+                    document.getElementById(`shares-${i}-${j}`).value = holding.shares_owned_millions;
+                    document.getElementById(`value-${i}-${j}`).value = holding.value_millions;
+                    document.getElementById(`activity-${i}-${j}`).value = holding.latest_activity_pct;
+                    document.getElementById(`avgprice-${i}-${j}`).value = holding.avg_buy_price;
+                    document.getElementById(`change-${i}-${j}`).value = holding.price_change_pct;
+                    document.getElementById(`sector-${i}-${j}`).value = holding.sector || '';
                 }
-                if (typeof actShares === 'number' && !isNaN(actShares)) {
-                    document.getElementById(`actshares-${i}-${j}`).value = actShares.toFixed(2);
-                }
-
-                document.getElementById(`avgprice-${i}-${j}`).value = holding.avg_buy_price;
-                document.getElementById(`sector-${i}-${j}`).value   = holding.sector || '';
-            }
+            });
+            updateTabStatus(i);
+            updateTabBadge(i);
         });
-        updateTabStatus(i);
-        updateTabBadge(i);
-    });
-    
-    updateProgress();
-    alert('✅ Données chargées depuis la sauvegarde locale!');
-} else {
-    alert('❌ Aucune sauvegarde trouvée');
+        
+        updateProgress();
+        alert('✅ Données chargées depuis la sauvegarde locale!');
+    } else {
+        alert('❌ Aucune sauvegarde trouvée');
+    }
 }
 
 // Clear all data
