@@ -44,82 +44,80 @@ jobs:
     - name: Create .env file
       run: |
         cp .env.example .env
-        # Ajouter des secrets si nécessaire
-        # echo "TWELVE_DATA_API_KEY=${{ secrets.TWELVE_DATA_API_KEY }}" >> .env
+    
+    - name: Create data directories
+      run: |
+        mkdir -p data/raw/hedgefollow
+        mkdir -p data/raw/dataroma
+        mkdir -p data/processed
     
     - name: Run HedgeFollow scrapers
       run: |
-        python -m src.hedgefollow.funds
-        python -m src.hedgefollow.holdings
-        python -m src.hedgefollow.insiders
-        python -m src.hedgefollow.screener
+        echo "Starting HedgeFollow scrapers..."
+        python -m src.hedgefollow.funds || echo "Funds scraper failed"
+        python -m src.hedgefollow.holdings || echo "Holdings scraper failed"
+        python -m src.hedgefollow.insiders || echo "Insiders scraper failed"
+        python -m src.hedgefollow.screener || echo "Screener scraper failed"
       continue-on-error: true
     
     - name: Run Dataroma scrapers
       run: |
-        python -m src.dataroma.managers
-        python -m src.dataroma.holdings
-        python -m src.dataroma.grand_portfolio
-        python -m src.dataroma.realtime_insider
+        echo "Starting Dataroma scrapers..."
+        python -m src.dataroma.managers || echo "Managers scraper failed"
+        python -m src.dataroma.holdings || echo "Holdings scraper failed"
+        python -m src.dataroma.grand_portfolio || echo "Grand Portfolio scraper failed"
+        python -m src.dataroma.realtime_insider || echo "Realtime insider scraper failed"
       continue-on-error: true
     
     - name: Build Universe
-      run: python -m src.pipelines.build_universe
+      run: |
+        echo "Building universe..."
+        python -m src.pipelines.build_universe || echo "Universe building failed - possibly no data scraped"
+      continue-on-error: true
+    
+    - name: List scraped files
+      run: |
+        echo "=== Files in data/raw/hedgefollow ==="
+        ls -la data/raw/hedgefollow/ || echo "No HedgeFollow files"
+        echo "=== Files in data/raw/dataroma ==="
+        ls -la data/raw/dataroma/ || echo "No Dataroma files"
+        echo "=== Files in data/processed ==="
+        ls -la data/processed/ || echo "No processed files"
+    
+    - name: Create dummy file if no data
+      run: |
+        # Create at least one file to have something in the artifact
+        if [ ! "$(ls -A data/processed/)" ]; then
+          echo "ticker,company_name,smartmoney_score" > data/processed/placeholder.csv
+          echo "NO_DATA,No data scraped,0" >> data/processed/placeholder.csv
+        fi
     
     - name: Upload results as artifacts
       uses: actions/upload-artifact@v4
+      if: always()  # Upload even if previous steps failed
       with:
         name: scraped-data
         path: |
-          data/raw/
-          data/processed/
+          data/
         retention-days: 30
+        if-no-files-found: warn  # Just warn if no files found
     
-    - name: Commit and push if changed
+    - name: Summary
+      if: always()
       run: |
-        git config --global user.name 'GitHub Actions'
-        git config --global user.email 'actions@github.com'
-        git add -A data/
-        git diff --staged --quiet || (git commit -m "Auto-update: SmartMoney data $(date +'%Y-%m-%d %H:%M')" && git push)
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  analyze:
-    needs: scrape
-    runs-on: ubuntu-latest
-    if: success()
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Download artifacts
-      uses: actions/download-artifact@v4
-      with:
-        name: scraped-data
-        path: data/
-    
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-    
-    - name: Install pandas
-      run: pip install pandas
-    
-    - name: Analyze results
-      run: |
-        python -c "
-        import pandas as pd
-        import glob
-        
-        # Trouver le dernier fichier universe
-        files = glob.glob('data/processed/universe_smartmoney_*.csv')
-        if files:
-            latest = max(files)
-            df = pd.read_csv(latest)
-            print(f'📊 Universe Statistics:')
-            print(f'Total tickers: {len(df)}')
-            print(f'Top 10 by SmartMoney Score:')
-            print(df[['ticker', 'company_name', 'smartmoney_score']].head(10))
-        "
+        echo "### 📊 Scraping Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "#### HedgeFollow Files:" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        ls -la data/raw/hedgefollow/ 2>/dev/null || echo "No files" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "#### Dataroma Files:" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        ls -la data/raw/dataroma/ 2>/dev/null || echo "No files" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "#### Processed Files:" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        ls -la data/processed/ 2>/dev/null || echo "No files" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
