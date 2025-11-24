@@ -1,0 +1,125 @@
+name: SmartMoney Scraper
+
+on:
+  # Déclenchement manuel
+  workflow_dispatch:
+  
+  # Ou programmé (tous les jours à 14h UTC)
+  schedule:
+    - cron: '0 14 * * *'
+  
+  # Ou sur push
+  push:
+    branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'scripts/**'
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Create .env file
+      run: |
+        cp .env.example .env
+        # Ajouter des secrets si nécessaire
+        # echo "TWELVE_DATA_API_KEY=${{ secrets.TWELVE_DATA_API_KEY }}" >> .env
+    
+    - name: Run HedgeFollow scrapers
+      run: |
+        python -m src.hedgefollow.funds
+        python -m src.hedgefollow.holdings
+        python -m src.hedgefollow.insiders
+        python -m src.hedgefollow.screener
+      continue-on-error: true
+    
+    - name: Run Dataroma scrapers
+      run: |
+        python -m src.dataroma.managers
+        python -m src.dataroma.holdings
+        python -m src.dataroma.grand_portfolio
+        python -m src.dataroma.realtime_insider
+      continue-on-error: true
+    
+    - name: Build Universe
+      run: python -m src.pipelines.build_universe
+    
+    - name: Upload results as artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: scraped-data
+        path: |
+          data/raw/
+          data/processed/
+        retention-days: 30
+    
+    - name: Commit and push if changed
+      run: |
+        git config --global user.name 'GitHub Actions'
+        git config --global user.email 'actions@github.com'
+        git add -A data/
+        git diff --staged --quiet || (git commit -m "Auto-update: SmartMoney data $(date +'%Y-%m-%d %H:%M')" && git push)
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  analyze:
+    needs: scrape
+    runs-on: ubuntu-latest
+    if: success()
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Download artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: scraped-data
+        path: data/
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install pandas
+      run: pip install pandas
+    
+    - name: Analyze results
+      run: |
+        python -c "
+        import pandas as pd
+        import glob
+        
+        # Trouver le dernier fichier universe
+        files = glob.glob('data/processed/universe_smartmoney_*.csv')
+        if files:
+            latest = max(files)
+            df = pd.read_csv(latest)
+            print(f'📊 Universe Statistics:')
+            print(f'Total tickers: {len(df)}')
+            print(f'Top 10 by SmartMoney Score:')
+            print(df[['ticker', 'company_name', 'smartmoney_score']].head(10))
+        "
