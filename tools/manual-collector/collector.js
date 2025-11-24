@@ -10,26 +10,31 @@ function initializeFunds() {
         fundsData[i] = {
             rank: i + 1,
             fund_id: `fund-${i + 1}`,
-            fund_name: '',
-            portfolio_manager: '',
-            performance_3y: 0,
-            aum_billions: 0,
-            total_holdings: 0,
+            fund_name: '',           // Berkshire Hathaway
+            portfolio_manager: '',   // Warren Buffett
+            performance_3y: 0,       // 7.17% (peut être 25Q3, 26Q1, etc.)
+            aum_billions: 0,         // 267.34
+            total_holdings: 0,       // 41
             holdings: []
         };
         
-        // Initialize holdings
+        // Initialize holdings - Structure complète HedgeFollow
         for (let j = 0; j < NUM_HOLDINGS; j++) {
             fundsData[i].holdings[j] = {
                 position: j + 1,
-                ticker: '',
-                company_name: '',
-                portfolio_pct: 0,
-                shares_owned_millions: 0,
-                value_millions: 0,
-                latest_activity_pct: 0,
-                avg_buy_price: 0,
-                price_change_pct: 0
+                ticker: '',                     // AAPL
+                company_name: '',               // Apple Inc
+                portfolio_pct: 0,               // 22.69%
+                delta_portfolio_pct: 0,         // 0.38% (Δ % of Portf)
+                shares_owned_millions: 0,       // 238.21M
+                value_millions: 0,              // $ 60.66B → 60660M
+                trade_value_millions: 0,        // $ 9.61B → 9610M
+                latest_activity_pct: 0,         // -14.92%
+                latest_activity_shares: '',     // (-41.79M)
+                avg_buy_price: 0,              // $39.59
+                price_change_pct: 0,           // (+585.8%)
+                sector: '',                    // Technology
+                date: ''                       // 2025-09-30
             };
         }
     }
@@ -70,36 +75,40 @@ function createFundSections() {
         section.innerHTML = `
             <h2>📈 Fund #${i + 1}</h2>
             
-            <!-- Smart Parser for Full HedgeFollow Copy -->
+            <!-- Smart Parser HedgeFollow Exact Format -->
             <div class="quick-paste-container">
                 <div class="quick-paste-header">
-                    <h3>⚡ Collage Rapide HedgeFollow</h3>
-                    <span style="background: #4caf50; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">AUTO-DETECT</span>
+                    <h3>⚡ Copier-Coller HedgeFollow Direct</h3>
+                    <span style="background: #ff5722; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">FORMAT EXACT</span>
                 </div>
                 
                 <div class="paste-zone">
                     <textarea 
                         class="paste-textarea"
                         id="smart-paste-${i}" 
-                        placeholder="Collez ICI tout le contenu copié depuis HedgeFollow:&#10;&#10;1. Le titre (ex: Jim Simons 13F Portfolio)&#10;2. La ligne d'info du fond&#10;3. Les holdings&#10;&#10;Le parser détectera automatiquement le format!"
+                        placeholder="📋 COLLER ICI tout le contenu depuis HedgeFollow&#10;&#10;1️⃣ Sélectionnez TOUT depuis le titre (ex: Warren Buffett 13F Portfolio)&#10;2️⃣ Jusqu'au dernier holding&#10;3️⃣ Ctrl+C puis collez ici&#10;&#10;Format attendu:&#10;Warren Buffett 13F Portfolio&#10;Berkshire Hathaway | Warren Buffett | 7.17% | $267.34B | 41&#10;AAPL&#10;Apple Inc&#10;22.69%&#10;0.38%&#10;238.21M&#10;$ 60.66B&#10;..."
+                        rows="12"
                     ></textarea>
                     
                     <div class="parse-buttons">
                         <button class="btn btn-primary" onclick="smartParse(${i})">
-                            <span>🤖</span> Parser Auto
+                            <span>🚀</span> Parser Direct
                         </button>
-                        <button class="btn btn-info" onclick="clearPaste(${i})">
-                            <span>🧹</span> Nettoyer
+                        <button class="btn btn-warning" onclick="clearPaste(${i})">
+                            <span>🗑️</span> Clear
                         </button>
                     </div>
                 </div>
                 
                 <div class="format-hint">
-                    <strong>Formats reconnus:</strong><br>
-                    ✅ Titre portfolio: <code>Jim Simons 13F Portfolio</code><br>
-                    ✅ Info fond: <code>Renaissance Technologies | Jim Simons | 19.55% | $75.79B | 3457</code><br>
-                    ✅ Holdings: <code>1.26% | 6.88M | $953.51M | 12.81% | $60.8 | +46.8%</code><br>
-                    ✅ Ou format ticker: <code>RBLX | Roblox Corp | 1.26% ...</code>
+                    <strong>📌 Format HedgeFollow Standard:</strong><br>
+                    <div style="background: #f5f5f5; padding: 8px; border-radius: 4px; margin-top: 5px; font-size: 11px;">
+                        🔹 <b>Header:</b> [Manager] 13F Portfolio<br>
+                        🔹 <b>Info:</b> [Fund] | [Manager] | [Perf%] | [$AUM] | [Holdings#]<br>
+                        🔹 <b>Holdings (Format Tableau):</b><br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;Stock → Company → % Portfolio → Δ% → Shares → Value → ...<br>
+                        🔹 <b>OU Format Vertical:</b> Chaque champ sur une ligne séparée
+                    </div>
                 </div>
                 
                 <div id="parse-status-${i}" class="parse-status"></div>
@@ -107,28 +116,28 @@ function createFundSections() {
             
             <div class="fund-info">
                 <div class="form-group">
-                    <label>Nom du Fond</label>
-                    <input type="text" id="fund-name-${i}" placeholder="Ex: Renaissance Technologies" 
+                    <label>Hedge Fund</label>
+                    <input type="text" id="fund-name-${i}" placeholder="Ex: Berkshire Hathaway" 
                            onchange="updateFundData(${i}, 'fund_name', this.value)">
                 </div>
                 <div class="form-group">
                     <label>Portfolio Manager</label>
-                    <input type="text" id="fund-manager-${i}" placeholder="Ex: Jim Simons"
+                    <input type="text" id="fund-manager-${i}" placeholder="Ex: Warren Buffett"
                            onchange="updateFundData(${i}, 'portfolio_manager', this.value)">
                 </div>
                 <div class="form-group">
-                    <label>Performance 3Y (%)</label>
-                    <input type="number" step="0.01" id="fund-perf-${i}" placeholder="Ex: 19.55"
+                    <label>Performance (25Q3, 26Q1...)</label>
+                    <input type="number" step="0.01" id="fund-perf-${i}" placeholder="Ex: 7.17"
                            onchange="updateFundData(${i}, 'performance_3y', parseFloat(this.value) || 0)">
                 </div>
                 <div class="form-group">
-                    <label>AUM (Milliards $)</label>
-                    <input type="number" step="0.01" id="fund-aum-${i}" placeholder="Ex: 75.79"
+                    <label>AUM (13F) en Milliards</label>
+                    <input type="number" step="0.01" id="fund-aum-${i}" placeholder="Ex: 267.34"
                            onchange="updateFundData(${i}, 'aum_billions', parseFloat(this.value) || 0)">
                 </div>
                 <div class="form-group">
-                    <label>Nombre Total Holdings</label>
-                    <input type="number" id="fund-holdings-${i}" placeholder="Ex: 3457"
+                    <label># of Holdings</label>
+                    <input type="number" id="fund-holdings-${i}" placeholder="Ex: 41"
                            onchange="updateFundData(${i}, 'total_holdings', parseInt(this.value) || 0)">
                 </div>
             </div>
@@ -141,14 +150,16 @@ function createFundSections() {
                         <thead>
                             <tr>
                                 <th>#</th>
-                                <th>Ticker</th>
+                                <th>Stock</th>
                                 <th>Company</th>
                                 <th>% Portfolio</th>
+                                <th>Δ%</th>
                                 <th>Shares (M)</th>
                                 <th>Value ($M)</th>
-                                <th>Activity (%)</th>
+                                <th>Activity %</th>
                                 <th>Avg Price</th>
-                                <th>Change (%)</th>
+                                <th>Change %</th>
+                                <th>Sector</th>
                             </tr>
                         </thead>
                         <tbody id="holdings-tbody-${i}">
@@ -163,7 +174,277 @@ function createFundSections() {
     }
 }
 
-// Smart Parser - Détecte automatiquement le format HedgeFollow
+// Parse le header du fond (titre + ligne info)
+function parseFundHeader(lines, fundIndex) {
+    let lineIdx = 0;
+    let fundParsed = false;
+    
+    while (lineIdx < lines.length && lineIdx < 10) {
+        const line = lines[lineIdx].trim();
+        
+        // 1. Titre du portfolio "Warren Buffett 13F Portfolio"
+        if (line.includes('13F Portfolio')) {
+            const managerMatch = line.match(/^(.+?)\s+13F\s+Portfolio$/i);
+            if (managerMatch) {
+                const manager = managerMatch[1].trim();
+                document.getElementById(`fund-manager-${fundIndex}`).value = manager;
+                updateFundData(fundIndex, 'portfolio_manager', manager);
+            }
+            lineIdx++;
+            continue;
+        }
+        
+        // 2. Ligne info avec pipes ou tabs
+        // Format: Berkshire Hathaway | Warren Buffett | 7.17% | $267.34B | 41
+        if ((line.includes('|') || line.includes('\t')) && line.includes('%')) {
+            const separator = line.includes('|') ? '|' : '\t';
+            const parts = line.split(separator).map(p => p.trim());
+            
+            parts.forEach((part, idx) => {
+                // Fund Name (généralement premier)
+                if (idx === 0 && part.length > 2 && !part.includes('%') && !part.includes('$')) {
+                    document.getElementById(`fund-name-${fundIndex}`).value = part;
+                    updateFundData(fundIndex, 'fund_name', part);
+                    fundParsed = true;
+                }
+                
+                // Manager (si pas déjà trouvé)
+                if (idx === 1 && !fundsData[fundIndex].portfolio_manager) {
+                    document.getElementById(`fund-manager-${fundIndex}`).value = part;
+                    updateFundData(fundIndex, 'portfolio_manager', part);
+                }
+                
+                // Performance % (peut être 25Q3, 26Q1, etc. - on prend juste le nombre)
+                const perfMatch = part.match(/(\d+\.?\d*)%/);
+                if (perfMatch && idx <= 3) {
+                    const perf = parseFloat(perfMatch[1]);
+                    if (perf > 0 && perf < 100) {
+                        document.getElementById(`fund-perf-${fundIndex}`).value = perf;
+                        updateFundData(fundIndex, 'performance_3y', perf);
+                    }
+                }
+                
+                // AUM ($XXX.XXB ou $XXX.XXT)
+                const aumMatch = part.match(/\$(\d+\.?\d*)([BT])/i);
+                if (aumMatch) {
+                    let aum = parseFloat(aumMatch[1]);
+                    if (aumMatch[2].toUpperCase() === 'T') {
+                        aum = aum * 1000; // Trillion to Billion
+                    }
+                    document.getElementById(`fund-aum-${fundIndex}`).value = aum;
+                    updateFundData(fundIndex, 'aum_billions', aum);
+                }
+                
+                // Number of holdings (nombre seul, généralement < 10000)
+                if (part.match(/^\d+$/) && parseInt(part) < 10000) {
+                    const holdings = parseInt(part);
+                    document.getElementById(`fund-holdings-${fundIndex}`).value = holdings;
+                    updateFundData(fundIndex, 'total_holdings', holdings);
+                }
+            });
+            
+            return lineIdx + 1; // On a trouvé le header, on retourne l'index suivant
+        }
+        
+        lineIdx++;
+    }
+    
+    return fundParsed ? lineIdx : 0;
+}
+
+// Parser pour format tableau (colonnes séparées par tabs)
+function parseTableFormat(lines, startIdx, fundIndex) {
+    let holdingsParsed = 0;
+    let currentHoldingIndex = 0;
+    
+    // Chercher la ligne d'en-tête du tableau
+    let headerIdx = startIdx;
+    while (headerIdx < lines.length) {
+        if (lines[headerIdx].includes('Stock') && lines[headerIdx].includes('Company')) {
+            headerIdx++;
+            break;
+        }
+        headerIdx++;
+    }
+    
+    // Parser les holdings
+    for (let i = headerIdx; i < lines.length && currentHoldingIndex < NUM_HOLDINGS; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        
+        // Split par tabs
+        const cols = line.split('\t');
+        
+        if (cols.length >= 10) {
+            // Format tableau avec tabs
+            const ticker = cols[0].trim();
+            const company = cols[1].trim();
+            const portfolioPct = parseFloat(cols[2].replace('%', '')) || 0;
+            const deltaPct = parseFloat(cols[3].replace('%', '')) || 0;
+            const shares = parseSharesValue(cols[4]);
+            const value = parseMoneyValue(cols[5]);
+            const tradeValue = parseMoneyValue(cols[6]);
+            const activity = parseActivityValue(cols[7]);
+            const avgPrice = parseMoneyValue(cols[10] || cols[8]);
+            const priceChange = parsePriceChange(cols[11] || cols[9]);
+            const sector = cols[12] ? cols[12].trim() : '';
+            const date = cols[13] ? cols[13].trim() : '';
+            
+            // Remplir les données
+            fillHoldingData(fundIndex, currentHoldingIndex, {
+                ticker, company, portfolioPct, deltaPct, shares,
+                value, tradeValue, activity, avgPrice, priceChange, sector, date
+            });
+            
+            currentHoldingIndex++;
+            holdingsParsed++;
+        }
+    }
+    
+    return holdingsParsed;
+}
+
+// Parser pour format vertical (chaque champ sur une ligne)
+function parseVerticalFormat(lines, startIdx, fundIndex) {
+    let holdingsParsed = 0;
+    let currentHoldingIndex = 0;
+    let i = startIdx;
+    
+    // Pattern pour détecter un ticker (1-5 lettres majuscules)
+    const tickerPattern = /^[A-Z]{1,5}(\.[A-Z])?$/;
+    const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+    
+    while (i < lines.length && currentHoldingIndex < NUM_HOLDINGS) {
+        const line = lines[i].trim();
+        
+        // Détecter le début d'un holding (ticker)
+        if (tickerPattern.test(line)) {
+            // Vérifier qu'on a assez de lignes pour un holding complet
+            if (i + 12 < lines.length) {
+                const ticker = line;
+                const company = lines[i + 1].trim();
+                const portfolioPct = parseFloat(lines[i + 2].replace('%', '')) || 0;
+                const deltaPct = parseFloat(lines[i + 3].replace('%', '')) || 0;
+                const shares = parseSharesValue(lines[i + 4]);
+                const value = parseMoneyValue(lines[i + 5]);
+                const tradeValue = parseMoneyValue(lines[i + 6]);
+                const activity = parseActivityValue(lines[i + 7]);
+                
+                // Les lignes 8-9 peuvent être vides (Ownership Hist)
+                let avgPriceIdx = i + 10;
+                let sectorIdx = i + 12;
+                let dateIdx = i + 13;
+                
+                // Ajuster si les lignes ownership sont présentes
+                if (lines[i + 8].trim() && !lines[i + 8].includes('$')) {
+                    avgPriceIdx = i + 10;
+                    sectorIdx = i + 12;
+                    dateIdx = i + 13;
+                }
+                
+                const avgPrice = parseMoneyValue(lines[avgPriceIdx]);
+                const priceChange = parsePriceChange(lines[avgPriceIdx]);
+                const sector = lines[sectorIdx] ? lines[sectorIdx].trim() : '';
+                const date = lines[dateIdx] && datePattern.test(lines[dateIdx].trim()) 
+                    ? lines[dateIdx].trim() : '';
+                
+                // Remplir les données
+                fillHoldingData(fundIndex, currentHoldingIndex, {
+                    ticker, company, portfolioPct, deltaPct, shares,
+                    value, tradeValue, activity, avgPrice, priceChange, sector, date
+                });
+                
+                currentHoldingIndex++;
+                holdingsParsed++;
+                
+                // Avancer à la prochaine position (13-14 lignes plus loin)
+                i += date ? 14 : 13;
+            } else {
+                i++;
+            }
+        } else {
+            i++;
+        }
+    }
+    
+    return holdingsParsed;
+}
+
+// Fonctions utilitaires de parsing
+function parseSharesValue(str) {
+    const s = str.replace(/,/g, '').trim();
+    const match = s.match(/([\d.]+)\s*([MBK])?/i);
+    if (!match) return 0;
+    
+    let value = parseFloat(match[1]) || 0;
+    const suffix = (match[2] || '').toUpperCase();
+    
+    if (suffix === 'B') value *= 1000;      // Billion to Million
+    else if (suffix === 'K') value /= 1000; // Thousand to Million
+    else if (!suffix && value > 1000000) value /= 1000000; // Raw number to Million
+    
+    return value;
+}
+
+function parseMoneyValue(str) {
+    if (!str) return 0;
+    const s = str.replace(/\$/g, '').replace(/,/g, '').trim();
+    const match = s.match(/([\d.]+)\s*([MBK])?/i);
+    if (!match) return 0;
+    
+    let value = parseFloat(match[1]) || 0;
+    const suffix = (match[2] || '').toUpperCase();
+    
+    if (suffix === 'B') value *= 1000;      // Billion to Million
+    else if (suffix === 'K') value /= 1000; // Thousand to Million
+    
+    return value;
+}
+
+function parseActivityValue(str) {
+    const match = str.match(/([+-]?\d+\.?\d*)%/);
+    return match ? parseFloat(match[1]) : 0;
+}
+
+function parsePriceChange(str) {
+    const matches = str.match(/\(([+-]?\d+\.?\d*)%\)/g);
+    if (matches) {
+        const lastMatch = matches[matches.length - 1];
+        return parseFloat(lastMatch.replace(/[()%]/g, ''));
+    }
+    return 0;
+}
+
+// Remplir les données d'un holding
+function fillHoldingData(fundIndex, holdingIndex, data) {
+    // Inputs visibles
+    document.getElementById(`ticker-${fundIndex}-${holdingIndex}`).value = data.ticker;
+    document.getElementById(`company-${fundIndex}-${holdingIndex}`).value = data.company;
+    document.getElementById(`pct-${fundIndex}-${holdingIndex}`).value = data.portfolioPct;
+    document.getElementById(`delta-${fundIndex}-${holdingIndex}`).value = data.deltaPct;
+    document.getElementById(`shares-${fundIndex}-${holdingIndex}`).value = data.shares.toFixed(2);
+    document.getElementById(`value-${fundIndex}-${holdingIndex}`).value = data.value.toFixed(2);
+    document.getElementById(`activity-${fundIndex}-${holdingIndex}`).value = data.activity;
+    document.getElementById(`avgprice-${fundIndex}-${holdingIndex}`).value = data.avgPrice;
+    document.getElementById(`change-${fundIndex}-${holdingIndex}`).value = data.priceChange;
+    document.getElementById(`sector-${fundIndex}-${holdingIndex}`).value = data.sector;
+    
+    // Structure JS
+    updateHoldingData(fundIndex, holdingIndex, 'ticker', data.ticker);
+    updateHoldingData(fundIndex, holdingIndex, 'company_name', data.company);
+    updateHoldingData(fundIndex, holdingIndex, 'portfolio_pct', data.portfolioPct);
+    updateHoldingData(fundIndex, holdingIndex, 'delta_portfolio_pct', data.deltaPct);
+    updateHoldingData(fundIndex, holdingIndex, 'shares_owned_millions', data.shares);
+    updateHoldingData(fundIndex, holdingIndex, 'value_millions', data.value);
+    updateHoldingData(fundIndex, holdingIndex, 'trade_value_millions', data.tradeValue);
+    updateHoldingData(fundIndex, holdingIndex, 'latest_activity_pct', data.activity);
+    updateHoldingData(fundIndex, holdingIndex, 'avg_buy_price', data.avgPrice);
+    updateHoldingData(fundIndex, holdingIndex, 'price_change_pct', data.priceChange);
+    updateHoldingData(fundIndex, holdingIndex, 'sector', data.sector);
+    updateHoldingData(fundIndex, holdingIndex, 'date', data.date);
+}
+
+// Smart Parser Principal
 function smartParse(fundIndex) {
     const textarea = document.getElementById(`smart-paste-${fundIndex}`);
     const text = textarea.value.trim();
@@ -174,225 +455,61 @@ function smartParse(fundIndex) {
         return;
     }
     
-    const lines = text.split('\n').filter(line => line.trim());
-    let fundParsed = false;
-    let holdingsParsed = 0;
-    let currentHoldingIndex = 0;
+    // Split en lignes et nettoyer
+    const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
     
     // Reset status
     statusDiv.className = 'parse-status';
-    statusDiv.textContent = '';
+    statusDiv.textContent = '⏳ Parsing en cours...';
     
-    lines.forEach(line => {
-        const trimmed = line.trim();
-        
-        // 1. Détection du titre du portfolio (ex: "Jim Simons 13F Portfolio")
-        if (trimmed.includes('13F Portfolio') || trimmed.includes('Portfolio')) {
-            const managerMatch = trimmed.match(/^(.+?)\s+13F\s+Portfolio/i) || 
-                                trimmed.match(/^(.+?)\s+Portfolio/i);
-            if (managerMatch) {
-                const managerName = managerMatch[1].trim();
-                document.getElementById(`fund-manager-${fundIndex}`).value = managerName;
-                updateFundData(fundIndex, 'portfolio_manager', managerName);
-            }
-        }
-        
-        // 2. Détection de la ligne info fond (avec tabs ou pipes)
-        if (!fundParsed && (trimmed.includes('\t') || trimmed.includes('|'))) {
-            let parts = trimmed.includes('\t') ? trimmed.split('\t') : trimmed.split('|').map(p => p.trim());
-            
-            // Chercher le nom du fond (généralement premier élément non-numérique)
-            parts.forEach((part, idx) => {
-                part = part.trim();
-                
-                // Nom du fond (ex: "Renaissance Technologies")
-                if (idx < 2 && part.length > 3 && !part.match(/^\d/) && !part.includes('%') && !part.includes('$')) {
-                    if (part.includes('Technologies') || part.includes('Capital') || part.includes('Management') || 
-                        part.includes('Partners') || part.includes('Fund')) {
-                        document.getElementById(`fund-name-${fundIndex}`).value = part;
-                        updateFundData(fundIndex, 'fund_name', part);
-                        fundParsed = true;
-                    }
-                }
-                
-                // Manager (si pas déjà trouvé)
-                if ((part.includes('Jim') || part.includes('Ken') || part.includes('Ray') || 
-                     part.includes('Steve') || part.includes('David')) && 
-                    !fundsData[fundIndex].portfolio_manager) {
-                    document.getElementById(`fund-manager-${fundIndex}`).value = part;
-                    updateFundData(fundIndex, 'portfolio_manager', part);
-                }
-                
-                // Performance (XX.XX% ou juste XX%)
-                const perfMatch = part.match(/^(\d+\.?\d*)%$/);
-                if (perfMatch) {
-                    const perf = parseFloat(perfMatch[1]);
-                    if (perf > 0 && perf < 100) { // Performance raisonnable
-                        document.getElementById(`fund-perf-${fundIndex}`).value = perf;
-                        updateFundData(fundIndex, 'performance_3y', perf);
-                    }
-                }
-                
-                // AUM ($XX.XXB)
-                const aumMatch = part.match(/^\$?(\d+\.?\d*)([BT])$/i);
-                if (aumMatch) {
-                    let aum = parseFloat(aumMatch[1]);
-                    if (aumMatch[2].toUpperCase() === 'T') {
-                        aum = aum * 1000;
-                    }
-                    document.getElementById(`fund-aum-${fundIndex}`).value = aum;
-                    updateFundData(fundIndex, 'aum_billions', aum);
-                }
-                
-                // Holdings count (nombre seul, généralement > 100)
-                if (part.match(/^\d{3,4}$/) && parseInt(part) > 100) {
-                    const holdings = parseInt(part);
-                    document.getElementById(`fund-holdings-${fundIndex}`).value = holdings;
-                    updateFundData(fundIndex, 'total_holdings', holdings);
-                }
-            });
-        }
-        
-        // 3. Détection des holdings
-        // Format 1: "1.26% 6.88M $953.51M 12.81% (+781.89k) $60.8 (+46.8%)"
-        // Format 2: "RBLX Roblox Corp 1.26% ..."
-        
-        // Détection par % de portfolio au début
-        if (trimmed.match(/^\d+\.?\d*%/) && currentHoldingIndex < NUM_HOLDINGS) {
-            parseHoldingLine(trimmed, fundIndex, currentHoldingIndex);
-            currentHoldingIndex++;
-            holdingsParsed++;
-        }
-        
-        // Détection par ticker (lettres majuscules au début)
-        else if (trimmed.match(/^[A-Z]{1,5}(\.[A-Z])?\s/) && currentHoldingIndex < NUM_HOLDINGS) {
-            parseHoldingLine(trimmed, fundIndex, currentHoldingIndex);
-            currentHoldingIndex++;
-            holdingsParsed++;
-        }
-    });
+    // 1. Parser le header du fond
+    const headerEndIdx = parseFundHeader(lines, fundIndex);
     
-    // Update progress and status
+    // 2. Déterminer le format (tableau avec tabs ou vertical)
+    let holdingsParsed = 0;
+    
+    // Chercher si on a un format tableau (présence de tabs dans les holdings)
+    let hasTableFormat = false;
+    for (let i = headerEndIdx; i < Math.min(lines.length, headerEndIdx + 20); i++) {
+        if (lines[i].split('\t').length >= 10) {
+            hasTableFormat = true;
+            break;
+        }
+    }
+    
+    // 3. Parser les holdings selon le format détecté
+    if (hasTableFormat) {
+        holdingsParsed = parseTableFormat(lines, headerEndIdx, fundIndex);
+    } else {
+        holdingsParsed = parseVerticalFormat(lines, headerEndIdx, fundIndex);
+    }
+    
+    // Update UI
     updateProgress();
     updateTabBadge(fundIndex);
     
     // Show status
-    let statusMessage = '✅ Parsing terminé: ';
-    if (fundParsed) statusMessage += 'Info fond OK, ';
+    const format = hasTableFormat ? 'TABLEAU' : 'VERTICAL';
+    let statusMessage = `✅ Parsing terminé (Format ${format}): `;
+    if (fundsData[fundIndex].fund_name) {
+        statusMessage += `${fundsData[fundIndex].fund_name} - `;
+    }
     statusMessage += `${holdingsParsed} holdings parsés`;
     showStatus(statusDiv, 'success', statusMessage);
     
-    // Clear textarea
+    // Clear textarea après succès
     textarea.value = '';
-}
-
-// Parse une ligne de holding
-function parseHoldingLine(line, fundIndex, holdingIndex) {
-    // Nettoyer la ligne
-    line = line.replace(/[()]/g, ' ').replace(/\s+/g, ' ').trim();
-    
-    // Essayer différents patterns
-    let parts = [];
-    
-    // Si contient des tabs
-    if (line.includes('\t')) {
-        parts = line.split('\t').map(p => p.trim());
-    }
-    // Si contient des pipes
-    else if (line.includes('|')) {
-        parts = line.split('|').map(p => p.trim());
-    }
-    // Sinon, split par espaces multiples ou patterns reconnaissables
-    else {
-        // Essayer de trouver les patterns
-        const patterns = {
-            ticker: line.match(/^([A-Z]{1,5}(?:\.[A-Z])?)\s/),
-            pct: line.match(/(\d+\.?\d*)%/),
-            shares: line.match(/(\d+\.?\d*)[MBK]/i),
-            value: line.match(/\$(\d+\.?\d*)[MBK]?/i),
-            activity: line.match(/([+-]?\d+\.?\d*)%.*(?:k|M|B)/),
-            price: line.match(/\$(\d+\.?\d*)\s/),
-            change: line.match(/[+-](\d+\.?\d*)%(?!.*[kMB])/g)
-        };
-        
-        // Ticker
-        if (patterns.ticker) {
-            document.getElementById(`ticker-${fundIndex}-${holdingIndex}`).value = patterns.ticker[1];
-            updateHoldingData(fundIndex, holdingIndex, 'ticker', patterns.ticker[1]);
-            
-            // Company name (après le ticker, avant le premier %)
-            const afterTicker = line.substring(patterns.ticker[0].length).trim();
-            const beforePct = afterTicker.indexOf('%');
-            if (beforePct > 0) {
-                const companyName = afterTicker.substring(0, beforePct).replace(/\d+\.?\d*/g, '').trim();
-                if (companyName.length > 2) {
-                    document.getElementById(`company-${fundIndex}-${holdingIndex}`).value = companyName;
-                    updateHoldingData(fundIndex, holdingIndex, 'company_name', companyName);
-                }
-            }
-        }
-        
-        // Portfolio %
-        if (patterns.pct && patterns.pct[1]) {
-            const pct = parseFloat(patterns.pct[1]);
-            if (pct > 0 && pct < 100) {
-                document.getElementById(`pct-${fundIndex}-${holdingIndex}`).value = pct;
-                updateHoldingData(fundIndex, holdingIndex, 'portfolio_pct', pct);
-            }
-        }
-        
-        // Shares
-        if (patterns.shares && patterns.shares[1]) {
-            let shares = parseFloat(patterns.shares[1]);
-            const suffix = patterns.shares[0].slice(-1).toUpperCase();
-            if (suffix === 'B') shares *= 1000;
-            else if (suffix === 'K') shares /= 1000;
-            
-            document.getElementById(`shares-${fundIndex}-${holdingIndex}`).value = shares.toFixed(2);
-            updateHoldingData(fundIndex, holdingIndex, 'shares_owned_millions', shares);
-        }
-        
-        // Value
-        if (patterns.value && patterns.value[1]) {
-            let value = parseFloat(patterns.value[1]);
-            if (patterns.value[0].includes('B')) value *= 1000;
-            else if (patterns.value[0].includes('K')) value /= 1000;
-            
-            document.getElementById(`value-${fundIndex}-${holdingIndex}`).value = value.toFixed(2);
-            updateHoldingData(fundIndex, holdingIndex, 'value_millions', value);
-        }
-        
-        // Activity
-        if (patterns.activity && patterns.activity[1]) {
-            const activity = parseFloat(patterns.activity[1]);
-            document.getElementById(`activity-${fundIndex}-${holdingIndex}`).value = activity;
-            updateHoldingData(fundIndex, holdingIndex, 'latest_activity_pct', activity);
-        }
-        
-        // Price
-        if (patterns.price && patterns.price[1]) {
-            const price = parseFloat(patterns.price[1]);
-            document.getElementById(`avgprice-${fundIndex}-${holdingIndex}`).value = price;
-            updateHoldingData(fundIndex, holdingIndex, 'avg_buy_price', price);
-        }
-        
-        // Price change (dernier % trouvé généralement)
-        if (patterns.change && patterns.change.length > 0) {
-            const lastChange = patterns.change[patterns.change.length - 1];
-            const change = parseFloat(lastChange);
-            document.getElementById(`change-${fundIndex}-${holdingIndex}`).value = change;
-            updateHoldingData(fundIndex, holdingIndex, 'price_change_pct', change);
-        }
-    }
 }
 
 // Show status message
 function showStatus(div, type, message) {
     div.className = `parse-status ${type}`;
     div.textContent = message;
-    setTimeout(() => {
-        div.className = 'parse-status';
-    }, 5000);
+    if (type !== 'error') {
+        setTimeout(() => {
+            div.className = 'parse-status';
+        }, 5000);
+    }
 }
 
 // Clear paste area
@@ -414,34 +531,45 @@ function updateTabBadge(fundIndex) {
         badge.textContent = count;
         badge.style.display = 'inline-block';
         badge.className = count >= 10 ? 'tab-badge complete' : 'tab-badge';
+        
+        // Update tab name with fund name if available
+        const tab = document.getElementById(`tab-${fundIndex}`);
+        if (fundsData[fundIndex].fund_name) {
+            tab.innerHTML = fundsData[fundIndex].fund_name.substring(0, 15);
+            tab.appendChild(badge);
+        }
     } else {
         badge.style.display = 'none';
     }
 }
 
-// Create holdings rows HTML
+// Create holdings rows HTML (avec colonne Δ% et Sector)
 function createHoldingsRows(fundIndex) {
     let html = '';
     for (let j = 0; j < NUM_HOLDINGS; j++) {
         html += `
             <tr>
                 <td>${j + 1}</td>
-                <td><input type="text" id="ticker-${fundIndex}-${j}" 
+                <td><input type="text" id="ticker-${fundIndex}-${j}" style="width: 60px;"
                         onchange="updateHoldingData(${fundIndex}, ${j}, 'ticker', this.value.toUpperCase())"></td>
-                <td><input type="text" id="company-${fundIndex}-${j}"
+                <td><input type="text" id="company-${fundIndex}-${j}" style="width: 150px;"
                         onchange="updateHoldingData(${fundIndex}, ${j}, 'company_name', this.value)"></td>
-                <td><input type="number" step="0.01" id="pct-${fundIndex}-${j}"
+                <td><input type="number" step="0.01" id="pct-${fundIndex}-${j}" style="width: 70px;"
                         onchange="updateHoldingData(${fundIndex}, ${j}, 'portfolio_pct', parseFloat(this.value) || 0)"></td>
-                <td><input type="number" step="0.01" id="shares-${fundIndex}-${j}"
+                <td><input type="number" step="0.01" id="delta-${fundIndex}-${j}" style="width: 60px;"
+                        onchange="updateHoldingData(${fundIndex}, ${j}, 'delta_portfolio_pct', parseFloat(this.value) || 0)"></td>
+                <td><input type="number" step="0.01" id="shares-${fundIndex}-${j}" style="width: 80px;"
                         onchange="updateHoldingData(${fundIndex}, ${j}, 'shares_owned_millions', parseFloat(this.value) || 0)"></td>
-                <td><input type="number" step="0.01" id="value-${fundIndex}-${j}"
+                <td><input type="number" step="0.01" id="value-${fundIndex}-${j}" style="width: 90px;"
                         onchange="updateHoldingData(${fundIndex}, ${j}, 'value_millions', parseFloat(this.value) || 0)"></td>
-                <td><input type="number" step="any" id="activity-${fundIndex}-${j}"
+                <td><input type="number" step="any" id="activity-${fundIndex}-${j}" style="width: 70px;"
                         onchange="updateHoldingData(${fundIndex}, ${j}, 'latest_activity_pct', parseFloat(this.value) || 0)"></td>
-                <td><input type="number" step="0.01" id="avgprice-${fundIndex}-${j}"
+                <td><input type="number" step="0.01" id="avgprice-${fundIndex}-${j}" style="width: 70px;"
                         onchange="updateHoldingData(${fundIndex}, ${j}, 'avg_buy_price', parseFloat(this.value) || 0)"></td>
-                <td><input type="number" step="any" id="change-${fundIndex}-${j}"
+                <td><input type="number" step="any" id="change-${fundIndex}-${j}" style="width: 70px;"
                         onchange="updateHoldingData(${fundIndex}, ${j}, 'price_change_pct', parseFloat(this.value) || 0)"></td>
+                <td><input type="text" id="sector-${fundIndex}-${j}" style="width: 100px;"
+                        onchange="updateHoldingData(${fundIndex}, ${j}, 'sector', this.value)"></td>
             </tr>
         `;
     }
@@ -507,19 +635,24 @@ function generateJSON() {
                 .filter(h => h.ticker && h.ticker.trim() !== '')
                 .map(h => ({
                     ...h,
-                    date: today
+                    date: h.date || today
                 }))
         }));
     
-    // Calculate universe
+    // Calculate universe stats
     const allTickers = new Set();
     const tickerCounts = {};
+    const sectorCounts = {};
     
     cleanedFunds.forEach(fund => {
         fund.top_holdings.forEach(holding => {
             if (holding.ticker) {
                 allTickers.add(holding.ticker);
                 tickerCounts[holding.ticker] = (tickerCounts[holding.ticker] || 0) + 1;
+                
+                if (holding.sector) {
+                    sectorCounts[holding.sector] = (sectorCounts[holding.sector] || 0) + 1;
+                }
             }
         });
     });
@@ -527,13 +660,18 @@ function generateJSON() {
     // Sort tickers by count
     const sortedTickers = Object.entries(tickerCounts)
         .sort((a, b) => b[1] - a[1])
-        .slice(0, 20);
+        .slice(0, 30);
+    
+    // Sort sectors
+    const sortedSectors = Object.entries(sectorCounts)
+        .sort((a, b) => b[1] - a[1]);
     
     const jsonData = {
         metadata: {
             last_updated: today,
-            source: "HedgeFollow Manual Collection V3",
-            description: "Top hedge funds by performance with top 30 holdings each"
+            source: "HedgeFollow Manual Collection V5",
+            format: "hedgefollow_exact",
+            description: "Top hedge funds 13F portfolios with complete holdings data"
         },
         top_funds: cleanedFunds,
         smart_universe_summary: {
@@ -543,6 +681,11 @@ function generateJSON() {
                 ticker,
                 count,
                 percentage: ((count / cleanedFunds.length) * 100).toFixed(1) + '%'
+            })),
+            sector_distribution: sortedSectors.map(([sector, count]) => ({
+                sector,
+                count,
+                percentage: ((count / (cleanedFunds.length * 30)) * 100).toFixed(1) + '%'
             })),
             generation_date: today
         }
@@ -567,7 +710,7 @@ function downloadJSON() {
     const a = document.createElement('a');
     const today = new Date().toISOString().split('T')[0];
     a.href = url;
-    a.download = `smart_money_data_${today}.json`;
+    a.download = `hedgefollow_manual_${today}.json`;
     a.click();
     URL.revokeObjectURL(url);
 }
@@ -593,37 +736,50 @@ function updateProgress() {
     const progress = Math.round((totalHoldings / maxHoldings) * 100);
     
     const progressBar = document.getElementById('progressBar');
-    progressBar.style.width = progress + '%';
-    progressBar.textContent = progress + '% Complete';
+    if (progressBar) {
+        progressBar.style.width = progress + '%';
+        progressBar.textContent = `${progress}% (${filledFunds}/10 fonds, ${totalHoldings} holdings)`;
+    }
 }
 
 // Update stats
 function updateStats(funds, tickers) {
-    document.getElementById('statsSection').style.display = 'grid';
-    document.getElementById('statFunds').textContent = funds.length;
-    
-    let totalHoldings = 0;
-    let totalPerf = 0;
-    
-    funds.forEach(fund => {
-        totalHoldings += fund.top_holdings.length;
-        totalPerf += fund.performance_3y;
-    });
-    
-    document.getElementById('statHoldings').textContent = totalHoldings;
-    document.getElementById('statTickers').textContent = tickers.size;
-    document.getElementById('statAvgPerf').textContent = 
-        funds.length > 0 ? (totalPerf / funds.length).toFixed(2) + '%' : '0%';
+    const statsSection = document.getElementById('statsSection');
+    if (statsSection) {
+        statsSection.style.display = 'grid';
+        
+        document.getElementById('statFunds').textContent = funds.length;
+        
+        let totalHoldings = 0;
+        let totalPerf = 0;
+        let totalAUM = 0;
+        
+        funds.forEach(fund => {
+            totalHoldings += fund.top_holdings.length;
+            totalPerf += fund.performance_3y;
+            totalAUM += fund.aum_billions;
+        });
+        
+        document.getElementById('statHoldings').textContent = totalHoldings;
+        document.getElementById('statTickers').textContent = tickers.size;
+        document.getElementById('statAvgPerf').textContent = 
+            funds.length > 0 ? (totalPerf / funds.length).toFixed(2) + '%' : '0%';
+        
+        // Ajouter AUM total si élément existe
+        if (document.getElementById('statTotalAUM')) {
+            document.getElementById('statTotalAUM').textContent = `$${totalAUM.toFixed(1)}B`;
+        }
+    }
 }
 
 // Save to localStorage
 function saveToLocalStorage() {
-    localStorage.setItem('smartMoneyDataV3', JSON.stringify(fundsData));
+    localStorage.setItem('hedgeFollowDataV5', JSON.stringify(fundsData));
 }
 
 // Load from localStorage
 function loadFromLocalStorage() {
-    const saved = localStorage.getItem('smartMoneyDataV3');
+    const saved = localStorage.getItem('hedgeFollowDataV5');
     if (saved) {
         fundsData = JSON.parse(saved);
         
@@ -642,11 +798,13 @@ function loadFromLocalStorage() {
                     document.getElementById(`ticker-${i}-${j}`).value = holding.ticker;
                     document.getElementById(`company-${i}-${j}`).value = holding.company_name;
                     document.getElementById(`pct-${i}-${j}`).value = holding.portfolio_pct;
+                    document.getElementById(`delta-${i}-${j}`).value = holding.delta_portfolio_pct;
                     document.getElementById(`shares-${i}-${j}`).value = holding.shares_owned_millions;
                     document.getElementById(`value-${i}-${j}`).value = holding.value_millions;
                     document.getElementById(`activity-${i}-${j}`).value = holding.latest_activity_pct;
                     document.getElementById(`avgprice-${i}-${j}`).value = holding.avg_buy_price;
                     document.getElementById(`change-${i}-${j}`).value = holding.price_change_pct;
+                    document.getElementById(`sector-${i}-${j}`).value = holding.sector || '';
                 }
             });
             updateTabStatus(i);
@@ -654,7 +812,7 @@ function loadFromLocalStorage() {
         });
         
         updateProgress();
-        alert('✅ Données chargées avec succès!');
+        alert('✅ Données chargées depuis la sauvegarde locale!');
     } else {
         alert('❌ Aucune sauvegarde trouvée');
     }
@@ -662,23 +820,26 @@ function loadFromLocalStorage() {
 
 // Clear all data
 function clearAllData() {
-    if (confirm('⚠️ Êtes-vous sûr de vouloir effacer toutes les données?')) {
+    if (confirm('⚠️ Êtes-vous sûr de vouloir effacer TOUTES les données?')) {
         initializeFunds();
         document.querySelectorAll('input').forEach(input => input.value = '');
         document.querySelectorAll('textarea').forEach(textarea => textarea.value = '');
         updateProgress();
-        localStorage.removeItem('smartMoneyDataV3');
+        localStorage.removeItem('hedgeFollowDataV5');
         
         // Reset tabs
-        document.querySelectorAll('.tab').forEach(tab => {
+        document.querySelectorAll('.tab').forEach((tab, i) => {
             tab.classList.remove('completed');
+            tab.innerHTML = `Fund ${i + 1}`;
         });
         
         // Reset badges
         for (let i = 0; i < NUM_FUNDS; i++) {
             const badge = document.getElementById(`badge-${i}`);
-            badge.style.display = 'none';
+            if (badge) badge.style.display = 'none';
         }
+        
+        alert('🗑️ Toutes les données ont été effacées');
     }
 }
 
@@ -692,29 +853,41 @@ function analyzeData() {
     }
     
     // Create analysis summary
-    let analysis = '📊 ANALYSE SMART MONEY\n';
-    analysis += '=' .repeat(50) + '\n\n';
+    let analysis = '📊 ANALYSE HEDGEFOLLOW - TOP HEDGE FUNDS\n';
+    analysis += '=' .repeat(60) + '\n\n';
     
-    // Top funds
-    analysis += '🏦 TOP FONDS PAR PERFORMANCE:\n';
+    // Top funds by performance
+    analysis += '🏆 TOP FONDS PAR PERFORMANCE:\n';
     jsonData.top_funds
         .sort((a, b) => b.performance_3y - a.performance_3y)
         .slice(0, 5)
         .forEach((fund, i) => {
-            analysis += `${i+1}. ${fund.fund_name}: ${fund.performance_3y}% (${fund.aum_billions}B AUM)\n`;
+            analysis += `${i+1}. ${fund.fund_name} (${fund.portfolio_manager})\n`;
+            analysis += `   Performance: ${fund.performance_3y}% | AUM: $${fund.aum_billions}B | Holdings: ${fund.total_holdings}\n\n`;
         });
     
+    // Most held tickers
     analysis += '\n🎯 TICKERS LES PLUS DÉTENUS:\n';
     jsonData.smart_universe_summary.most_held_tickers
-        .slice(0, 10)
+        .slice(0, 15)
         .forEach((ticker, i) => {
             analysis += `${i+1}. ${ticker.ticker}: ${ticker.count} fonds (${ticker.percentage})\n`;
         });
     
-    // Show in a better format
+    // Sector distribution
+    if (jsonData.smart_universe_summary.sector_distribution.length > 0) {
+        analysis += '\n📈 RÉPARTITION SECTORIELLE:\n';
+        jsonData.smart_universe_summary.sector_distribution
+            .slice(0, 10)
+            .forEach((sector, i) => {
+                analysis += `${i+1}. ${sector.sector}: ${sector.count} positions (${sector.percentage})\n`;
+            });
+    }
+    
+    // Show in preview
     const preview = document.getElementById('jsonPreview');
     preview.style.display = 'block';
-    preview.innerHTML = `<pre style="color: #4fc3f7; font-size: 14px;">${analysis}</pre>`;
+    preview.innerHTML = `<pre style="color: #00bcd4; font-size: 13px; font-family: 'Courier New', monospace;">${analysis}</pre>`;
 }
 
 // Initialize on load
@@ -723,6 +896,9 @@ window.onload = function() {
     createTabs();
     createFundSections();
     
-    // Auto-save enabled
-    console.log('💾 Auto-save enabled - Data saved to localStorage automatically');
+    // Messages console
+    console.log('💼 HedgeFollow Manual Collector V5 - Ready!');
+    console.log('📋 Format: Exact HedgeFollow (Table ou Vertical)');
+    console.log('💾 Auto-save: Enabled (localStorage)');
+    console.log('🎯 Parser adaptatif pour Performance 25Q3, 26Q1, etc.');
 };
