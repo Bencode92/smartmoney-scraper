@@ -18,11 +18,11 @@ from src.config import (
 # Configuration de la session avec retry strategy
 session = requests.Session()
 
-# Stratégie de retry
+# Stratégie de retry (compatible avec urllib3 moderne)
 retry_strategy = Retry(
     total=MAX_RETRIES,
     status_forcelist=[429, 500, 502, 503, 504],
-    method_whitelist=["HEAD", "GET", "OPTIONS"],
+    allowed_methods=["HEAD", "GET", "OPTIONS"],  # Changé de method_whitelist à allowed_methods
     backoff_factor=1
 )
 
