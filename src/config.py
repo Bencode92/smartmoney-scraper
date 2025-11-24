@@ -20,11 +20,26 @@ REQUESTS_SLEEP_SECONDS = float(os.getenv("REQUESTS_SLEEP_SECONDS", "2"))
 MAX_RETRIES = 3
 TIMEOUT_SECONDS = 15
 
-# --- Paramètres de scraping ---
-HEDGEFOLLOW_TOP_N_FUNDS = int(os.getenv("HEDGEFOLLOW_TOP_N_FUNDS", "15"))
-DATAROMA_TOP_N_MANAGERS = int(os.getenv("DATAROMA_TOP_N_MANAGERS", "10"))
-INSIDER_MIN_VALUE_USD = int(os.getenv("INSIDER_MIN_VALUE_USD", "5000000"))
-INSIDER_DAYS_BACK = int(os.getenv("INSIDER_DAYS_BACK", "7"))
+# --- Paramètres de scraping avec gestion d'erreur robuste ---
+def get_int_env(key: str, default: str) -> int:
+    """Parse un entier depuis une variable d'environnement avec gestion d'erreur."""
+    value = os.getenv(key, default)
+    # Nettoyer la valeur en cas de contamination
+    if isinstance(value, str):
+        # Prendre seulement les premiers chiffres
+        import re
+        match = re.match(r'^(\d+)', value)
+        if match:
+            return int(match.group(1))
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return int(default)
+
+HEDGEFOLLOW_TOP_N_FUNDS = get_int_env("HEDGEFOLLOW_TOP_N_FUNDS", "15")
+DATAROMA_TOP_N_MANAGERS = get_int_env("DATAROMA_TOP_N_MANAGERS", "10")
+INSIDER_MIN_VALUE_USD = get_int_env("INSIDER_MIN_VALUE_USD", "5000000")
+INSIDER_DAYS_BACK = get_int_env("INSIDER_DAYS_BACK", "7")
 
 # --- URLs de base ---
 HEDGEFOLLOW_BASE_URL = "https://hedgefollow.com"
