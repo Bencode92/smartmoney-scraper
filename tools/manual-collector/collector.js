@@ -285,15 +285,17 @@ function parseTableFormat(lines, startIdx, fundIndex) {
             const value = parseMoneyValue(cols[5]);
             const tradeValue = parseMoneyValue(cols[6]);
             const activity = parseActivityValue(cols[7]);
-            const avgPrice = parseMoneyValue(cols[10] || cols[8]);
-            const priceChange = parsePriceChange(cols[11] || cols[9]);
-            const sector = cols[12] ? cols[12].trim() : '';
-            const date = cols[13] ? cols[13].trim() : '';
+            const activityShares = parseActivityShares(cols[7]);
+            // colonnes 8 et 9 sont Ownership Hist et Net Ownership (peuvent être vides)
+            const avgPrice = parseMoneyValue(cols[10]); // Average Buy Price
+            const priceChange = parsePriceChange(cols[11]); // Price History (+X%)
+            const sector = cols[12] ? cols[12].trim() : ''; // Sector
+            const date = cols[13] ? cols[13].trim() : ''; // Date
             
             // Remplir les données
             fillHoldingData(fundIndex, currentHoldingIndex, {
                 ticker, company, portfolioPct, deltaPct, shares,
-                value, tradeValue, activity, avgPrice, priceChange, sector, date
+                value, tradeValue, activity, activityShares, avgPrice, priceChange, sector, date
             });
             
             currentHoldingIndex++;
@@ -329,6 +331,7 @@ function parseVerticalFormat(lines, startIdx, fundIndex) {
                 const value = parseMoneyValue(lines[i + 5]);
                 const tradeValue = parseMoneyValue(lines[i + 6]);
                 const activity = parseActivityValue(lines[i + 7]);
+                const activityShares = parseActivityShares(lines[i + 7]);
                 
                 // Les lignes 8-9 peuvent être vides (Ownership Hist)
                 let avgPriceIdx = i + 10;
@@ -351,7 +354,7 @@ function parseVerticalFormat(lines, startIdx, fundIndex) {
                 // Remplir les données
                 fillHoldingData(fundIndex, currentHoldingIndex, {
                     ticker, company, portfolioPct, deltaPct, shares,
-                    value, tradeValue, activity, avgPrice, priceChange, sector, date
+                    value, tradeValue, activity, activityShares, avgPrice, priceChange, sector, date
                 });
                 
                 currentHoldingIndex++;
@@ -406,6 +409,16 @@ function parseActivityValue(str) {
     return match ? parseFloat(match[1]) : 0;
 }
 
+// Parser le montant shares dans Latest Activity (entre parenthèses)
+function parseActivityShares(str) {
+    // Chercher le pattern (±XXX.XXM) ou (±XXX.XXB) ou (±XXX.XXK)
+    const match = str.match(/\(([+-]?[\d.]+[MBK]?)\)/);
+    if (match) {
+        return match[1]; // Retourner tel quel avec le signe et l'unité
+    }
+    return '';
+}
+
 function parsePriceChange(str) {
     const matches = str.match(/\(([+-]?\d+\.?\d*)%\)/g);
     if (matches) {
@@ -438,6 +451,7 @@ function fillHoldingData(fundIndex, holdingIndex, data) {
     updateHoldingData(fundIndex, holdingIndex, 'value_millions', data.value);
     updateHoldingData(fundIndex, holdingIndex, 'trade_value_millions', data.tradeValue);
     updateHoldingData(fundIndex, holdingIndex, 'latest_activity_pct', data.activity);
+    updateHoldingData(fundIndex, holdingIndex, 'latest_activity_shares', data.activityShares || '');
     updateHoldingData(fundIndex, holdingIndex, 'avg_buy_price', data.avgPrice);
     updateHoldingData(fundIndex, holdingIndex, 'price_change_pct', data.priceChange);
     updateHoldingData(fundIndex, holdingIndex, 'sector', data.sector);
@@ -669,7 +683,7 @@ function generateJSON() {
     const jsonData = {
         metadata: {
             last_updated: today,
-            source: "HedgeFollow Manual Collection V5",
+            source: "HedgeFollow Manual Collection V5.1 Fixed",
             format: "hedgefollow_exact",
             description: "Top hedge funds 13F portfolios with complete holdings data"
         },
@@ -897,8 +911,9 @@ window.onload = function() {
     createFundSections();
     
     // Messages console
-    console.log('💼 HedgeFollow Manual Collector V5 - Ready!');
+    console.log('💼 HedgeFollow Manual Collector V5.1 Fixed - Ready!');
     console.log('📋 Format: Exact HedgeFollow (Table ou Vertical)');
     console.log('💾 Auto-save: Enabled (localStorage)');
     console.log('🎯 Parser adaptatif pour Performance 25Q3, 26Q1, etc.');
+    console.log('🔧 Colonnes corrigées: Sector et Activity Shares');
 };
