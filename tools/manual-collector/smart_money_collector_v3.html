@@ -54,7 +54,7 @@
             padding: 12px 24px;
             border: none;
             border-radius: 8px;
-            font-size: 16px;
+            font-size: 14px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s;
@@ -86,6 +86,53 @@
         .btn-info {
             background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
             color: white;
+        }
+        
+        .btn-github {
+            background: linear-gradient(135deg, #24292e 0%, #444d56 100%);
+            color: white;
+        }
+        
+        .btn-github:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(36, 41, 46, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+            padding: 12px 16px;
+        }
+        
+        .github-status {
+            margin-top: 15px;
+            padding: 12px 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            display: none;
+        }
+        
+        .github-status.pending {
+            background: #fff3cd;
+            color: #856404;
+            display: block;
+        }
+        
+        .github-status.success {
+            background: #d4edda;
+            color: #155724;
+            display: block;
+        }
+        
+        .github-status.error {
+            background: #f8d7da;
+            color: #721c24;
+            display: block;
+        }
+        
+        .github-status a {
+            color: inherit;
+            font-weight: bold;
         }
         
         .tabs {
@@ -406,10 +453,44 @@
         .tab-badge.complete {
             background: #4caf50;
         }
+        
+        .tools-nav {
+            background: rgba(255,255,255,0.1);
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .tools-nav a {
+            color: white;
+            text-decoration: none;
+            font-size: 14px;
+            opacity: 0.8;
+            transition: opacity 0.2s;
+        }
+        
+        .tools-nav a:hover {
+            opacity: 1;
+        }
+        
+        .tools-nav .active {
+            opacity: 1;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
     <div class="container">
+        <!-- Navigation entre outils -->
+        <div class="tools-nav">
+            <span style="color: white; opacity: 0.6;">📁 Outils:</span>
+            <a href="smart_money_collector_v3.html" class="active">📈 HedgeFollow</a>
+            <a href="../insider-tracker/insider_collector.html">🕵️ Insider Tracker</a>
+        </div>
+        
         <div class="header">
             <h1>
                 <span>🚀</span>
@@ -444,8 +525,12 @@
                     🗑️ Tout effacer
                 </button>
 
+                <button class="btn btn-primary" onclick="loadFromLocalStorage()">
+                    📂 Charger
+                </button>
+
                 <button class="btn btn-secondary" onclick="clearGitHubToken()" title="Reset token GitHub">
-                    🔑 Reset token
+                    🔑
                 </button>
             </div>
 
