@@ -20,15 +20,59 @@
         body {
             margin: 0;
             font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            background: var(--bg-primary);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: var(--text-primary);
             line-height: 1.5;
+            min-height: 100vh;
+            padding: 20px;
         }
         .container {
             max-width: 1400px;
             margin: 0 auto;
-            padding: 24px;
         }
+        
+        /* Navigation entre outils */
+        .tools-nav {
+            background: rgba(255,255,255,0.1);
+            padding: 12px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            backdrop-filter: blur(10px);
+        }
+        .tools-nav .nav-label {
+            color: white;
+            opacity: 0.6;
+            font-size: 14px;
+        }
+        .tools-nav a {
+            color: white;
+            text-decoration: none;
+            font-size: 14px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            opacity: 0.7;
+            transition: all 0.2s;
+        }
+        .tools-nav a:hover {
+            opacity: 1;
+            background: rgba(255,255,255,0.1);
+        }
+        .tools-nav a.active {
+            opacity: 1;
+            font-weight: 600;
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .main-panel {
+            background: var(--bg-secondary);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        
         .header {
             margin-bottom: 20px;
         }
@@ -86,7 +130,7 @@
             margin-bottom: 20px;
         }
         .stat-card {
-            background: var(--bg-secondary);
+            background: var(--bg-primary);
             border-radius: 12px;
             padding: 14px;
             border: 1px solid var(--border);
@@ -118,7 +162,7 @@
 
         /* Panels */
         .panel {
-            background: var(--bg-secondary);
+            background: var(--bg-primary);
             border-radius: 12px;
             padding: 16px;
             border: 1px solid var(--border);
@@ -135,7 +179,7 @@
             min-height: 400px;
             border-radius: 8px;
             border: 1px solid var(--border);
-            background: var(--bg-primary);
+            background: var(--bg-secondary);
             color: var(--text-primary);
             padding: 12px;
             font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
@@ -150,7 +194,7 @@
             margin: 0;
             max-height: 400px;
             overflow: auto;
-            background: var(--bg-primary);
+            background: var(--bg-secondary);
             border-radius: 8px;
             border: 1px solid var(--border);
             padding: 12px;
@@ -239,63 +283,72 @@
 </head>
 <body>
 <div class="container">
-    <div class="header">
-        <h1>
-            🏦 Institutional Tracker
-            <span class="badge">SmartMoney Scraper</span>
-        </h1>
-        <p>Collecte les <strong>Top 100 stocks owned by hedge funds</strong> et génère un JSON exploitable.</p>
-
-        <div class="progress-container">
-            <div class="progress-bar" id="progressBar"></div>
-        </div>
-
-        <div class="controls">
-            <button class="btn btn-primary" onclick="parseInstitutionalText()">
-                <span>📥</span> Parser
-            </button>
-            <button class="btn btn-success" onclick="downloadInstitutionalJSON()">
-                <span>💾</span> Download JSON
-            </button>
-            <button class="btn btn-github" onclick="pushToGitHub()">
-                <span>🚀</span> Push to GitHub
-            </button>
-            <button class="btn btn-warning" onclick="loadFromLocalStorage()">
-                <span>📂</span> Charger sauvegarde
-            </button>
-            <button class="btn btn-danger" onclick="clearInstitutionalAll()">
-                <span>🗑️</span> Clear
-            </button>
-        </div>
-
-        <div class="stats-grid" id="statsSection">
-            <div class="stat-card">
-                <div class="stat-label">Tickers Parsés</div>
-                <div class="stat-value" id="statTickers">0</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">Total Value Owned</div>
-                <div class="stat-value" id="statTotalValue">$0B</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">Avg # Holders</div>
-                <div class="stat-value" id="statAvgHolders">0</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">Top Sector</div>
-                <div class="stat-value" id="statTopSector">—</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">Large Stakes Total</div>
-                <div class="stat-value" id="statLargeStakes">0</div>
-            </div>
-        </div>
+    <!-- Navigation entre outils -->
+    <div class="tools-nav">
+        <span class="nav-label">📁 Outils:</span>
+        <a href="../manual-collector/smart_money_collector_v3.html">📈 HedgeFollow</a>
+        <a href="../insider-tracker/insider_collector.html">🕵️ Insider Tracker</a>
+        <a href="institutional_collector.html" class="active">🏦 Institutional</a>
     </div>
+    
+    <div class="main-panel">
+        <div class="header">
+            <h1>
+                🏦 Institutional Tracker
+                <span class="badge">SmartMoney Scraper</span>
+            </h1>
+            <p>Collecte les <strong>Top 100 stocks owned by hedge funds</strong> et génère un JSON exploitable.</p>
 
-    <div class="grid">
-        <div class="panel">
-            <h2>📋 Copier-Coller Institutional Data</h2>
-            <textarea id="inst-paste" placeholder="Colle ici le tableau depuis la page 'Top 100 stocks owned by hedge funds'
+            <div class="progress-container">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+
+            <div class="controls">
+                <button class="btn btn-primary" onclick="parseInstitutionalText()">
+                    <span>📥</span> Parser
+                </button>
+                <button class="btn btn-success" onclick="downloadInstitutionalJSON()">
+                    <span>💾</span> Download JSON
+                </button>
+                <button class="btn btn-github" onclick="pushToGitHub()">
+                    <span>🚀</span> Push to GitHub
+                </button>
+                <button class="btn btn-warning" onclick="loadFromLocalStorage()">
+                    <span>📂</span> Charger sauvegarde
+                </button>
+                <button class="btn btn-danger" onclick="clearInstitutionalAll()">
+                    <span>🗑️</span> Clear
+                </button>
+            </div>
+
+            <div class="stats-grid" id="statsSection">
+                <div class="stat-card">
+                    <div class="stat-label">Tickers Parsés</div>
+                    <div class="stat-value" id="statTickers">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Value Owned</div>
+                    <div class="stat-value" id="statTotalValue">$0B</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Avg # Holders</div>
+                    <div class="stat-value" id="statAvgHolders">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Top Sector</div>
+                    <div class="stat-value" id="statTopSector">—</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Large Stakes Total</div>
+                    <div class="stat-value" id="statLargeStakes">0</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div class="panel">
+                <h2>📋 Copier-Coller Institutional Data</h2>
+                <textarea id="inst-paste" placeholder="Colle ici le tableau depuis la page 'Top 100 stocks owned by hedge funds'
 
 Format attendu (vertical) :
 NVDA
@@ -307,37 +360,38 @@ $86,62
 $212,19
 
 💡 La colonne 52W Range est ignorée automatiquement."></textarea>
-            <div class="hint">
-                <strong>💡 Astuce :</strong> Sélectionne tout le tableau (Ctrl+A) puis Ctrl+C → colle ici.<br>
-                <strong>📌 Format :</strong> Ticker → Company → Stats (3 colonnes) → Value → Sector → [52W ignoré]
+                <div class="hint">
+                    <strong>💡 Astuce :</strong> Sélectionne tout le tableau (Ctrl+A) puis Ctrl+C → colle ici.<br>
+                    <strong>📌 Format :</strong> Ticker → Company → Stats (3 colonnes) → Value → Sector → [52W ignoré]
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>🧾 Prévisualisation JSON</h2>
+                <pre id="json-preview">// Le JSON apparaîtra ici après parsing...</pre>
+                <div id="github-status" class="github-status"></div>
             </div>
         </div>
 
-        <div class="panel">
-            <h2>🧾 Prévisualisation JSON</h2>
-            <pre id="json-preview">// Le JSON apparaîtra ici après parsing...</pre>
-            <div id="github-status" class="github-status"></div>
-        </div>
-    </div>
-
-    <div class="table-panel panel" id="tablePanel" hidden>
-        <h2>📊 Top Stocks Parsés</h2>
-        <div class="table-scroll">
-            <table>
-                <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Ticker</th>
-                    <th>Company</th>
-                    <th>Total Holders</th>
-                    <th>Medium Stakes</th>
-                    <th>Large Stakes</th>
-                    <th>Value Owned</th>
-                    <th>Sector</th>
-                </tr>
-                </thead>
-                <tbody id="stocksBody"></tbody>
-            </table>
+        <div class="table-panel panel" id="tablePanel" hidden>
+            <h2>📊 Top Stocks Parsés</h2>
+            <div class="table-scroll">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Ticker</th>
+                        <th>Company</th>
+                        <th>Total Holders</th>
+                        <th>Medium Stakes</th>
+                        <th>Large Stakes</th>
+                        <th>Value Owned</th>
+                        <th>Sector</th>
+                    </tr>
+                    </thead>
+                    <tbody id="stocksBody"></tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
