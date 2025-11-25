@@ -1,0 +1,1165 @@
+{
+  "metadata": {
+    "last_updated": "2025-11-25",
+    "source": "Institutional Tracker - SmartMoney Scraper",
+    "description": "Top stocks owned by hedge funds / institutional investors",
+    "total_rows": 100
+  },
+  "summary": {
+    "total_stocks": 100,
+    "total_value_owned_billions": 27057.5,
+    "total_large_stakes": 3966,
+    "average_holders_per_stock": 844,
+    "top_sector": "Technology"
+  },
+  "highlights": {
+    "top_by_value": [
+      {
+        "ticker": "NVDA",
+        "value_billions": 2730
+      },
+      {
+        "ticker": "MSFT",
+        "value_billions": 2450
+      },
+      {
+        "ticker": "AAPL",
+        "value_billions": 2040
+      },
+      {
+        "ticker": "AMZN",
+        "value_billions": 1320
+      },
+      {
+        "ticker": "META",
+        "value_billions": 1090
+      },
+      {
+        "ticker": "AVGO",
+        "value_billions": 1070
+      },
+      {
+        "ticker": "GOOGL",
+        "value_billions": 937.11
+      },
+      {
+        "ticker": "GOOG",
+        "value_billions": 676.82
+      },
+      {
+        "ticker": "TSLA",
+        "value_billions": 638.01
+      },
+      {
+        "ticker": "JPM",
+        "value_billions": 524.91
+      }
+    ],
+    "top_by_holders": [
+      {
+        "ticker": "MSFT",
+        "holders": 1473
+      },
+      {
+        "ticker": "AMZN",
+        "holders": 1467
+      },
+      {
+        "ticker": "NVDA",
+        "holders": 1374
+      },
+      {
+        "ticker": "META",
+        "holders": 1366
+      },
+      {
+        "ticker": "GOOGL",
+        "holders": 1365
+      },
+      {
+        "ticker": "AAPL",
+        "holders": 1329
+      },
+      {
+        "ticker": "GOOG",
+        "holders": 1205
+      },
+      {
+        "ticker": "V",
+        "holders": 1159
+      },
+      {
+        "ticker": "JPM",
+        "holders": 1156
+      },
+      {
+        "ticker": "AVGO",
+        "holders": 1150
+      }
+    ]
+  },
+  "sector_distribution": [
+    {
+      "sector": "Technology",
+      "count": 26,
+      "percentage": "26.0%"
+    },
+    {
+      "sector": "Finance",
+      "count": 16,
+      "percentage": "16.0%"
+    },
+    {
+      "sector": "Health Care",
+      "count": 14,
+      "percentage": "14.0%"
+    },
+    {
+      "sector": "Industrials",
+      "count": 12,
+      "percentage": "12.0%"
+    },
+    {
+      "sector": "Consumer Discretionary",
+      "count": 9,
+      "percentage": "9.0%"
+    },
+    {
+      "sector": "Communication Services",
+      "count": 8,
+      "percentage": "8.0%"
+    },
+    {
+      "sector": "Consumer Staples",
+      "count": 7,
+      "percentage": "7.0%"
+    },
+    {
+      "sector": "Energy",
+      "count": 3,
+      "percentage": "3.0%"
+    },
+    {
+      "sector": "Other",
+      "count": 2,
+      "percentage": "2.0%"
+    },
+    {
+      "sector": "Utilities",
+      "count": 1,
+      "percentage": "1.0%"
+    },
+    {
+      "sector": "n/a",
+      "count": 1,
+      "percentage": "1.0%"
+    },
+    {
+      "sector": "Basic Materials",
+      "count": 1,
+      "percentage": "1.0%"
+    }
+  ],
+  "top_stocks": [
+    {
+      "rank": 1,
+      "ticker": "MSFT",
+      "company_name": "Microsoft Corp",
+      "total_holders": 1473,
+      "medium_stakes": 816,
+      "large_stakes": 540,
+      "value_owned_billions": 2450,
+      "sector": "Technology"
+    },
+    {
+      "rank": 2,
+      "ticker": "AMZN",
+      "company_name": "Amazon Com Inc",
+      "total_holders": 1467,
+      "medium_stakes": 1070,
+      "large_stakes": 227,
+      "value_owned_billions": 1320,
+      "sector": "Consumer Discretionary"
+    },
+    {
+      "rank": 3,
+      "ticker": "NVDA",
+      "company_name": "Nvidia Corporation",
+      "total_holders": 1374,
+      "medium_stakes": 659,
+      "large_stakes": 565,
+      "value_owned_billions": 2730,
+      "sector": "Technology"
+    },
+    {
+      "rank": 4,
+      "ticker": "META",
+      "company_name": "Meta Platforms Inc",
+      "total_holders": 1366,
+      "medium_stakes": 972,
+      "large_stakes": 147,
+      "value_owned_billions": 1090,
+      "sector": "Communication Services"
+    },
+    {
+      "rank": 5,
+      "ticker": "GOOGL",
+      "company_name": "Alphabet Inc",
+      "total_holders": 1365,
+      "medium_stakes": 955,
+      "large_stakes": 176,
+      "value_owned_billions": 937.11,
+      "sector": "Communication Services"
+    },
+    {
+      "rank": 6,
+      "ticker": "AAPL",
+      "company_name": "Apple Inc",
+      "total_holders": 1329,
+      "medium_stakes": 752,
+      "large_stakes": 434,
+      "value_owned_billions": 2040,
+      "sector": "Technology"
+    },
+    {
+      "rank": 7,
+      "ticker": "GOOG",
+      "company_name": "Alphabet Inc",
+      "total_holders": 1205,
+      "medium_stakes": 757,
+      "large_stakes": 108,
+      "value_owned_billions": 676.82,
+      "sector": "Communication Services"
+    },
+    {
+      "rank": 8,
+      "ticker": "V",
+      "company_name": "Visa Inc",
+      "total_holders": 1159,
+      "medium_stakes": 711,
+      "large_stakes": 38,
+      "value_owned_billions": 433.39,
+      "sector": "Finance"
+    },
+    {
+      "rank": 9,
+      "ticker": "JPM",
+      "company_name": "Jpmorgan Chase & Co.",
+      "total_holders": 1156,
+      "medium_stakes": 815,
+      "large_stakes": 36,
+      "value_owned_billions": 524.91,
+      "sector": "Finance"
+    },
+    {
+      "rank": 10,
+      "ticker": "AVGO",
+      "company_name": "Broadcom Inc",
+      "total_holders": 1150,
+      "medium_stakes": 771,
+      "large_stakes": 94,
+      "value_owned_billions": 1070,
+      "sector": "Technology"
+    },
+    {
+      "rank": 11,
+      "ticker": "BRKB",
+      "company_name": "Berkshire Hathaway Inc Del",
+      "total_holders": 1096,
+      "medium_stakes": 609,
+      "large_stakes": 76,
+      "value_owned_billions": 368.69,
+      "sector": "Finance"
+    },
+    {
+      "rank": 12,
+      "ticker": "LLY",
+      "company_name": "Eli Lilly & Co",
+      "total_holders": 1037,
+      "medium_stakes": 529,
+      "large_stakes": 24,
+      "value_owned_billions": 457.68,
+      "sector": "Health Care"
+    },
+    {
+      "rank": 13,
+      "ticker": "ORCL",
+      "company_name": "Oracle Corp",
+      "total_holders": 1033,
+      "medium_stakes": 496,
+      "large_stakes": 22,
+      "value_owned_billions": 311.61,
+      "sector": "Technology"
+    },
+    {
+      "rank": 14,
+      "ticker": "COST",
+      "company_name": "Costco Whsl Corp New",
+      "total_holders": 1031,
+      "medium_stakes": 512,
+      "large_stakes": 19,
+      "value_owned_billions": 236.83,
+      "sector": "Consumer Staples"
+    },
+    {
+      "rank": 15,
+      "ticker": "NFLX",
+      "company_name": "Netflix Inc",
+      "total_holders": 1028,
+      "medium_stakes": 510,
+      "large_stakes": 23,
+      "value_owned_billions": 372.99,
+      "sector": "Communication Services"
+    },
+    {
+      "rank": 16,
+      "ticker": "TSLA",
+      "company_name": "Tesla Inc",
+      "total_holders": 1028,
+      "medium_stakes": 476,
+      "large_stakes": 47,
+      "value_owned_billions": 638.01,
+      "sector": "Consumer Discretionary"
+    },
+    {
+      "rank": 17,
+      "ticker": "JNJ",
+      "company_name": "Johnson & Johnson",
+      "total_holders": 1022,
+      "medium_stakes": 460,
+      "large_stakes": 8,
+      "value_owned_billions": 269.48,
+      "sector": "Health Care"
+    },
+    {
+      "rank": 18,
+      "ticker": "MA",
+      "company_name": "Mastercard Incorporated",
+      "total_holders": 1017,
+      "medium_stakes": 497,
+      "large_stakes": 36,
+      "value_owned_billions": 358.55,
+      "sector": "Finance"
+    },
+    {
+      "rank": 19,
+      "ticker": "HD",
+      "company_name": "Home Depot Inc",
+      "total_holders": 1011,
+      "medium_stakes": 483,
+      "large_stakes": 3,
+      "value_owned_billions": 244.83,
+      "sector": "Consumer Discretionary"
+    },
+    {
+      "rank": 20,
+      "ticker": "XOM",
+      "company_name": "Exxon Mobil Corp",
+      "total_holders": 1006,
+      "medium_stakes": 403,
+      "large_stakes": 2,
+      "value_owned_billions": 268.64,
+      "sector": "Energy"
+    },
+    {
+      "rank": 21,
+      "ticker": "WMT",
+      "company_name": "Walmart Inc",
+      "total_holders": 978,
+      "medium_stakes": 449,
+      "large_stakes": 6,
+      "value_owned_billions": 249.87,
+      "sector": "Consumer Staples"
+    },
+    {
+      "rank": 22,
+      "ticker": "ABBV",
+      "company_name": "Abbvie Inc",
+      "total_holders": 976,
+      "medium_stakes": 468,
+      "large_stakes": 2,
+      "value_owned_billions": 255.25,
+      "sector": "Health Care"
+    },
+    {
+      "rank": 23,
+      "ticker": "PG",
+      "company_name": "Procter And Gamble Co",
+      "total_holders": 971,
+      "medium_stakes": 332,
+      "large_stakes": 1,
+      "value_owned_billions": 203.95,
+      "sector": "Consumer Staples"
+    },
+    {
+      "rank": 24,
+      "ticker": "CVX",
+      "company_name": "Chevron Corp New",
+      "total_holders": 963,
+      "medium_stakes": 296,
+      "large_stakes": 0,
+      "value_owned_billions": 175.58,
+      "sector": "Energy"
+    },
+    {
+      "rank": 25,
+      "ticker": "BAC",
+      "company_name": "Bank America Corp",
+      "total_holders": 946,
+      "medium_stakes": 314,
+      "large_stakes": 14,
+      "value_owned_billions": 223.57,
+      "sector": "Finance"
+    },
+    {
+      "rank": 26,
+      "ticker": "CSCO",
+      "company_name": "Cisco Sys Inc",
+      "total_holders": 905,
+      "medium_stakes": 257,
+      "large_stakes": 1,
+      "value_owned_billions": 177.1,
+      "sector": "Technology"
+    },
+    {
+      "rank": 27,
+      "ticker": "SPY",
+      "company_name": "Spdr S&p",
+      "total_holders": 500,
+      "medium_stakes": 0,
+      "large_stakes": 0,
+      "value_owned_billions": 235.24,
+      "sector": "Other"
+    },
+    {
+      "rank": 28,
+      "ticker": "MRK",
+      "company_name": "Merck & Co Inc",
+      "total_holders": 902,
+      "medium_stakes": 177,
+      "large_stakes": 3,
+      "value_owned_billions": 137.3,
+      "sector": "Health Care"
+    },
+    {
+      "rank": 29,
+      "ticker": "TSM",
+      "company_name": "Taiwan Semiconductor Mfg Ltd",
+      "total_holders": 886,
+      "medium_stakes": 299,
+      "large_stakes": 76,
+      "value_owned_billions": 194.37,
+      "sector": "Technology"
+    },
+    {
+      "rank": 30,
+      "ticker": "KO",
+      "company_name": "Coca Cola Co",
+      "total_holders": 878,
+      "medium_stakes": 148,
+      "large_stakes": 3,
+      "value_owned_billions": 155.15,
+      "sector": "Consumer Staples"
+    },
+    {
+      "rank": 31,
+      "ticker": "PEP",
+      "company_name": "Pepsico Inc",
+      "total_holders": 877,
+      "medium_stakes": 180,
+      "large_stakes": 0,
+      "value_owned_billions": 119.64,
+      "sector": "Consumer Staples"
+    },
+    {
+      "rank": 32,
+      "ticker": "UNH",
+      "company_name": "Unitedhealth Group Inc",
+      "total_holders": 877,
+      "medium_stakes": 254,
+      "large_stakes": 10,
+      "value_owned_billions": 216.87,
+      "sector": "Health Care"
+    },
+    {
+      "rank": 33,
+      "ticker": "MCD",
+      "company_name": "Mcdonalds Corp",
+      "total_holders": 875,
+      "medium_stakes": 161,
+      "large_stakes": 0,
+      "value_owned_billions": 130.12,
+      "sector": "Consumer Discretionary"
+    },
+    {
+      "rank": 34,
+      "ticker": "CRM",
+      "company_name": "Salesforce Inc",
+      "total_holders": 871,
+      "medium_stakes": 243,
+      "large_stakes": 6,
+      "value_owned_billions": 156.88,
+      "sector": "Technology"
+    },
+    {
+      "rank": 35,
+      "ticker": "DIS",
+      "company_name": "Disney Walt Co",
+      "total_holders": 867,
+      "medium_stakes": 186,
+      "large_stakes": 5,
+      "value_owned_billions": 126.67,
+      "sector": "Communication Services"
+    },
+    {
+      "rank": 36,
+      "ticker": "IBM",
+      "company_name": "International Business Machs",
+      "total_holders": 865,
+      "medium_stakes": 196,
+      "large_stakes": 1,
+      "value_owned_billions": 144.92,
+      "sector": "Technology"
+    },
+    {
+      "rank": 37,
+      "ticker": "CAT",
+      "company_name": "Caterpillar Inc",
+      "total_holders": 854,
+      "medium_stakes": 194,
+      "large_stakes": 2,
+      "value_owned_billions": 132.08,
+      "sector": "Industrials"
+    },
+    {
+      "rank": 38,
+      "ticker": "GS",
+      "company_name": "Goldman Sachs Group Inc",
+      "total_holders": 847,
+      "medium_stakes": 229,
+      "large_stakes": 10,
+      "value_owned_billions": 150.92,
+      "sector": "Finance"
+    },
+    {
+      "rank": 39,
+      "ticker": "ABT",
+      "company_name": "Abbott Labs",
+      "total_holders": 846,
+      "medium_stakes": 190,
+      "large_stakes": 1,
+      "value_owned_billions": 153.07,
+      "sector": "Health Care"
+    },
+    {
+      "rank": 40,
+      "ticker": "RTX",
+      "company_name": "Rtx Corporation",
+      "total_holders": 846,
+      "medium_stakes": 208,
+      "large_stakes": 3,
+      "value_owned_billions": 151.51,
+      "sector": "Industrials"
+    },
+    {
+      "rank": 41,
+      "ticker": "UBER",
+      "company_name": "Uber Technologies Inc",
+      "total_holders": 839,
+      "medium_stakes": 238,
+      "large_stakes": 14,
+      "value_owned_billions": 140.2,
+      "sector": "Technology"
+    },
+    {
+      "rank": 42,
+      "ticker": "AMD",
+      "company_name": "Advanced Micro Devices Inc",
+      "total_holders": 832,
+      "medium_stakes": 228,
+      "large_stakes": 9,
+      "value_owned_billions": 149.08,
+      "sector": "Technology"
+    },
+    {
+      "rank": 43,
+      "ticker": "PLTR",
+      "company_name": "Palantir Technologies Inc",
+      "total_holders": 828,
+      "medium_stakes": 285,
+      "large_stakes": 27,
+      "value_owned_billions": 211.1,
+      "sector": "Technology"
+    },
+    {
+      "rank": 44,
+      "ticker": "GE",
+      "company_name": "Ge Aerospace",
+      "total_holders": 825,
+      "medium_stakes": 184,
+      "large_stakes": 21,
+      "value_owned_billions": 227.36,
+      "sector": "Industrials"
+    },
+    {
+      "rank": 45,
+      "ticker": "TMO",
+      "company_name": "Thermo Fisher Scientific Inc",
+      "total_holders": 813,
+      "medium_stakes": 209,
+      "large_stakes": 8,
+      "value_owned_billions": 134.34,
+      "sector": "Health Care"
+    },
+    {
+      "rank": 46,
+      "ticker": "QCOM",
+      "company_name": "Qualcomm Inc",
+      "total_holders": 811,
+      "medium_stakes": 174,
+      "large_stakes": 5,
+      "value_owned_billions": 114.29,
+      "sector": "Technology"
+    },
+    {
+      "rank": 47,
+      "ticker": "GEV",
+      "company_name": "Ge Vernova Inc",
+      "total_holders": 810,
+      "medium_stakes": 143,
+      "large_stakes": 8,
+      "value_owned_billions": 116.21,
+      "sector": "Industrials"
+    },
+    {
+      "rank": 48,
+      "ticker": "AXP",
+      "company_name": "American Express Co",
+      "total_holders": 809,
+      "medium_stakes": 171,
+      "large_stakes": 12,
+      "value_owned_billions": 123.62,
+      "sector": "Finance"
+    },
+    {
+      "rank": 49,
+      "ticker": "PFE",
+      "company_name": "Pfizer Inc",
+      "total_holders": 809,
+      "medium_stakes": 86,
+      "large_stakes": 1,
+      "value_owned_billions": 78.46,
+      "sector": "Health Care"
+    },
+    {
+      "rank": 50,
+      "ticker": "ADBE",
+      "company_name": "Adobe Inc",
+      "total_holders": 805,
+      "medium_stakes": 157,
+      "large_stakes": 2,
+      "value_owned_billions": 102.36,
+      "sector": "Technology"
+    },
+    {
+      "rank": 51,
+      "ticker": "AMGN",
+      "company_name": "Amgen Inc",
+      "total_holders": 797,
+      "medium_stakes": 128,
+      "large_stakes": 0,
+      "value_owned_billions": 101.18,
+      "sector": "Health Care"
+    },
+    {
+      "rank": 52,
+      "ticker": "PANW",
+      "company_name": "Palo Alto Networks Inc",
+      "total_holders": 796,
+      "medium_stakes": 216,
+      "large_stakes": 7,
+      "value_owned_billions": 95.71,
+      "sector": "Technology"
+    },
+    {
+      "rank": 53,
+      "ticker": "VZ",
+      "company_name": "Verizon Communications Inc",
+      "total_holders": 787,
+      "medium_stakes": 116,
+      "large_stakes": 4,
+      "value_owned_billions": 102.75,
+      "sector": "Communication Services"
+    },
+    {
+      "rank": 54,
+      "ticker": "NOW",
+      "company_name": "Servicenow Inc",
+      "total_holders": 784,
+      "medium_stakes": 212,
+      "large_stakes": 9,
+      "value_owned_billions": 146.17,
+      "sector": "Technology"
+    },
+    {
+      "rank": 55,
+      "ticker": "NEE",
+      "company_name": "Nextera Energy Inc",
+      "total_holders": 782,
+      "medium_stakes": 141,
+      "large_stakes": 3,
+      "value_owned_billions": 106.46,
+      "sector": "Utilities"
+    },
+    {
+      "rank": 56,
+      "ticker": "T",
+      "company_name": "At&t Inc",
+      "total_holders": 775,
+      "medium_stakes": 78,
+      "large_stakes": 4,
+      "value_owned_billions": 114.75,
+      "sector": "Communication Services"
+    },
+    {
+      "rank": 57,
+      "ticker": "UNP",
+      "company_name": "Union Pac Corp",
+      "total_holders": 775,
+      "medium_stakes": 139,
+      "large_stakes": 4,
+      "value_owned_billions": 99.1,
+      "sector": "Industrials"
+    },
+    {
+      "rank": 58,
+      "ticker": "WFC",
+      "company_name": "Wells Fargo Co New",
+      "total_holders": 769,
+      "medium_stakes": 140,
+      "large_stakes": 6,
+      "value_owned_billions": 176.35,
+      "sector": "Finance"
+    },
+    {
+      "rank": 59,
+      "ticker": "PM",
+      "company_name": "Philip Morris Intl Inc",
+      "total_holders": 768,
+      "medium_stakes": 142,
+      "large_stakes": 7,
+      "value_owned_billions": 187.08,
+      "sector": "Consumer Staples"
+    },
+    {
+      "rank": 60,
+      "ticker": "LOW",
+      "company_name": "Lowes Cos Inc",
+      "total_holders": 763,
+      "medium_stakes": 140,
+      "large_stakes": 3,
+      "value_owned_billions": 92.24,
+      "sector": "Consumer Discretionary"
+    },
+    {
+      "rank": 61,
+      "ticker": "HON",
+      "company_name": "Honeywell Intl Inc",
+      "total_holders": 762,
+      "medium_stakes": 125,
+      "large_stakes": 1,
+      "value_owned_billions": 88.6,
+      "sector": "Industrials"
+    },
+    {
+      "rank": 62,
+      "ticker": "QQQ",
+      "company_name": "Invesco Qqq Tr",
+      "total_holders": 760,
+      "medium_stakes": 285,
+      "large_stakes": 54,
+      "value_owned_billions": 79.04,
+      "sector": "n/a"
+    },
+    {
+      "rank": 63,
+      "ticker": "TJX",
+      "company_name": "Tjx Cos Inc New",
+      "total_holders": 760,
+      "medium_stakes": 176,
+      "large_stakes": 5,
+      "value_owned_billions": 119.47,
+      "sector": "Consumer Discretionary"
+    },
+    {
+      "rank": 64,
+      "ticker": "AMAT",
+      "company_name": "Applied Matls Inc",
+      "total_holders": 744,
+      "medium_stakes": 156,
+      "large_stakes": 14,
+      "value_owned_billions": 112.63,
+      "sector": "Technology"
+    },
+    {
+      "rank": 65,
+      "ticker": "ISRG",
+      "company_name": "Intuitive Surgical Inc",
+      "total_holders": 744,
+      "medium_stakes": 152,
+      "large_stakes": 4,
+      "value_owned_billions": 117.21,
+      "sector": "Health Care"
+    },
+    {
+      "rank": 66,
+      "ticker": "LMT",
+      "company_name": "Lockheed Martin Corp",
+      "total_holders": 732,
+      "medium_stakes": 113,
+      "large_stakes": 1,
+      "value_owned_billions": 74.35,
+      "sector": "Industrials"
+    },
+    {
+      "rank": 67,
+      "ticker": "TXN",
+      "company_name": "Texas Instrs Inc",
+      "total_holders": 732,
+      "medium_stakes": 105,
+      "large_stakes": 2,
+      "value_owned_billions": 124.4,
+      "sector": "Technology"
+    },
+    {
+      "rank": 68,
+      "ticker": "SCHW",
+      "company_name": "Schwab Charles Corp",
+      "total_holders": 729,
+      "medium_stakes": 137,
+      "large_stakes": 9,
+      "value_owned_billions": 113.39,
+      "sector": "Finance"
+    },
+    {
+      "rank": 69,
+      "ticker": "BA",
+      "company_name": "Boeing Co",
+      "total_holders": 727,
+      "medium_stakes": 118,
+      "large_stakes": 7,
+      "value_owned_billions": 110.81,
+      "sector": "Industrials"
+    },
+    {
+      "rank": 70,
+      "ticker": "C",
+      "company_name": "Citigroup Inc",
+      "total_holders": 726,
+      "medium_stakes": 146,
+      "large_stakes": 14,
+      "value_owned_billions": 125.59,
+      "sector": "Finance"
+    },
+    {
+      "rank": 71,
+      "ticker": "SBUX",
+      "company_name": "Starbucks Corp",
+      "total_holders": 724,
+      "medium_stakes": 76,
+      "large_stakes": 2,
+      "value_owned_billions": 68.06,
+      "sector": "Consumer Discretionary"
+    },
+    {
+      "rank": 72,
+      "ticker": "DHR",
+      "company_name": "Danaher Corporation",
+      "total_holders": 720,
+      "medium_stakes": 126,
+      "large_stakes": 4,
+      "value_owned_billions": 94.06,
+      "sector": "Health Care"
+    },
+    {
+      "rank": 73,
+      "ticker": "MS",
+      "company_name": "Morgan Stanley",
+      "total_holders": 716,
+      "medium_stakes": 125,
+      "large_stakes": 4,
+      "value_owned_billions": 137.53,
+      "sector": "Finance"
+    },
+    {
+      "rank": 74,
+      "ticker": "SYK",
+      "company_name": "Stryker Corporation",
+      "total_holders": 716,
+      "medium_stakes": 138,
+      "large_stakes": 6,
+      "value_owned_billions": 92.73,
+      "sector": "Health Care"
+    },
+    {
+      "rank": 75,
+      "ticker": "BX",
+      "company_name": "Blackstone Inc",
+      "total_holders": 714,
+      "medium_stakes": 133,
+      "large_stakes": 11,
+      "value_owned_billions": 74.13,
+      "sector": "Finance"
+    },
+    {
+      "rank": 76,
+      "ticker": "LRCX",
+      "company_name": "Lam Research Corp",
+      "total_holders": 713,
+      "medium_stakes": 161,
+      "large_stakes": 11,
+      "value_owned_billions": 123,
+      "sector": "Technology"
+    },
+    {
+      "rank": 77,
+      "ticker": "ETN",
+      "company_name": "Eaton Corp Plc",
+      "total_holders": 709,
+      "medium_stakes": 155,
+      "large_stakes": 3,
+      "value_owned_billions": 101.76,
+      "sector": "Industrials"
+    },
+    {
+      "rank": 78,
+      "ticker": "BMY",
+      "company_name": "Bristol-myers Squibb Co",
+      "total_holders": 708,
+      "medium_stakes": 50,
+      "large_stakes": 2,
+      "value_owned_billions": 63.42,
+      "sector": "Health Care"
+    },
+    {
+      "rank": 79,
+      "ticker": "INTU",
+      "company_name": "Intuit",
+      "total_holders": 708,
+      "medium_stakes": 140,
+      "large_stakes": 5,
+      "value_owned_billions": 137.86,
+      "sector": "Technology"
+    },
+    {
+      "rank": 80,
+      "ticker": "MU",
+      "company_name": "Micron Technology Inc",
+      "total_holders": 708,
+      "medium_stakes": 154,
+      "large_stakes": 10,
+      "value_owned_billions": 134.09,
+      "sector": "Technology"
+    },
+    {
+      "rank": 81,
+      "ticker": "DE",
+      "company_name": "Deere & Co",
+      "total_holders": 706,
+      "medium_stakes": 82,
+      "large_stakes": 5,
+      "value_owned_billions": 76.04,
+      "sector": "Industrials"
+    },
+    {
+      "rank": 82,
+      "ticker": "IVV",
+      "company_name": "Ishares Tr",
+      "total_holders": 705,
+      "medium_stakes": 265,
+      "large_stakes": 62,
+      "value_owned_billions": 273.1,
+      "sector": "Other"
+    },
+    {
+      "rank": 83,
+      "ticker": "NKE",
+      "company_name": "Nike Inc",
+      "total_holders": 703,
+      "medium_stakes": 88,
+      "large_stakes": 1,
+      "value_owned_billions": 57.37,
+      "sector": "Consumer Discretionary"
+    },
+    {
+      "rank": 84,
+      "ticker": "ADP",
+      "company_name": "Automatic Data Processing In",
+      "total_holders": 701,
+      "medium_stakes": 93,
+      "large_stakes": 2,
+      "value_owned_billions": 78.93,
+      "sector": "Technology"
+    },
+    {
+      "rank": 85,
+      "ticker": "COP",
+      "company_name": "Conocophillips",
+      "total_holders": 695,
+      "medium_stakes": 61,
+      "large_stakes": 1,
+      "value_owned_billions": 86.53,
+      "sector": "Energy"
+    },
+    {
+      "rank": 86,
+      "ticker": "INTC",
+      "company_name": "Intel Corp",
+      "total_holders": 691,
+      "medium_stakes": 64,
+      "large_stakes": 3,
+      "value_owned_billions": 88.44,
+      "sector": "Technology"
+    },
+    {
+      "rank": 87,
+      "ticker": "VOO",
+      "company_name": "Vanguard Index Fds",
+      "total_holders": 688,
+      "medium_stakes": 236,
+      "large_stakes": 59,
+      "value_owned_billions": 151.7,
+      "sector": "Finance"
+    },
+    {
+      "rank": 88,
+      "ticker": "CMCSA",
+      "company_name": "Comcast Corp New",
+      "total_holders": 686,
+      "medium_stakes": 46,
+      "large_stakes": 4,
+      "value_owned_billions": 80.09,
+      "sector": "Communication Services"
+    },
+    {
+      "rank": 89,
+      "ticker": "BKNG",
+      "company_name": "Booking Holdings Inc",
+      "total_holders": 685,
+      "medium_stakes": 186,
+      "large_stakes": 14,
+      "value_owned_billions": 135.97,
+      "sector": "Consumer Discretionary"
+    },
+    {
+      "rank": 90,
+      "ticker": "BLK",
+      "company_name": "Blackrock Inc",
+      "total_holders": 679,
+      "medium_stakes": 138,
+      "large_stakes": 6,
+      "value_owned_billions": 115.27,
+      "sector": "Finance"
+    },
+    {
+      "rank": 91,
+      "ticker": "MO",
+      "company_name": "Altria Group Inc",
+      "total_holders": 678,
+      "medium_stakes": 44,
+      "large_stakes": 0,
+      "value_owned_billions": 59.07,
+      "sector": "Consumer Staples"
+    },
+    {
+      "rank": 92,
+      "ticker": "SPGI",
+      "company_name": "S&p Global Inc",
+      "total_holders": 678,
+      "medium_stakes": 126,
+      "large_stakes": 15,
+      "value_owned_billions": 107.73,
+      "sector": "Finance"
+    },
+    {
+      "rank": 93,
+      "ticker": "CRWD",
+      "company_name": "Crowdstrike Hldgs Inc",
+      "total_holders": 675,
+      "medium_stakes": 126,
+      "large_stakes": 9,
+      "value_owned_billions": 74.24,
+      "sector": "Technology"
+    },
+    {
+      "rank": 94,
+      "ticker": "ACN",
+      "company_name": "Accenture Plc Ireland",
+      "total_holders": 674,
+      "medium_stakes": 111,
+      "large_stakes": 0,
+      "value_owned_billions": 101.53,
+      "sector": "Technology"
+    },
+    {
+      "rank": 95,
+      "ticker": "WM",
+      "company_name": "Waste Mgmt Inc Del",
+      "total_holders": 668,
+      "medium_stakes": 94,
+      "large_stakes": 1,
+      "value_owned_billions": 51.64,
+      "sector": "Industrials"
+    },
+    {
+      "rank": 96,
+      "ticker": "COF",
+      "company_name": "Capital One Finl Corp",
+      "total_holders": 665,
+      "medium_stakes": 96,
+      "large_stakes": 14,
+      "value_owned_billions": 98.68,
+      "sector": "Finance"
+    },
+    {
+      "rank": 97,
+      "ticker": "MMM",
+      "company_name": "",
+      "total_holders": 3,
+      "medium_stakes": 0,
+      "large_stakes": 662,
+      "value_owned_billions": 51.8,
+      "sector": "Industrials"
+    },
+    {
+      "rank": 98,
+      "ticker": "ANET",
+      "company_name": "Arista Networks Inc",
+      "total_holders": 661,
+      "medium_stakes": 140,
+      "large_stakes": 9,
+      "value_owned_billions": 112.08,
+      "sector": "Technology"
+    },
+    {
+      "rank": 99,
+      "ticker": "LIN",
+      "company_name": "Linde Plc",
+      "total_holders": 653,
+      "medium_stakes": 132,
+      "large_stakes": 6,
+      "value_owned_billions": 154.01,
+      "sector": "Basic Materials"
+    },
+    {
+      "rank": 100,
+      "ticker": "GILD",
+      "company_name": "Gilead Sciences Inc",
+      "total_holders": 652,
+      "medium_stakes": 61,
+      "large_stakes": 1,
+      "value_owned_billions": 102.73,
+      "sector": "Health Care"
+    }
+  ]
+}
