@@ -30,7 +30,7 @@ function initializeFunds() {
                 value_millions: 0,              // $ 60.66B → 60660M
                 trade_value_millions: 0,        // $ 9.61B → 9610M
                 latest_activity_pct: 0,         // -14.92%
-                latest_activity_shares: 0,      // -4.94 (en millions)
+                latest_activity_shares: 0,      // variation en millions (-0.65 pour -645.6k)
                 avg_buy_price: 0,               // $39.59
                 price_change_pct: 0,            // (+585.8%)
                 sector: '',                     // Technology
@@ -106,7 +106,7 @@ function createFundSections() {
                         🔹 <b>Header:</b> [Manager] 13F Portfolio<br>
                         🔹 <b>Info:</b> [Fund] | [Manager] | [Perf%] | [$AUM] | [Holdings#]<br>
                         🔹 <b>Holdings (Format Tableau):</b><br>
-                        &nbsp;&nbsp;&nbsp;&nbsp;Stock → Company → % Portfolio → Δ% → Shares → Value → ...<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;Stock → Company → % Portfolio → Δ% → Shares → Value → Trade → Latest Activity → ...<br>
                         🔹 <b>OU Format Vertical:</b> Chaque champ sur une ligne séparée
                     </div>
                 </div>
@@ -156,6 +156,7 @@ function createFundSections() {
                                 <th>Δ%</th>
                                 <th>Shares (M)</th>
                                 <th>Value ($M)</th>
+                                <th>Trade ($M)</th>
                                 <th>Activity %</th>
                                 <th>Δ Shares (M)</th>
                                 <th>Avg Price</th>
@@ -293,19 +294,19 @@ function parseActivityValue(str) {
     return match ? parseFloat(match[1]) : 0;
 }
 
-// "-34.3% (-645.5k)" -> -0.65 (millions)
+// "-34.3% (-645.6k)" -> -0.65 (millions)
 function parseActivityShares(str) {
     if (!str) return 0;
-    const match = str.match(/\(([+-]?[\d.]+)\s*([MBK])?\)/i);
+    const match = str.match(/\(([+-]?\d+\.?\d*)\s*([MBK])?\)/i);
     if (!match) return 0;
 
     let value = parseFloat(match[1]) || 0;
     const suffix = (match[2] || '').toUpperCase();
 
-    // On convertit tout en millions d'actions
-    if (suffix === 'B') value *= 1000;      // milliards -> millions
-    else if (suffix === 'K') value /= 1000; // milliers -> millions
-    // M ou rien = déjà en millions
+    // On convertit TOUT en millions d'actions
+    if (suffix === 'B') value *= 1000;      // milliards → millions
+    else if (suffix === 'K') value /= 1000; // milliers → millions
+    // M ou rien = déjà millions
 
     return value;
 }
@@ -319,7 +320,7 @@ function parsePriceChange(str) {
     return parseFloat(last.replace(/[()%]/g, '')) || 0;
 }
 
-// ===== PARSER FORMAT TABLEAU (copie d'une ligne complète avec \t) =====
+// ===== PARSER FORMAT TABLEAU =====
 // AAPL\tApple Inc\t22.69%\t0.38%\t238.21M\t$ 60.66B\t$ 9.61B\t-14.92% (-41.79M)\t$39.59 (+585.8%)\tTechnology\t2025-09-30
 
 function parseTableFormat(lines, startIdx, fundIndex) {
@@ -331,7 +332,6 @@ function parseTableFormat(lines, startIdx, fundIndex) {
         if (!line) continue;
 
         const cols = line.split('\t');
-        // On veut au moins toutes les colonnes du tableau HF
         if (cols.length < 11) continue;
 
         const firstColLower = cols[0].toLowerCase();
@@ -435,7 +435,6 @@ function parseVerticalFormat(lines, startIdx, fundIndex) {
                 sector = parts[0].trim();
                 date   = parts[1].trim();
             } else {
-                // Chercher une date YYYY-MM-DD à la fin
                 const m = sectorDateLine.match(/(.*?)(\d{4}-\d{2}-\d{2})$/);
                 if (m) {
                     sector = m[1].trim();
@@ -474,6 +473,14 @@ function parseVerticalFormat(lines, startIdx, fundIndex) {
 
 // Remplir les données d'un holding (inputs + structure JS)
 function fillHoldingData(fundIndex, holdingIndex, data) {
+    // Δ Shares en millions (sécurise string / number)
+    let activitySharesMillions = 0;
+    if (typeof data.activityShares === 'number') {
+        activitySharesMillions = data.activityShares;
+    } else if (typeof data.activityShares === 'string' && data.activityShares.trim() !== '') {
+        activitySharesMillions = parseActivityShares(`(${data.activityShares})`);
+    }
+
     // Inputs visibles
     document.getElementById(`ticker-${fundIndex}-${holdingIndex}`).value   = data.ticker;
     document.getElementById(`company-${fundIndex}-${holdingIndex}`).value  = data.company;
@@ -481,14 +488,9 @@ function fillHoldingData(fundIndex, holdingIndex, data) {
     document.getElementById(`delta-${fundIndex}-${holdingIndex}`).value    = data.deltaPct;
     document.getElementById(`shares-${fundIndex}-${holdingIndex}`).value   = data.shares.toFixed(2);
     document.getElementById(`value-${fundIndex}-${holdingIndex}`).value    = data.value.toFixed(2);
+    document.getElementById(`trade-${fundIndex}-${holdingIndex}`).value    = data.tradeValue.toFixed(2);
     document.getElementById(`activity-${fundIndex}-${holdingIndex}`).value = data.activity;
-
-    const actSharesVal = (data.activityShares ?? 0);
-    document.getElementById(`actshares-${fundIndex}-${holdingIndex}`).value =
-        typeof actSharesVal === 'number' && !isNaN(actSharesVal)
-            ? actSharesVal.toFixed(2)
-            : actSharesVal;
-
+    document.getElementById(`actshares-${fundIndex}-${holdingIndex}`).value = activitySharesMillions.toFixed(2);
     document.getElementById(`avgprice-${fundIndex}-${holdingIndex}`).value = data.avgPrice;
     document.getElementById(`sector-${fundIndex}-${holdingIndex}`).value   = data.sector;
 
@@ -501,7 +503,7 @@ function fillHoldingData(fundIndex, holdingIndex, data) {
     updateHoldingData(fundIndex, holdingIndex, 'value_millions',        data.value);
     updateHoldingData(fundIndex, holdingIndex, 'trade_value_millions',  data.tradeValue);
     updateHoldingData(fundIndex, holdingIndex, 'latest_activity_pct',   data.activity);
-    updateHoldingData(fundIndex, holdingIndex, 'latest_activity_shares',data.activityShares ?? 0);
+    updateHoldingData(fundIndex, holdingIndex, 'latest_activity_shares',activitySharesMillions);
     updateHoldingData(fundIndex, holdingIndex, 'avg_buy_price',         data.avgPrice);
     updateHoldingData(fundIndex, holdingIndex, 'price_change_pct',      data.priceChange);
     updateHoldingData(fundIndex, holdingIndex, 'sector',                data.sector);
@@ -519,20 +521,15 @@ function smartParse(fundIndex) {
         return;
     }
     
-    // Split en lignes et nettoyer
     const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
     
-    // Reset status
     statusDiv.className = 'parse-status';
     statusDiv.textContent = '⏳ Parsing en cours...';
     
-    // 1. Parser le header du fond
     const headerEndIdx = parseFundHeader(lines, fundIndex);
     
-    // 2. Déterminer le format (tableau avec tabs ou vertical)
     let holdingsParsed = 0;
     
-    // Chercher si on a un format tableau (présence de tabs dans les holdings)
     let hasTableFormat = false;
     for (let i = headerEndIdx; i < Math.min(lines.length, headerEndIdx + 20); i++) {
         if (lines[i].split('\t').length >= 10) {
@@ -541,18 +538,15 @@ function smartParse(fundIndex) {
         }
     }
     
-    // 3. Parser les holdings selon le format détecté
     if (hasTableFormat) {
         holdingsParsed = parseTableFormat(lines, headerEndIdx, fundIndex);
     } else {
         holdingsParsed = parseVerticalFormat(lines, headerEndIdx, fundIndex);
     }
     
-    // Update UI
     updateProgress();
     updateTabBadge(fundIndex);
     
-    // Show status
     const format = hasTableFormat ? 'TABLEAU' : 'VERTICAL';
     let statusMessage = `✅ Parsing terminé (Format ${format}): `;
     if (fundsData[fundIndex].fund_name) {
@@ -561,7 +555,6 @@ function smartParse(fundIndex) {
     statusMessage += `${holdingsParsed} holdings parsés`;
     showStatus(statusDiv, 'success', statusMessage);
     
-    // Clear textarea après succès
     textarea.value = '';
 }
 
@@ -596,7 +589,6 @@ function updateTabBadge(fundIndex) {
         badge.style.display = 'inline-block';
         badge.className = count >= 10 ? 'tab-badge complete' : 'tab-badge';
         
-        // Update tab name with fund name if available
         const tab = document.getElementById(`tab-${fundIndex}`);
         if (fundsData[fundIndex].fund_name) {
             tab.innerHTML = fundsData[fundIndex].fund_name.substring(0, 15);
@@ -607,7 +599,7 @@ function updateTabBadge(fundIndex) {
     }
 }
 
-// Create holdings rows HTML (avec Δ Shares en Millions)
+// Create holdings rows HTML (avec Trade & Δ Shares)
 function createHoldingsRows(fundIndex) {
     let html = '';
     for (let j = 0; j < NUM_HOLDINGS; j++) {
@@ -626,20 +618,14 @@ function createHoldingsRows(fundIndex) {
                         onchange="updateHoldingData(${fundIndex}, ${j}, 'shares_owned_millions', parseFloat(this.value) || 0)"></td>
                 <td><input type="number" step="0.01" id="value-${fundIndex}-${j}" style="width: 90px;"
                         onchange="updateHoldingData(${fundIndex}, ${j}, 'value_millions', parseFloat(this.value) || 0)"></td>
-
-                <!-- Activity en % -->
+                <td><input type="number" step="0.01" id="trade-${fundIndex}-${j}" style="width: 90px;"
+                        onchange="updateHoldingData(${fundIndex}, ${j}, 'trade_value_millions', parseFloat(this.value) || 0)"></td>
                 <td><input type="number" step="any" id="activity-${fundIndex}-${j}" style="width: 70px;"
                         onchange="updateHoldingData(${fundIndex}, ${j}, 'latest_activity_pct', parseFloat(this.value) || 0)"></td>
-
-                <!-- Δ Shares en millions -->
                 <td><input type="number" step="0.01" id="actshares-${fundIndex}-${j}" style="width: 80px;"
                         onchange="updateHoldingData(${fundIndex}, ${j}, 'latest_activity_shares', parseFloat(this.value) || 0)"></td>
-
-                <!-- Average buy price -->
                 <td><input type="number" step="0.01" id="avgprice-${fundIndex}-${j}" style="width: 70px;"
                         onchange="updateHoldingData(${fundIndex}, ${j}, 'avg_buy_price', parseFloat(this.value) || 0)"></td>
-
-                <!-- Sector -->
                 <td><input type="text" id="sector-${fundIndex}-${j}" style="width: 100px;"
                         onchange="updateHoldingData(${fundIndex}, ${j}, 'sector', this.value)"></td>
             </tr>
@@ -681,12 +667,10 @@ function updateTabStatus(fundIndex) {
 function switchTab(index) {
     currentTab = index;
     
-    // Update tabs
     document.querySelectorAll('.tab').forEach((tab, i) => {
         tab.classList.toggle('active', i === index);
     });
     
-    // Update sections
     document.querySelectorAll('.fund-section').forEach((section, i) => {
         section.classList.toggle('active', i === index);
     });
@@ -696,7 +680,6 @@ function switchTab(index) {
 function generateJSON() {
     const today = new Date().toISOString().split('T')[0];
     
-    // Clean up data
     const cleanedFunds = fundsData
         .filter(fund => fund.fund_name && fund.fund_name.trim() !== '')
         .map(fund => ({
@@ -711,7 +694,6 @@ function generateJSON() {
                 }))
         }));
     
-    // Calculate universe stats
     const allTickers = new Set();
     const tickerCounts = {};
     const sectorCounts = {};
@@ -729,12 +711,10 @@ function generateJSON() {
         });
     });
     
-    // Sort tickers by count
     const sortedTickers = Object.entries(tickerCounts)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 30);
     
-    // Sort sectors
     const sortedSectors = Object.entries(sectorCounts)
         .sort((a, b) => b[1] - a[1]);
     
@@ -763,12 +743,10 @@ function generateJSON() {
         }
     };
     
-    // Display preview
     const preview = document.getElementById('jsonPreview');
     preview.style.display = 'block';
     preview.textContent = JSON.stringify(jsonData, null, 2);
     
-    // Update stats
     updateStats(cleanedFunds, allTickers);
     
     return jsonData;
@@ -837,7 +815,6 @@ function updateStats(funds, tickers) {
         document.getElementById('statAvgPerf').textContent = 
             funds.length > 0 ? (totalPerf / funds.length).toFixed(2) + '%' : '0%';
         
-        // Ajouter AUM total si élément existe
         if (document.getElementById('statTotalAUM')) {
             document.getElementById('statTotalAUM').textContent = `$${totalAUM.toFixed(1)}B`;
         }
@@ -855,7 +832,6 @@ function loadFromLocalStorage() {
     if (saved) {
         fundsData = JSON.parse(saved);
         
-        // Populate form fields
         fundsData.forEach((fund, i) => {
             if (fund.fund_name) {
                 document.getElementById(`fund-name-${i}`).value = fund.fund_name;
@@ -867,25 +843,27 @@ function loadFromLocalStorage() {
             
             fund.holdings.forEach((holding, j) => {
                 if (holding.ticker) {
-                    document.getElementById(`ticker-${i}-${j}`).value   = holding.ticker;
-                    document.getElementById(`company-${i}-${j}`).value  = holding.company_name;
-                    document.getElementById(`pct-${i}-${j}`).value      = holding.portfolio_pct;
-                    document.getElementById(`delta-${i}-${j}`).value    = holding.delta_portfolio_pct;
-                    document.getElementById(`shares-${i}-${j}`).value   = holding.shares_owned_millions;
-                    document.getElementById(`value-${i}-${j}`).value    = holding.value_millions;
+                    document.getElementById(`ticker-${i}-${j}`).value = holding.ticker;
+                    document.getElementById(`company-${i}-${j}`).value = holding.company_name;
+                    document.getElementById(`pct-${i}-${j}`).value = holding.portfolio_pct;
+                    document.getElementById(`delta-${i}-${j}`).value = holding.delta_portfolio_pct;
+                    document.getElementById(`shares-${i}-${j}`).value = holding.shares_owned_millions;
+                    document.getElementById(`value-${i}-${j}`).value = holding.value_millions;
+                    document.getElementById(`trade-${i}-${j}`).value = holding.trade_value_millions || 0;
                     document.getElementById(`activity-${i}-${j}`).value = holding.latest_activity_pct;
 
                     // Δ Shares (M) - compatible ancienne sauvegarde (string type "-4.94M")
                     let actShares = holding.latest_activity_shares;
-                    if (typeof actShares === 'string') {
+                    if (typeof actShares === 'string' && actShares.trim() !== '') {
                         actShares = parseActivityShares(`(${actShares})`);
                     }
-                    if (typeof actShares === 'number' && !isNaN(actShares)) {
-                        document.getElementById(`actshares-${i}-${j}`).value = actShares.toFixed(2);
+                    if (typeof actShares !== 'number' || isNaN(actShares)) {
+                        actShares = 0;
                     }
+                    document.getElementById(`actshares-${i}-${j}`).value = actShares.toFixed(2);
 
                     document.getElementById(`avgprice-${i}-${j}`).value = holding.avg_buy_price;
-                    document.getElementById(`sector-${i}-${j}`).value   = holding.sector || '';
+                    document.getElementById(`sector-${i}-${j}`).value = holding.sector || '';
                 }
             });
             updateTabStatus(i);
@@ -908,13 +886,11 @@ function clearAllData() {
         updateProgress();
         localStorage.removeItem('hedgeFollowDataV5');
         
-        // Reset tabs
         document.querySelectorAll('.tab').forEach((tab, i) => {
             tab.classList.remove('completed');
             tab.innerHTML = `Fund ${i + 1}`;
         });
         
-        // Reset badges
         for (let i = 0; i < NUM_FUNDS; i++) {
             const badge = document.getElementById(`badge-${i}`);
             if (badge) badge.style.display = 'none';
@@ -933,11 +909,9 @@ function analyzeData() {
         return;
     }
     
-    // Create analysis summary
     let analysis = '📊 ANALYSE HEDGEFOLLOW - TOP HEDGE FUNDS\n';
     analysis += '='.repeat(60) + '\n\n';
     
-    // Top funds by performance
     analysis += '🏆 TOP FONDS PAR PERFORMANCE:\n';
     jsonData.top_funds
         .sort((a, b) => b.performance_3y - a.performance_3y)
@@ -947,7 +921,6 @@ function analyzeData() {
             analysis += `   Performance: ${fund.performance_3y}% | AUM: $${fund.aum_billions}B | Holdings: ${fund.total_holdings}\n\n`;
         });
     
-    // Most held tickers
     analysis += '\n🎯 TICKERS LES PLUS DÉTENUS:\n';
     jsonData.smart_universe_summary.most_held_tickers
         .slice(0, 15)
@@ -955,7 +928,6 @@ function analyzeData() {
             analysis += `${i+1}. ${ticker.ticker}: ${ticker.count} fonds (${ticker.percentage})\n`;
         });
     
-    // Sector distribution
     if (jsonData.smart_universe_summary.sector_distribution.length > 0) {
         analysis += '\n📈 RÉPARTITION SECTORIELLE:\n';
         jsonData.smart_universe_summary.sector_distribution
@@ -965,7 +937,6 @@ function analyzeData() {
             });
     }
     
-    // Show in preview
     const preview = document.getElementById('jsonPreview');
     preview.style.display = 'block';
     preview.innerHTML = `<pre style="color: #00bcd4; font-size: 13px; font-family: 'Courier New', monospace;">${analysis}</pre>`;
@@ -977,12 +948,11 @@ window.onload = function() {
     createTabs();
     createFundSections();
     
-    // Messages console
-    console.log('💼 HedgeFollow Manual Collector V5.1 Fixed - Ready!');
+    console.log('💼 HedgeFollow Manual Collector V5.2 - Ready!');
     console.log('📋 Format: Exact HedgeFollow (Table ou Vertical)');
     console.log('💾 Auto-save: Enabled (localStorage)');
-    console.log('🎯 Parser adaptatif pour Performance 25Q3, 26Q1, etc.');
-    console.log('🔧 Colonnes corrigées: Sector, Avg Price, Latest Activity Shares (M)');
+    console.log('🎯 Latest Activity: %, Δ Shares (M)');
+    console.log('🔧 Colonnes: Trade Value, Δ Shares, Avg Price, Sector');
 };
 
 
