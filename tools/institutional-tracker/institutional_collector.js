@@ -110,14 +110,23 @@ function parseInstitutionalText() {
     let validationWarnings = [];
     let rank = 1;
 
-    // Format attendu par bloc (vertical) :
-    // L0: Ticker (NVDA)
-    // L1: Company Name
-    // L2: "1374    659    565" (stats)
-    // L3: "$ 2.73T" (value)
-    // L4: "Technology" (sector)
-    // L5: "$86,62" (52W min) → ignoré
-    // L6: "$212,19" (52W max) → ignoré
+    // Deux formats possibles :
+    // A) Nouveau (ce que tu as) :
+    //    L0: Ticker
+    //    L1: "Company Name 1374 659 565"
+    //    L2: "$ 2.73T"
+    //    L3: "Technology"
+    //    L4: "$86,62"
+    //    L5: "$212,19"
+    //
+    // B) Ancien (fallback) :
+    //    L0: Ticker
+    //    L1: "Company Name"
+    //    L2: "1374 659 565"
+    //    L3: "$ 2.73T"
+    //    L4: "Technology"
+    //    L5: "$86,62"
+    //    L6: "$212,19"
 
     for (let i = startIdx; i < lines.length; ) {
         const line = lines[i];
@@ -131,29 +140,53 @@ function parseInstitutionalText() {
 
         const ticker = line.toUpperCase();
 
-        // Vérif qu'on a assez de lignes pour un bloc minimal
-        if (i + 4 >= lines.length) {
+        // On a besoin d'au moins Ticker + Company + Stats/Value + Sector
+        if (i + 3 >= lines.length) {
             parseErrors++;
             break;
         }
 
-        const companyName = lines[i + 1] || '';
-        const statsLine   = lines[i + 2] || '';
-        const valueLine   = lines[i + 3] || '';
-        const sectorLine  = lines[i + 4] || '';
+        const line1 = lines[i + 1] || '';
+        const line2 = lines[i + 2] || '';
 
-        // Stats : "1374    659    565"
+        let companyName;
+        let statsLine;
+        let valueLine;
+        let sectorLine;
+        let baseStep; // nombre de lignes "utiles" consommées avant le 52W range
+
+        // --- Essaye d'abord le format A : "Company 1374 659 565" sur la même ligne ---
+        const tokens1 = line1.split(/\s+/).filter(Boolean);
+        const firstNumericIdx = tokens1.findIndex(tok => /\d/.test(tok));
+
+        if (firstNumericIdx !== -1 && tokens1.length - firstNumericIdx >= 3) {
+            // On a "Nom Société + 3 nombres" sur la même ligne
+            companyName = tokens1.slice(0, firstNumericIdx).join(' ');
+            statsLine   = tokens1.slice(firstNumericIdx).join(' ');
+            valueLine   = line2;
+            sectorLine  = lines[i + 3] || '';
+            baseStep    = 4; // ticker + (company+stats) + value + sector
+        } else {
+            // --- Fallback format B : company seule puis stats sur la ligne suivante ---
+            companyName = line1;
+            statsLine   = line2;
+            valueLine   = lines[i + 3] || '';
+            sectorLine  = lines[i + 4] || '';
+            baseStep    = 5; // ticker + company + stats + value + sector
+        }
+
+        // Stats : "1374 659 565"
         const statsParts = statsLine.split(/\s+/).filter(Boolean);
         const totalHolders = parseIntSafe(statsParts[0]);
         const mediumStakes = parseIntSafe(statsParts[1]);
         const largeStakes  = parseIntSafe(statsParts[2]);
 
         const valueOwnedB = parseValueOwnedBillions(valueLine);
-        
-        // Nettoyage du secteur (éviter de capturer un prix)
+
+        // Nettoyage du secteur (si jamais on a capté un prix par erreur)
         let sector = sectorLine;
         if (sector.startsWith('$')) {
-            sector = ''; // C'est probablement le 52W range
+            sector = '';
         }
 
         const stock = {
@@ -176,13 +209,14 @@ function parseInstitutionalText() {
         institutionalStocks.push(stock);
 
         // On saute le bloc :
-        // 5 lignes "utiles" + éventuellement 2 lignes de 52W range
-        let step = 5;
-        if (i + 6 < lines.length &&
-            /^\$/.test(lines[i + 5]) &&
-            /^\$/.test(lines[i + 6])) {
-            step = 7; // skip 52W range
+        // baseStep lignes "utiles" + éventuellement 2 lignes de 52W range
+        let step = baseStep;
+        if (i + step + 1 < lines.length &&
+            /^\$/.test(lines[i + step]) &&
+            /^\$/.test(lines[i + step + 1])) {
+            step += 2; // skip les 2 lignes 52W
         }
+
         i += step;
     }
 
@@ -210,7 +244,7 @@ function parseInstitutionalText() {
         msg += `\n⚠️ ${validationWarnings.length} warnings de validation (voir console)`;
         console.warn('Validation warnings:', validationWarnings);
     }
-    
+
     console.log(msg);
     if (parseErrors > 0 || validationWarnings.length > 0) {
         alert(msg);
