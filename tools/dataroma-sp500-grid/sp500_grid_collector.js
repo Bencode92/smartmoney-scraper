@@ -1,15 +1,12 @@
 /**
  * Dataroma S&P500 Grid Collector
- * Version: 1.0.0
- * 
- * Dual-metric collector:
- * - % of total portfolio (ownership)
- * - Last 6 months buys
+ * Version: 1.1.0
  * 
  * Features:
- * - Sequential import with state preservation
- * - Composite score calculation
- * - Rank normalization
+ * - Dual-metric: Ownership + 6M Buys
+ * - Zero-value support (white cells)
+ * - Composite scoring with bonus
+ * - Validation & anti-duplicate checks
  * - Secure token handling
  */
 
@@ -25,9 +22,11 @@ const GITHUB_CONFIG = {
 let sessionToken = null;
 
 // Data stores
-let ownershipData = [];  // { ticker, rank, score }
-let buysData = [];       // { ticker, rank, score }
-let compositeData = [];  // { ticker, ownership_rank, buys_rank, composite_score, bonus }
+let ownershipData = [];      // { ticker, rank, score } - tickers > 0
+let buysData = [];           // { ticker, rank, score } - tickers > 0
+let ownershipZeroData = [];  // tickers explicitement = 0
+let buysZeroData = [];       // tickers explicitement = 0
+let compositeData = [];      // merged results
 
 // ============ GITHUB TOKEN ============
 function getGitHubToken() {
@@ -45,35 +44,52 @@ function clearToken() {
     showStatus('githubStatus', 'info', '🔑 Token effacé');
 }
 
+// ============ UI TOGGLE ============
+function toggleZeroSection(type) {
+    const content = document.getElementById(`zeroContent${type.charAt(0).toUpperCase() + type.slice(1)}`);
+    const arrow = document.getElementById(`arrow${type.charAt(0).toUpperCase() + type.slice(1)}Zero`);
+    const toggle = arrow.parentElement;
+    
+    content.classList.toggle('open');
+    toggle.classList.toggle('open');
+}
+
 // ============ PARSING ============
 function parseTickers(text) {
     if (!text || !text.trim()) return [];
     
-    // Split by whitespace (spaces, tabs, newlines)
     const tickers = text
         .toUpperCase()
-        .split(/\s+/)
+        .split(/[\s,;]+/)
         .map(t => t.trim())
-        .filter(t => t.length >= 1 && t.length <= 5)
-        .filter(t => /^[A-Z.]+$/.test(t));  // Only letters and dots (BRK.B)
+        .filter(t => t.length >= 1 && t.length <= 6)
+        .filter(t => /^[A-Z.]+$/.test(t));
     
-    // Remove duplicates while preserving order
     return [...new Set(tickers)];
 }
 
 function calculateScore(rank, total) {
-    // Normalized score: 100 for rank 1, decreasing
-    // Using inverse log scale for better distribution
+    // Log-normalized score: better distribution than linear
     return Math.round((1 - Math.log(rank) / Math.log(total + 1)) * 100);
 }
 
+// --- Ownership ---
 function parseOwnership() {
     const text = document.getElementById('inputOwnership').value;
     const tickers = parseTickers(text);
     
     if (tickers.length === 0) {
-        showStatus('statusOwnership', 'error', '❌ Aucun ticker valide trouvé');
+        showStatus('statusOwnership', 'error', '❌ Aucun ticker valide');
         return;
+    }
+    
+    // Check for conflicts with zero list
+    const conflicts = tickers.filter(t => ownershipZeroData.includes(t));
+    if (conflicts.length > 0) {
+        // Remove conflicts from zero list
+        ownershipZeroData = ownershipZeroData.filter(t => !conflicts.includes(t));
+        showStatus('statusOwnership', 'warning', 
+            `⚠️ ${conflicts.length} tickers retirés de la liste zéro: ${conflicts.slice(0,3).join(', ')}...`);
     }
     
     ownershipData = tickers.map((ticker, idx) => ({
@@ -87,13 +103,49 @@ function parseOwnership() {
     calculateComposite();
 }
 
+function parseOwnershipZero() {
+    const text = document.getElementById('inputOwnershipZero').value;
+    const tickers = parseTickers(text);
+    
+    if (tickers.length === 0) {
+        showStatus('statusOwnership', 'error', '❌ Aucun ticker valide');
+        return;
+    }
+    
+    // Check for conflicts with >0 list
+    const existingTickers = new Set(ownershipData.map(d => d.ticker));
+    const conflicts = tickers.filter(t => existingTickers.has(t));
+    
+    if (conflicts.length > 0) {
+        showStatus('statusOwnership', 'warning', 
+            `⚠️ ${conflicts.length} tickers ignorés (déjà dans liste >0): ${conflicts.slice(0,3).join(', ')}`);
+    }
+    
+    // Only add non-conflicting tickers
+    ownershipZeroData = tickers.filter(t => !existingTickers.has(t));
+    
+    document.getElementById('badgeOwnershipZero').textContent = ownershipZeroData.length;
+    showStatus('statusOwnership', 'success', `🧊 ${ownershipZeroData.length} tickers marqués 0%`);
+    updateState();
+    calculateComposite();
+}
+
+// --- Buys ---
 function parseBuys() {
     const text = document.getElementById('inputBuys').value;
     const tickers = parseTickers(text);
     
     if (tickers.length === 0) {
-        showStatus('statusBuys', 'error', '❌ Aucun ticker valide trouvé');
+        showStatus('statusBuys', 'error', '❌ Aucun ticker valide');
         return;
+    }
+    
+    // Check for conflicts with zero list
+    const conflicts = tickers.filter(t => buysZeroData.includes(t));
+    if (conflicts.length > 0) {
+        buysZeroData = buysZeroData.filter(t => !conflicts.includes(t));
+        showStatus('statusBuys', 'warning', 
+            `⚠️ ${conflicts.length} tickers retirés de la liste zéro`);
     }
     
     buysData = tickers.map((ticker, idx) => ({
@@ -107,9 +159,37 @@ function parseBuys() {
     calculateComposite();
 }
 
+function parseBuysZero() {
+    const text = document.getElementById('inputBuysZero').value;
+    const tickers = parseTickers(text);
+    
+    if (tickers.length === 0) {
+        showStatus('statusBuys', 'error', '❌ Aucun ticker valide');
+        return;
+    }
+    
+    const existingTickers = new Set(buysData.map(d => d.ticker));
+    const conflicts = tickers.filter(t => existingTickers.has(t));
+    
+    if (conflicts.length > 0) {
+        showStatus('statusBuys', 'warning', 
+            `⚠️ ${conflicts.length} tickers ignorés (déjà dans liste >0)`);
+    }
+    
+    buysZeroData = tickers.filter(t => !existingTickers.has(t));
+    
+    document.getElementById('badgeBuysZero').textContent = buysZeroData.length;
+    showStatus('statusBuys', 'success', `🧊 ${buysZeroData.length} tickers marqués 0 buy`);
+    updateState();
+    calculateComposite();
+}
+
 // ============ COMPOSITE CALCULATION ============
 function calculateComposite() {
-    if (ownershipData.length === 0 && buysData.length === 0) {
+    const hasData = ownershipData.length > 0 || buysData.length > 0 || 
+                    ownershipZeroData.length > 0 || buysZeroData.length > 0;
+    
+    if (!hasData) {
         compositeData = [];
         updateUI();
         return;
@@ -118,15 +198,24 @@ function calculateComposite() {
     // Create lookup maps
     const ownershipMap = new Map(ownershipData.map(d => [d.ticker, d]));
     const buysMap = new Map(buysData.map(d => [d.ticker, d]));
+    const ownershipZeroSet = new Set(ownershipZeroData);
+    const buysZeroSet = new Set(buysZeroData);
     
-    // Find tickers in both lists
-    const allTickers = new Set([...ownershipMap.keys(), ...buysMap.keys()]);
+    // All unique tickers
+    const allTickers = new Set([
+        ...ownershipMap.keys(),
+        ...buysMap.keys(),
+        ...ownershipZeroSet,
+        ...buysZeroSet
+    ]);
     
     compositeData = [];
     
     allTickers.forEach(ticker => {
         const inOwnership = ownershipMap.has(ticker);
         const inBuys = buysMap.has(ticker);
+        const isZeroOwnership = ownershipZeroSet.has(ticker);
+        const isZeroBuys = buysZeroSet.has(ticker);
         
         const ownershipRank = inOwnership ? ownershipMap.get(ticker).rank : null;
         const buysRank = inBuys ? buysMap.get(ticker).rank : null;
@@ -136,20 +225,30 @@ function calculateComposite() {
         let compositeScore = 0;
         let bonus = false;
         
+        // Calculate composite score
         if (inOwnership && inBuys) {
-            // Average of both scores
+            // Best case: present in both >0 lists
             compositeScore = (ownershipScore + buysScore) / 2;
             
-            // Bonus: top 50 in both = +20%
+            // Bonus for top 50 in both
             if (ownershipRank <= 50 && buysRank <= 50) {
                 compositeScore *= 1.2;
                 bonus = true;
             }
-        } else if (inOwnership) {
-            compositeScore = ownershipScore * 0.5;  // Penalty for single list
-        } else {
+        } else if (inOwnership && !inBuys && !isZeroBuys) {
+            // Only in ownership, buys unknown
+            compositeScore = ownershipScore * 0.5;
+        } else if (!inOwnership && inBuys && !isZeroOwnership) {
+            // Only in buys, ownership unknown
             compositeScore = buysScore * 0.5;
+        } else if (inOwnership && isZeroBuys) {
+            // In ownership but explicitly 0 buys
+            compositeScore = ownershipScore * 0.3; // Penalized
+        } else if (isZeroOwnership && inBuys) {
+            // Explicitly 0 ownership but has buys (unusual)
+            compositeScore = buysScore * 0.4;
         }
+        // Both zero = score 0 (already default)
         
         compositeData.push({
             ticker,
@@ -157,6 +256,8 @@ function calculateComposite() {
             buys_rank: buysRank,
             ownership_score: ownershipScore,
             buys_score: buysScore,
+            ownership_zero: isZeroOwnership,
+            buys_zero: isZeroBuys,
             composite_score: Math.round(compositeScore),
             in_both: inOwnership && inBuys,
             bonus
@@ -171,28 +272,32 @@ function calculateComposite() {
 
 // ============ UI UPDATES ============
 function updateState() {
-    // Ownership indicator
-    const dotOwnership = document.getElementById('dotOwnership');
-    const countOwnership = document.getElementById('countOwnership');
-    dotOwnership.classList.toggle('loaded', ownershipData.length > 0);
-    countOwnership.textContent = ownershipData.length;
+    // Ownership
+    document.getElementById('dotOwnership').classList.toggle('loaded', ownershipData.length > 0);
+    document.getElementById('countOwnership').textContent = ownershipData.length;
     
-    // Buys indicator
-    const dotBuys = document.getElementById('dotBuys');
-    const countBuys = document.getElementById('countBuys');
-    dotBuys.classList.toggle('loaded', buysData.length > 0);
-    countBuys.textContent = buysData.length;
+    // Ownership Zero
+    document.getElementById('dotOwnershipZero').classList.toggle('loaded', ownershipZeroData.length > 0);
+    document.getElementById('countOwnershipZero').textContent = ownershipZeroData.length;
+    document.getElementById('badgeOwnershipZero').textContent = ownershipZeroData.length;
     
-    // Composite indicator
-    const dotComposite = document.getElementById('dotComposite');
-    const countComposite = document.getElementById('countComposite');
+    // Buys
+    document.getElementById('dotBuys').classList.toggle('loaded', buysData.length > 0);
+    document.getElementById('countBuys').textContent = buysData.length;
+    
+    // Buys Zero
+    document.getElementById('dotBuysZero').classList.toggle('loaded', buysZeroData.length > 0);
+    document.getElementById('countBuysZero').textContent = buysZeroData.length;
+    document.getElementById('badgeBuysZero').textContent = buysZeroData.length;
+    
+    // Composite
     const inBoth = compositeData.filter(d => d.in_both).length;
-    dotComposite.classList.toggle('loaded', inBoth > 0);
-    countComposite.textContent = inBoth;
+    document.getElementById('dotComposite').classList.toggle('loaded', inBoth > 0);
+    document.getElementById('countComposite').textContent = inBoth;
 }
 
 function updateUI() {
-    const hasData = ownershipData.length > 0 || buysData.length > 0;
+    const hasData = compositeData.length > 0;
     
     document.getElementById('statsGrid').style.display = hasData ? 'grid' : 'none';
     document.getElementById('actionsCard').style.display = hasData ? 'block' : 'none';
@@ -205,23 +310,25 @@ function updateUI() {
     // Stats
     const inBoth = compositeData.filter(d => d.in_both);
     const top50Both = inBoth.filter(d => d.ownership_rank <= 50 && d.buys_rank <= 50);
-    const ownershipOnly = compositeData.filter(d => d.ownership_rank && !d.buys_rank).length;
-    const buysOnly = compositeData.filter(d => !d.ownership_rank && d.buys_rank).length;
+    const ownershipOnly = compositeData.filter(d => d.ownership_rank && !d.buys_rank && !d.buys_zero).length;
+    const buysOnly = compositeData.filter(d => !d.ownership_rank && d.buys_rank && !d.ownership_zero).length;
     
     document.getElementById('statTotal').textContent = compositeData.length;
     document.getElementById('statBoth').textContent = inBoth.length;
     document.getElementById('statTop50Both').textContent = top50Both.length;
     document.getElementById('statOwnershipOnly').textContent = ownershipOnly;
     document.getElementById('statBuysOnly').textContent = buysOnly;
+    document.getElementById('statZeroOwnership').textContent = ownershipZeroData.length;
+    document.getElementById('statZeroBuys').textContent = buysZeroData.length;
     
-    // Composite table (only show tickers in both lists)
+    // Composite table
     if (inBoth.length > 0) {
         document.getElementById('compositeCard').style.display = 'block';
         
         const tbody = document.getElementById('compositeBody');
         tbody.innerHTML = inBoth
             .sort((a, b) => b.composite_score - a.composite_score)
-            .slice(0, 50)  // Top 50
+            .slice(0, 50)
             .map((d, idx) => `
                 <tr class="${d.bonus ? 'composite-high' : ''}">
                     <td>${idx + 1}</td>
@@ -252,25 +359,34 @@ function generateJSON() {
             url: 'https://www.dataroma.com/m/g/portfolio_b.php',
             as_of: today,
             description: 'S&P500 stocks ranked by superinvestor ownership and recent buying activity',
-            collector_version: '1.0.0'
+            collector_version: '1.1.0',
+            includes_zero_data: ownershipZeroData.length > 0 || buysZeroData.length > 0
         },
         summary: {
             total_unique_tickers: compositeData.length,
             ownership_count: ownershipData.length,
+            ownership_zero_count: ownershipZeroData.length,
             buys_6m_count: buysData.length,
+            buys_zero_count: buysZeroData.length,
             in_both_lists: compositeData.filter(d => d.in_both).length,
             top_50_both: compositeData.filter(d => d.in_both && d.ownership_rank <= 50 && d.buys_rank <= 50).length
         },
         sp500_ownership: ownershipData,
+        sp500_ownership_zero: ownershipZeroData,
         sp500_6m_buys: buysData,
-        composite_rankings: compositeData.filter(d => d.in_both).map((d, idx) => ({
-            composite_rank: idx + 1,
-            ticker: d.ticker,
-            ownership_rank: d.ownership_rank,
-            buys_rank: d.buys_rank,
-            composite_score: d.composite_score,
-            top_50_bonus: d.bonus
-        }))
+        sp500_buys_zero: buysZeroData,
+        composite_rankings: compositeData
+            .filter(d => d.composite_score > 0)
+            .map((d, idx) => ({
+                composite_rank: idx + 1,
+                ticker: d.ticker,
+                ownership_rank: d.ownership_rank,
+                buys_rank: d.buys_rank,
+                composite_score: d.composite_score,
+                top_50_bonus: d.bonus,
+                ownership_zero: d.ownership_zero || false,
+                buys_zero: d.buys_zero || false
+            }))
     };
 }
 
@@ -287,7 +403,7 @@ function toggleJSONPreview() {
 // ============ DOWNLOAD ============
 function downloadJSON() {
     if (compositeData.length === 0) {
-        showStatus('githubStatus', 'error', '❌ Aucune donnée à télécharger');
+        showStatus('githubStatus', 'error', '❌ Aucune donnée');
         return;
     }
     
@@ -307,16 +423,18 @@ function downloadJSON() {
 // ============ GITHUB PUSH ============
 async function pushToGitHub() {
     if (compositeData.length === 0) {
-        showStatus('githubStatus', 'error', '❌ Aucune donnée à pusher');
+        showStatus('githubStatus', 'error', '❌ Aucune donnée');
         return;
     }
     
-    // Validation
-    if (ownershipData.length === 0 || buysData.length === 0) {
+    // Validation warnings
+    const warnings = [];
+    if (ownershipData.length === 0) warnings.push('Ownership vide');
+    if (buysData.length === 0) warnings.push('6M Buys vide');
+    
+    if (warnings.length > 0) {
         const proceed = confirm(
-            '⚠️ Une seule métrique est chargée.\n\n' +
-            'Recommandé: charger Ownership ET 6M Buys pour le score composite.\n\n' +
-            'Continuer quand même?'
+            `⚠️ Attention:\n- ${warnings.join('\n- ')}\n\nContinuer?`
         );
         if (!proceed) return;
     }
@@ -338,7 +456,6 @@ async function pushToGitHub() {
     showStatus('githubStatus', 'info', '⏳ Push en cours...');
     
     try {
-        // Check existing
         let sha = null;
         const checkUrl = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${filePath}?ref=${GITHUB_CONFIG.branch}`;
         
@@ -354,11 +471,10 @@ async function pushToGitHub() {
             sha = existing.sha;
         }
         
-        // Push
         const putUrl = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${filePath}`;
         
         const body = {
-            message: `📊 Update S&P500 Grid ${today} - ${compositeData.length} tickers`,
+            message: `📊 Update S&P500 Grid ${today} - ${compositeData.length} tickers (${ownershipZeroData.length + buysZeroData.length} zeros)`,
             content: content,
             branch: GITHUB_CONFIG.branch
         };
@@ -388,7 +504,7 @@ async function pushToGitHub() {
         
         if (err.message && err.message.includes('Bad credentials')) {
             sessionToken = null;
-            showStatus('githubStatus', 'error', '❌ Token invalide.');
+            showStatus('githubStatus', 'error', '❌ Token invalide');
         } else {
             showStatus('githubStatus', 'error', `❌ Erreur: ${err.message}`);
         }
@@ -405,9 +521,11 @@ function showStatus(elementId, type, message) {
 function clearInput(type) {
     if (type === 'ownership') {
         document.getElementById('inputOwnership').value = '';
+        document.getElementById('inputOwnershipZero').value = '';
         document.getElementById('statusOwnership').className = 'status';
     } else {
         document.getElementById('inputBuys').value = '';
+        document.getElementById('inputBuysZero').value = '';
         document.getElementById('statusBuys').className = 'status';
     }
 }
@@ -417,10 +535,14 @@ function resetAll() {
     
     ownershipData = [];
     buysData = [];
+    ownershipZeroData = [];
+    buysZeroData = [];
     compositeData = [];
     
     document.getElementById('inputOwnership').value = '';
+    document.getElementById('inputOwnershipZero').value = '';
     document.getElementById('inputBuys').value = '';
+    document.getElementById('inputBuysZero').value = '';
     document.getElementById('statusOwnership').className = 'status';
     document.getElementById('statusBuys').className = 'status';
     document.getElementById('githubStatus').className = 'status';
@@ -430,6 +552,6 @@ function resetAll() {
 }
 
 // ============ INIT ============
-console.log('📊 S&P500 Grid Collector v1.0.0');
-console.log('📈 Metrics: Ownership + 6M Buys');
-console.log('🎯 Composite score with bonus for top 50 in both');
+console.log('📊 S&P500 Grid Collector v1.1.0');
+console.log('📈 Metrics: Ownership + 6M Buys + Zero support');
+console.log('🎯 Composite score with bonus + zero flags');
