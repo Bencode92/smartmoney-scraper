@@ -425,24 +425,31 @@
             
             <div class="controls">
                 <button class="btn btn-primary" onclick="generateJSON()">
-                    <span>📥</span> Générer JSON
+                    📥 Générer JSON
                 </button>
-                <button class="btn btn-success" onclick="downloadJSON()">
-                    <span>💾</span> Télécharger JSON
+
+                <button class="btn btn-success" onclick="downloadJSONLocal()">
+                    💾 Download local
                 </button>
+
+                <button class="btn btn-github" onclick="pushToGitHub()">
+                    🚀 Push to GitHub
+                </button>
+
                 <button class="btn btn-info" onclick="analyzeData()">
-                    <span>📈</span> Analyser
+                    📈 Analyser
                 </button>
+
                 <button class="btn btn-warning" onclick="clearAllData()">
-                    <span>🗑️</span> Tout Effacer
+                    🗑️ Tout effacer
                 </button>
-                <button class="btn btn-primary" onclick="loadFromLocalStorage()">
-                    <span>📂</span> Charger
-                </button>
-                <button class="btn btn-success" onclick="saveToLocalStorage()">
-                    <span>💾</span> Sauvegarder
+
+                <button class="btn btn-secondary" onclick="clearGitHubToken()" title="Reset token GitHub">
+                    🔑 Reset token
                 </button>
             </div>
+
+            <div id="github-status" class="github-status"></div>
         </div>
 
         <div class="tabs" id="tabsContainer">
