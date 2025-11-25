@@ -238,7 +238,7 @@ function displayPreview() {
         <tr>
             <td><strong>${s.symbol}</strong></td>
             <td>${s.company_name}</td>
-            <td>${(s.portfolio_weight * 100).toFixed(2)}%</td>
+            <td>${s.portfolio_weight.toFixed(3)}%</td>
             <td>${s.buys_6m}</td>
             <td class="tier-${s.buys_tier.toLowerCase()}">${s.buys_tier}</td>
             <td>$${s.hold_price.toFixed(2)}</td>
@@ -249,7 +249,6 @@ function displayPreview() {
         </tr>
     `).join('');
 }
-
 // ============ JSON GENERATION ============
 function generateJSON() {
     const today = new Date().toISOString().split('T')[0];
