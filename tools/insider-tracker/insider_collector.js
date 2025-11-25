@@ -119,13 +119,16 @@ function parseInsiderText() {
         return;
     }
 
-    const lines = raw.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-    
-    // Détection du séparateur
+    // Lignes nettoyées
+    const lines = raw
+        .split('\n')
+        .map(l => l.replace(/\r/g, '').trim())
+        .filter(l => l.length > 0);
+
     const hasTab = raw.includes('\t');
-    const sep = hasTab ? '\t' : /\s{2,}/; // Tab ou multiple espaces
-    
-    // Trouver la ligne d'en-tête (optionnel)
+    const sep = hasTab ? '\t' : /\s{2,}/; // tab ou ≥2 espaces
+
+    // --- trouver la ligne d'en-tête ---
     let startIdx = 0;
     for (let i = 0; i < Math.min(lines.length, 5); i++) {
         const lower = lines[i].toLowerCase();
@@ -136,125 +139,234 @@ function parseInsiderText() {
     }
 
     insiderTrades = [];
+    filteredTrades = [];
+
+    // --- détection du format (row vs vertical) ---
+    let hasRowFormat = false;
+    for (let i = startIdx; i < Math.min(lines.length, startIdx + 30); i++) {
+        const parts = hasTab
+            ? lines[i].split('\t').map(c => c.trim()).filter(Boolean)
+            : lines[i].split(sep).map(c => c.trim()).filter(Boolean);
+
+        // Si on trouve une ligne avec beaucoup de colonnes, on considère que
+        // c'est un format "1 ligne = 1 trade"
+        if (parts.length >= 7) {
+            hasRowFormat = true;
+            break;
+        }
+    }
+
     let parseErrors = 0;
 
-    for (let i = startIdx; i < lines.length; i++) {
-        const line = lines[i];
-        if (!line || line.startsWith('---')) continue;
+    if (!hasRowFormat) {
+        // ---------- FORMAT VERTICAL (OpenInsider copier-coller) ----------
+        parseErrors = parseInsiderVerticalBlocks(lines, startIdx, hasTab, sep);
+    } else {
+        // ---------- FORMAT LIGNE PAR LIGNE (TSV/CSV) ----------
+        for (let i = startIdx; i < lines.length; i++) {
+            const line = lines[i];
+            if (!line || line.startsWith('---')) continue;
 
-        let cols;
-        if (hasTab) {
-            cols = line.split('\t').map(c => c.trim());
-        } else {
-            // Split par multiple espaces mais garder les noms composés
-            cols = line.split(sep).map(c => c.trim()).filter(c => c);
+            let cols = hasTab
+                ? line.split('\t').map(c => c.trim())
+                : line.split(sep).map(c => c.trim()).filter(c => c);
+
+            if (cols.length < 6) {
+                parseErrors++;
+                continue;
+            }
+
+            // Ticker
+            const tickerIdx = cols.findIndex(c => /^[A-Z]{1,6}$/.test(c));
+            let ticker = '';
+            let insiderCell = '';
+            let tradeType = '';
+            let changeSharesStr = '';
+            let avgPriceStr = '';
+            let transValueStr = '';
+            let sharesOwnedStr = '';
+            let title = '';
+            let tradeDate = '';
+            let filedDate = '';
+
+            if (tickerIdx >= 0) {
+                ticker           = cols[tickerIdx];
+                insiderCell      = cols[tickerIdx + 1] || '';
+                tradeType        = cols[tickerIdx + 2] || '';
+                changeSharesStr  = cols[tickerIdx + 3] || '';
+                avgPriceStr      = cols[tickerIdx + 4] || '';
+                transValueStr    = cols[tickerIdx + 5] || '';
+                sharesOwnedStr   = cols[tickerIdx + 6] || '';
+                title            = cols[tickerIdx + 7] || '';
+                tradeDate        = cols[tickerIdx + 8] || '';
+                filedDate        = cols[tickerIdx + 9] || '';
+            } else {
+                ticker           = cols[0];
+                insiderCell      = cols[1] || '';
+                tradeType        = cols[2] || '';
+                changeSharesStr  = cols[3] || '';
+                avgPriceStr      = cols[4] || '';
+                transValueStr    = cols[5] || '';
+                sharesOwnedStr   = cols[6] || '';
+                title            = cols[7] || '';
+                tradeDate        = cols[8] || '';
+                filedDate        = cols[9] || '';
+            }
+
+            if (!ticker || ticker.length > 6) continue;
+
+            const { name, role } = parseRole(insiderCell);
+            const direction = detectDirection(changeSharesStr, tradeType);
+
+            let changeShares = parseNumberWithSuffix(changeSharesStr);
+            if (direction === 'Sell' && changeShares > 0) changeShares = -changeShares;
+
+            const avgPrice        = parsePrice(avgPriceStr);
+            const transactionValue = parseNumberWithSuffix(transValueStr);
+            const sharesOwned     = parseNumberWithSuffix(sharesOwnedStr);
+
+            tradeDate = tradeDate.replace(/[^0-9-]/g, '');
+            filedDate = filedDate.replace(/[^0-9-]/g, '');
+
+            const trade = {
+                ticker: ticker.toUpperCase(),
+                insider_name: name,
+                role: role,
+                trade_type: tradeType,
+                direction: direction,
+                change_shares_millions: changeShares,
+                avg_price: avgPrice,
+                transaction_value_millions:
+                    direction === 'Sell' ? -Math.abs(transactionValue) : transactionValue,
+                shares_owned_millions: sharesOwned || null,
+                title: title,
+                trade_date: tradeDate,
+                filed_date: filedDate,
+                is_informative: false
+            };
+
+            trade.is_informative = isInformativeTrade(trade);
+            insiderTrades.push(trade);
         }
-        
-        if (cols.length < 6) {
-            parseErrors++;
+    }
+
+    // ---------- Post-traitement / affichage ----------
+    filteredTrades = [...insiderTrades];
+
+    const jsonData = generateInsiderJSON();
+    preview.textContent = JSON.stringify(jsonData, null, 2);
+
+    updateStats();
+    renderTradesTable();
+
+    document.getElementById('statsSection').style.display = 'grid';
+    document.getElementById('tradesPanel').hidden = false;
+    document.getElementById('progressBar').style.width = '100%';
+
+    const msg = `✅ ${insiderTrades.length} transactions parsées`;
+    if (parseErrors > 0) {
+        alert(`${msg}\n⚠️ ${parseErrors} lignes / blocs ignorés (format invalide)`);
+    } else {
+        console.log(msg);
+    }
+}
+
+// -------- PARSER FORMAT VERTICAL (OpenInsider copier-coller) --------
+// Bloc typique :
+// L0: TICKER + Nom         ex: "CNTB\tPanacea Innovation Ltd"
+// L1: Rôle                 ex: "10% Owner"
+// L2: Type de trade        ex: "Proposed Sale"
+// L3: Δ Shares             ex: "2M"
+// L4: Avg Price            ex: "$ 3"
+// L5: Transaction Value    ex: "$ 6M"
+// L6: Shares Owned         ex: "N/A" ou "296.79k"
+// L7: Title + Dates        ex: "Ordinary Shares\t2025-11-24\t2025-11-24"
+
+function parseInsiderVerticalBlocks(lines, startIdx, hasTab, sep) {
+    let parseErrors = 0;
+
+    for (let i = startIdx; i < lines.length; ) {
+        const line = lines[i];
+        if (!line) { i++; continue; }
+
+        const firstParts = hasTab
+            ? line.split('\t').map(c => c.trim()).filter(Boolean)
+            : line.split(sep).map(c => c.trim()).filter(Boolean);
+
+        const maybeTicker = firstParts[0];
+        if (!maybeTicker || !/^[A-Z]{1,6}$/.test(maybeTicker)) {
+            // pas un début de bloc, on avance
+            i++;
             continue;
         }
 
-        // Détection intelligente des colonnes
-        // Format OpenInsider: Stock | Insider | Trade | ΔShares | Price | Value | Owned | Title | Date | Filed
-        
-        let ticker = '';
-        let insiderCell = '';
-        let tradeType = '';
-        let changeSharesStr = '';
-        let avgPriceStr = '';
-        let transValueStr = '';
-        let sharesOwnedStr = '';
-        let title = '';
-        let tradeDate = '';
-        let filedDate = '';
-        
-        // Trouver le ticker (généralement 1-5 lettres majuscules)
-        const tickerIdx = cols.findIndex(c => /^[A-Z]{1,5}$/.test(c));
-        if (tickerIdx >= 0) {
-            ticker = cols[tickerIdx];
-            
-            // Le reste suit généralement dans l'ordre
-            insiderCell = cols[tickerIdx + 1] || '';
-            tradeType = cols[tickerIdx + 2] || '';
-            changeSharesStr = cols[tickerIdx + 3] || '';
-            avgPriceStr = cols[tickerIdx + 4] || '';
-            transValueStr = cols[tickerIdx + 5] || '';
-            sharesOwnedStr = cols[tickerIdx + 6] || '';
-            title = cols[tickerIdx + 7] || '';
-            tradeDate = cols[tickerIdx + 8] || '';
-            filedDate = cols[tickerIdx + 9] || '';
-        } else {
-            // Fallback: prendre dans l'ordre
-            ticker = cols[0];
-            insiderCell = cols[1] || '';
-            tradeType = cols[2] || '';
-            changeSharesStr = cols[3] || '';
-            avgPriceStr = cols[4] || '';
-            transValueStr = cols[5] || '';
-            sharesOwnedStr = cols[6] || '';
-            title = cols[7] || '';
-            tradeDate = cols[8] || '';
-            filedDate = cols[9] || '';
+        // On a besoin d'au moins 7 lignes supplémentaires pour un bloc complet
+        if (i + 7 >= lines.length) {
+            parseErrors++;
+            break;
         }
-        
-        // Skip si pas de ticker valide
-        if (!ticker || ticker.length > 6) continue;
-        
+
+        const ticker = maybeTicker.toUpperCase();
+        const insiderNameLine = firstParts[1] || '';
+
+        const roleLine        = (lines[i + 1] || '').trim();
+        const tradeTypeLine   = (lines[i + 2] || '').trim();
+        const changeLine      = (lines[i + 3] || '').trim();
+        const priceLine       = (lines[i + 4] || '').trim();
+        const valueLine       = (lines[i + 5] || '').trim();
+        const ownedLine       = (lines[i + 6] || '').trim();
+        const lastLine        = (lines[i + 7] || '').trim();
+
+        const lastParts = hasTab
+            ? lastLine.split('\t').map(c => c.trim()).filter(Boolean)
+            : lastLine.split(sep).map(c => c.trim()).filter(Boolean);
+
+        const title     = lastParts[0] || '';
+        let tradeDate   = lastParts[1] || '';
+        let filedDate   = lastParts[2] || '';
+
+        // Recompose "nom + rôle" puis applique ton parseur de rôle
+        const insiderCell = `${insiderNameLine} ${roleLine}`.trim();
         const { name, role } = parseRole(insiderCell);
-        const direction = detectDirection(changeSharesStr, tradeType);
-        
-        // Parse des valeurs numériques
-        let changeShares = parseNumberWithSuffix(changeSharesStr);
+        const direction = detectDirection(changeLine, tradeTypeLine);
+
+        // Nombres
+        let changeShares = parseNumberWithSuffix(changeLine);
         if (direction === 'Sell' && changeShares > 0) changeShares = -changeShares;
-        
-        const avgPrice = parsePrice(avgPriceStr);
-        const transactionValue = parseNumberWithSuffix(transValueStr);
-        const sharesOwned = parseNumberWithSuffix(sharesOwnedStr);
-        
-        // Nettoyage des dates
+
+        const avgPrice         = parsePrice(priceLine);
+        const transactionValue = parseNumberWithSuffix(valueLine);
+        const sharesOwned      = parseNumberWithSuffix(ownedLine);
+
+        // Nettoie les dates
         tradeDate = tradeDate.replace(/[^0-9-]/g, '');
         filedDate = filedDate.replace(/[^0-9-]/g, '');
 
         const trade = {
-            ticker: ticker.toUpperCase(),
+            ticker: ticker,
             insider_name: name,
             role: role,
-            trade_type: tradeType,
+            trade_type: tradeTypeLine,
             direction: direction,
             change_shares_millions: changeShares,
             avg_price: avgPrice,
-            transaction_value_millions: direction === 'Sell' ? -Math.abs(transactionValue) : transactionValue,
+            transaction_value_millions:
+                direction === 'Sell' ? -Math.abs(transactionValue) : transactionValue,
             shares_owned_millions: sharesOwned || null,
             title: title,
             trade_date: tradeDate,
             filed_date: filedDate,
-            is_informative: false // sera calculé après
+            is_informative: false
         };
-        
+
         trade.is_informative = isInformativeTrade(trade);
         insiderTrades.push(trade);
+
+        // on saute au bloc suivant
+        i += 8;
     }
 
-    filteredTrades = [...insiderTrades];
-    
-    // Affichage
-    const jsonData = generateInsiderJSON();
-    preview.textContent = JSON.stringify(jsonData, null, 2);
-    
-    updateStats();
-    renderTradesTable();
-    
-    document.getElementById('statsSection').style.display = 'grid';
-    document.getElementById('tradesPanel').hidden = false;
-    document.getElementById('progressBar').style.width = '100%';
-    
-    const msg = `✅ ${insiderTrades.length} transactions parsées`;
-    if (parseErrors > 0) {
-        alert(`${msg}\n⚠️ ${parseErrors} lignes ignorées (format invalide)`);
-    } else {
-        console.log(msg);
-    }
+    return parseErrors;
 }
 
 // ============== GÉNÉRATION JSON ==============
@@ -677,3 +789,4 @@ function clearAll() {
 
 console.log('🕵️ Insider Tracker - SmartMoney Scraper');
 console.log('📋 Colle le tableau d\'insider trades et clique Parser');
+
