@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dataroma Grand Portfolio Collector</title>
+    <style>
+        :root {
+            --bg-dark: #0d1117;
+            --bg-card: #161b22;
+            --border: #30363d;
+            --text: #c9d1d9;
+            --text-muted: #8b949e;
+            --accent: #58a6ff;
+            --success: #3fb950;
+            --warning: #d29922;
+            --error: #f85149;
+        }
+        
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        h1 {
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .badge {
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 12px;
+            background: var(--accent);
+            color: white;
+        }
+        
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .card h2 {
+            font-size: 16px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        textarea {
+            width: 100%;
+            min-height: 200px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text);
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 13px;
+            padding: 12px;
+            resize: vertical;
+        }
+        
+        textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+        
+        .btn-primary:hover { background: #4c9aed; }
+        
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+        
+        .btn-success:hover { background: #2ea043; }
+        
+        .btn-secondary {
+            background: var(--border);
+            color: var(--text);
+        }
+        
+        .btn-secondary:hover { background: #484f58; }
+        
+        .btn-warning {
+            background: var(--warning);
+            color: black;
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .status {
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-top: 16px;
+            font-size: 14px;
+            display: none;
+        }
+        
+        .status.success { display: block; background: rgba(63, 185, 80, 0.15); border: 1px solid var(--success); }
+        .status.error { display: block; background: rgba(248, 81, 73, 0.15); border: 1px solid var(--error); }
+        .status.warning { display: block; background: rgba(210, 153, 34, 0.15); border: 1px solid var(--warning); }
+        .status.info { display: block; background: rgba(88, 166, 255, 0.15); border: 1px solid var(--accent); }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 16px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--accent);
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        
+        th, td {
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        th {
+            background: var(--bg-dark);
+            font-weight: 600;
+            color: var(--text-muted);
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+        
+        tr:hover { background: rgba(88, 166, 255, 0.05); }
+        
+        .tier-a { color: var(--success); font-weight: 700; }
+        .tier-b { color: var(--warning); font-weight: 600; }
+        .tier-c { color: var(--text-muted); }
+        
+        .positive { color: var(--success); }
+        .negative { color: var(--error); }
+        
+        .preview-json {
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 16px;
+            max-height: 400px;
+            overflow: auto;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            display: none;
+        }
+        
+        .security-notice {
+            background: rgba(210, 153, 34, 0.1);
+            border: 1px solid var(--warning);
+            border-radius: 6px;
+            padding: 12px 16px;
+            font-size: 13px;
+            margin-bottom: 20px;
+        }
+        
+        .validation-list {
+            list-style: none;
+            font-size: 13px;
+        }
+        
+        .validation-list li {
+            padding: 4px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .validation-list .pass { color: var(--success); }
+        .validation-list .fail { color: var(--error); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>
+                📊 Dataroma Grand Portfolio
+                <span class="badge">v1.0 Secure</span>
+            </h1>
+            <div class="btn-group">
+                <button class="btn btn-secondary" onclick="clearToken()">🔑 Reset Token</button>
+            </div>
+        </header>
+        
+        <div class="security-notice">
+            🔒 <strong>Sécurité:</strong> Le token GitHub est stocké en mémoire uniquement (session). 
+            Il sera demandé à chaque rechargement de page.
+        </div>
+        
+        <!-- INPUT -->
+        <div class="card">
+            <h2>📋 Coller les données Dataroma</h2>
+            <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 13px;">
+                Copier le tableau depuis <a href="https://www.dataroma.com/m/g/portfolio.php" target="_blank" style="color: var(--accent);">dataroma.com/m/g/portfolio.php</a>
+                (sélectionner de Symbol jusqu'à la dernière ligne)
+            </p>
+            <textarea id="rawInput" placeholder="Symbol	Stock	%	Buys	Hold Price*	Current Price	52W Low	% Above 52W Low	52W High
+FISV	Fiserv Inc.	0.110	9	$128.93	$60.67	$59.56	1.86	$238.59
+UNH	United Health...	0.077	9	$342.30	$319.05	..."></textarea>
+            
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="parseData()">🚀 Parser les données</button>
+                <button class="btn btn-secondary" onclick="clearInput()">🗑️ Clear</button>
+                <button class="btn btn-secondary" onclick="loadExample()">📝 Exemple</button>
+            </div>
+            
+            <div id="parseStatus" class="status"></div>
+        </div>
+        
+        <!-- STATS -->
+        <div class="stats-grid" id="statsGrid" style="display: none;">
+            <div class="stat-card">
+                <div class="stat-value" id="statStocks">0</div>
+                <div class="stat-label">Stocks parsés</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statTierA">0</div>
+                <div class="stat-label">Tier A (≥8 buys)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statTierB">0</div>
+                <div class="stat-label">Tier B (6-7 buys)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statAvgBuys">0</div>
+                <div class="stat-label">Avg Buys</div>
+            </div>
+        </div>
+        
+        <!-- VALIDATION -->
+        <div class="card" id="validationCard" style="display: none;">
+            <h2>✅ Validation</h2>
+            <ul class="validation-list" id="validationList"></ul>
+        </div>
+        
+        <!-- PREVIEW TABLE -->
+        <div class="card" id="previewCard" style="display: none;">
+            <h2>📊 Aperçu des données</h2>
+            <div style="overflow-x: auto;">
+                <table id="previewTable">
+                    <thead>
+                        <tr>
+                            <th>Symbol</th>
+                            <th>Company</th>
+                            <th>Weight %</th>
+                            <th>Buys</th>
+                            <th>Tier</th>
+                            <th>Hold $</th>
+                            <th>Current $</th>
+                            <th>52W Low</th>
+                            <th>% Above Low</th>
+                            <th>52W High</th>
+                        </tr>
+                    </thead>
+                    <tbody id="previewBody"></tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- ACTIONS -->
+        <div class="card" id="actionsCard" style="display: none;">
+            <h2>💾 Actions</h2>
+            <div class="btn-group">
+                <button class="btn btn-success" onclick="pushToGitHub()">🚀 Push to GitHub</button>
+                <button class="btn btn-primary" onclick="downloadJSON()">📥 Download JSON</button>
+                <button class="btn btn-secondary" onclick="toggleJSONPreview()">👁️ Voir JSON</button>
+            </div>
+            <div id="githubStatus" class="status"></div>
+            <pre class="preview-json" id="jsonPreview"></pre>
+        </div>
+    </div>
+    
+    <script src="dataroma_grand_portfolio.js"></script>
+</body>
+</html>
