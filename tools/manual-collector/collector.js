@@ -941,6 +941,141 @@ function analyzeData() {
     preview.style.display = 'block';
     preview.innerHTML = `<pre style="color: #00bcd4; font-size: 13px; font-family: 'Courier New', monospace;">${analysis}</pre>`;
 }
+// ============ INTEGRATION GITHUB ============
+
+const GITHUB_CONFIG = {
+    owner: 'Bencode92',
+    repo: 'smartmoney-scraper',
+    branch: 'main',                    // change en 'master' si besoin
+    basePath: 'data/raw/hedgefollow'   // dossier dans ton repo
+};
+
+// Token stocké en localStorage (jamais dans le code)
+function getGitHubToken() {
+    let token = localStorage.getItem('github_token');
+    if (!token) {
+        token = prompt('🔑 Entre ton GitHub Personal Access Token (il sera stocké dans localStorage) :');
+        if (token) {
+            localStorage.setItem('github_token', token);
+        }
+    }
+    return token;
+}
+
+function clearGitHubToken() {
+    localStorage.removeItem('github_token');
+    alert('🗑️ Token GitHub supprimé du navigateur');
+}
+
+// Download local classique (si tu veux le garder)
+function downloadJSONLocal() {
+    const jsonData = generateJSON();
+    const blob = new Blob([JSON.stringify(jsonData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const today = new Date().toISOString().split('T')[0];
+    a.href = url;
+    a.download = `hedgefollow_manual_${today}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+async function pushToGitHub() {
+    const token = getGitHubToken();
+    if (!token) {
+        alert('❌ Token GitHub requis');
+        return;
+    }
+
+    const jsonData = generateJSON();
+    if (!jsonData.top_funds || jsonData.top_funds.length === 0) {
+        alert('⚠️ Aucun fond à sauvegarder');
+        return;
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    const filename = `hedgefollow_manual_${today}.json`;
+    const filePath = `${GITHUB_CONFIG.basePath}/${filename}`;
+
+    // Encodage en base64 pour l’API GitHub
+    const jsonString = JSON.stringify(jsonData, null, 2);
+    const content = btoa(unescape(encodeURIComponent(jsonString)));
+
+    const statusDiv = document.getElementById('github-status');
+    if (statusDiv) {
+        statusDiv.textContent = '⏳ Push en cours vers GitHub...';
+        statusDiv.className = 'github-status pending';
+    }
+
+    try {
+        // 1) Vérifier si le fichier existe déjà (pour récupérer le SHA)
+        let sha = null;
+        const checkUrl = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${filePath}?ref=${GITHUB_CONFIG.branch}`;
+
+        const checkResp = await fetch(checkUrl, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/vnd.github.v3+json'
+            }
+        });
+
+        if (checkResp.ok) {
+            const existingFile = await checkResp.json();
+            sha = existingFile.sha;
+        }
+
+        // 2) Créer / mettre à jour le fichier
+        const putUrl = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${filePath}`;
+
+        const body = {
+            message: `📊 Update hedgefollow data ${today} - ${jsonData.top_funds.length} fonds`,
+            content: content,
+            branch: GITHUB_CONFIG.branch
+        };
+        if (sha) {
+            body.sha = sha; // nécessaire pour un update
+        }
+
+        const putResp = await fetch(putUrl, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/vnd.github.v3+json',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(body)
+        });
+
+        const result = await putResp.json();
+
+        if (!putResp.ok) {
+            throw new Error(result.message || 'Erreur GitHub API');
+        }
+
+        if (statusDiv) {
+            statusDiv.innerHTML = `✅ Push réussi ! <a href="${result.content.html_url}" target="_blank">Voir sur GitHub</a>`;
+            statusDiv.className = 'github-status success';
+        }
+
+        alert(`✅ Fichier pushé : ${filePath}`);
+
+    } catch (err) {
+        console.error('GitHub push error:', err);
+
+        const statusDiv = document.getElementById('github-status');
+        if (statusDiv) {
+            statusDiv.textContent = `❌ Erreur: ${err.message}`;
+            statusDiv.className = 'github-status error';
+        }
+
+        if (err.message && err.message.includes('Bad credentials')) {
+            localStorage.removeItem('github_token');
+            alert('❌ Token invalide. Il a été supprimé, réessaie avec un nouveau token.');
+        } else {
+            alert(`❌ Erreur push GitHub: ${err.message}`);
+        }
+    }
+}
 
 // Initialize on load
 window.onload = function() {
@@ -954,5 +1089,3 @@ window.onload = function() {
     console.log('🎯 Latest Activity: %, Δ Shares (M)');
     console.log('🔧 Colonnes: Trade Value, Δ Shares, Avg Price, Sector');
 };
-
-
