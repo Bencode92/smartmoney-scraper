@@ -37,7 +37,7 @@ function parseValueOwnedBillions(str) {
         .replace(/,/g, '')
         .trim();
 
-    const m = s.match/([\d.]+)\s*([TBMK])?/i);
+    const m = s.match(/([\d.]+)\s*([TBMK])?/i);
     if (!m) return 0;
 
     let value = parseFloat(m[1]) || 0;
