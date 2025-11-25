@@ -305,6 +305,30 @@
         .metric-badge.ownership { background: var(--accent); color: white; }
         .metric-badge.buys { background: var(--success); color: white; }
         
+        /* FORMAT HINT BOX */
+        .format-hint {
+            background: rgba(88, 166, 255, 0.1);
+            border: 1px solid var(--accent);
+            border-radius: 6px;
+            padding: 10px 12px;
+            margin-bottom: 12px;
+            font-size: 11px;
+        }
+        
+        .format-hint code {
+            background: var(--bg-dark);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Monaco', monospace;
+            color: var(--accent);
+        }
+        
+        .format-hint .example {
+            color: var(--text-muted);
+            margin-top: 6px;
+            font-style: italic;
+        }
+        
         /* COLLAPSIBLE ZERO SECTION */
         .zero-section {
             margin-top: 16px;
@@ -366,7 +390,7 @@
         <header>
             <h1>
                 📊 S&P500 Grid Collector
-                <span class="badge">Dual Metric + Zero</span>
+                <span class="badge">v1.2 Custom Values</span>
             </h1>
             <div class="btn-group">
                 <button class="btn btn-secondary" onclick="clearToken()">🔑 Reset Token</button>
@@ -403,11 +427,25 @@
             <!-- OWNERSHIP -->
             <div class="card">
                 <h2>📈 % of Total Portfolio <span class="metric-badge ownership">Ownership</span></h2>
+                
+                <!-- FORMAT HINT -->
+                <div class="format-hint">
+                    <strong>🎯 Format avancé:</strong> Ajoute un score avec <code>TICKER:valeur</code> ou <code>TICKER=valeur</code><br>
+                    <div class="example">
+                        Ex: <code>MSFT:5 AMZN:5 META:3 AAPL V MA</code> → scores custom + auto-rank
+                    </div>
+                </div>
+                
                 <p class="help-text">
-                    Copier les tickers <strong>colorés</strong> (ceux avec % > 0)
+                    Copier les tickers <strong>colorés</strong>. Optionnel: ajouter des scores par bloc de couleur.
                 </p>
-                <textarea id="inputOwnership" placeholder="MSFT AMZN GOOGL AAPL META...
-Coller les tickers colorés (gauche→droite, haut→bas)"></textarea>
+                <textarea id="inputOwnership" placeholder="Format simple:
+MSFT AMZN GOOGL AAPL META V MA
+
+Format avancé (avec scores par intensité de couleur):
+MSFT:5 AMZN:5 META:5
+BRK.B:3 GOOGL:3 AAPL:3
+V:1 MA:1 GE:1"></textarea>
                 <div class="btn-group">
                     <button class="btn btn-primary" onclick="parseOwnership()">🚀 Parser Ownership</button>
                     <button class="btn btn-secondary" onclick="clearInput('ownership')">Clear</button>
@@ -435,11 +473,25 @@ Coller les tickers colorés (gauche→droite, haut→bas)"></textarea>
             <!-- 6M BUYS -->
             <div class="card">
                 <h2>🛒 Last 6 Months Buys <span class="metric-badge buys">Buys</span></h2>
+                
+                <!-- FORMAT HINT -->
+                <div class="format-hint">
+                    <strong>🎯 Format avancé:</strong> Ajoute un score avec <code>TICKER:valeur</code> ou <code>TICKER=valeur</code><br>
+                    <div class="example">
+                        Ex: <code>NVDA:10 GOOGL:8 AMZN:5</code> → nombre de buys ou score maison
+                    </div>
+                </div>
+                
                 <p class="help-text">
-                    Copier les tickers <strong>colorés</strong> (ceux avec buys > 0)
+                    Copier les tickers <strong>colorés</strong>. Optionnel: ajouter le nombre de buys.
                 </p>
-                <textarea id="inputBuys" placeholder="NVDA GOOGL AMZN TSM...
-Coller les tickers colorés (gauche→droite, haut→bas)"></textarea>
+                <textarea id="inputBuys" placeholder="Format simple:
+NVDA GOOGL AMZN TSM META
+
+Format avancé (avec nombre de buys):
+NVDA:10 GOOGL:8 AMZN:8
+META:5 TSM:5 V:5
+MSFT:2 AAPL:2"></textarea>
                 <div class="btn-group">
                     <button class="btn btn-success" onclick="parseBuys()">🚀 Parser 6M Buys</button>
                     <button class="btn btn-secondary" onclick="clearInput('buys')">Clear</button>
@@ -480,12 +532,8 @@ Coller les tickers colorés (gauche→droite, haut→bas)"></textarea>
                 <div class="stat-label">Top 50 both</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value" id="statOwnershipOnly">0</div>
-                <div class="stat-label">Ownership only</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value" id="statBuysOnly">0</div>
-                <div class="stat-label">Buys only</div>
+                <div class="stat-value" id="statCustomValues">0</div>
+                <div class="stat-label">Custom Values</div>
             </div>
             <div class="stat-card">
                 <div class="stat-value muted" id="statZeroOwnership">0</div>
@@ -506,9 +554,11 @@ Coller les tickers colorés (gauche→droite, haut→bas)"></textarea>
                         <tr>
                             <th>#</th>
                             <th>Ticker</th>
-                            <th>Ownership Rank</th>
+                            <th>Own Rank</th>
+                            <th>Own Raw</th>
                             <th>Buys Rank</th>
-                            <th>Composite Score</th>
+                            <th>Buys Raw</th>
+                            <th>Composite</th>
                             <th>Flags</th>
                         </tr>
                     </thead>
