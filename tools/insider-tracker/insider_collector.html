@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🕵️ Insider Tracker - SmartMoney Scraper</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            padding: 20px;
+            min-height: 100vh;
+            color: #e5e7eb;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%);
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            border: 1px solid #3b82f6;
+        }
+        
+        .header h1 {
+            color: #fff;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .header p {
+            color: #94a3b8;
+            margin-bottom: 20px;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(59, 130, 246, 0.4);
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+        }
+        
+        .btn-warning {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+        }
+        
+        .btn-github {
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #475569;
+            color: white;
+            padding: 12px 12px;
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        @media (max-width: 1200px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .panel {
+            background: #1e293b;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            border: 1px solid #334155;
+        }
+        
+        .panel h2 {
+            color: #f8fafc;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 18px;
+        }
+        
+        .paste-zone {
+            margin-bottom: 15px;
+        }
+        
+        .paste-textarea {
+            width: 100%;
+            min-height: 300px;
+            padding: 15px;
+            border: 2px dashed #475569;
+            border-radius: 10px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 11px;
+            background: #0f172a;
+            color: #e2e8f0;
+            resize: vertical;
+            transition: all 0.3s;
+        }
+        
+        .paste-textarea:focus {
+            border-color: #3b82f6;
+            border-style: solid;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+            outline: none;
+        }
+        
+        .paste-textarea::placeholder {
+            color: #64748b;
+        }
+        
+        .format-hint {
+            background: #0f172a;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 11px;
+            color: #94a3b8;
+            border-left: 3px solid #3b82f6;
+            margin-top: 10px;
+        }
+        
+        .json-preview {
+            background: #0f172a;
+            color: #10b981;
+            padding: 15px;
+            border-radius: 10px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 11px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #1e3a5f 0%, #1e293b 100%);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            border: 1px solid #334155;
+        }
+        
+        .stat-card .value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #3b82f6;
+        }
+        
+        .stat-card .value.positive {
+            color: #10b981;
+        }
+        
+        .stat-card .value.negative {
+            color: #ef4444;
+        }
+        
+        .stat-card .label {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-top: 5px;
+            text-transform: uppercase;
+        }
+        
+        .alert-section {
+            margin-top: 20px;
+        }
+        
+        .alert {
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .alert-danger {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid #ef4444;
+            color: #fca5a5;
+        }
+        
+        .alert-warning {
+            background: rgba(245, 158, 11, 0.15);
+            border: 1px solid #f59e0b;
+            color: #fcd34d;
+        }
+        
+        .alert-success {
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid #10b981;
+            color: #6ee7b7;
+        }
+        
+        .alert-info {
+            background: rgba(59, 130, 246, 0.15);
+            border: 1px solid #3b82f6;
+            color: #93c5fd;
+        }
+        
+        .trades-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            font-size: 12px;
+        }
+        
+        .trades-table th {
+            background: #0f172a;
+            color: #94a3b8;
+            padding: 10px 8px;
+            text-align: left;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 10px;
+            border-bottom: 2px solid #334155;
+        }
+        
+        .trades-table td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #1e293b;
+            color: #e2e8f0;
+        }
+        
+        .trades-table tr:hover {
+            background: rgba(59, 130, 246, 0.1);
+        }
+        
+        .badge {
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 600;
+        }
+        
+        .badge-sell {
+            background: rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+        }
+        
+        .badge-buy {
+            background: rgba(16, 185, 129, 0.2);
+            color: #6ee7b7;
+        }
+        
+        .ticker-link {
+            color: #3b82f6;
+            font-weight: 600;
+            text-decoration: none;
+        }
+        
+        .ticker-link:hover {
+            text-decoration: underline;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #1e293b;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 15px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%);
+            transition: width 0.3s;
+        }
+        
+        .github-status {
+            margin-top: 15px;
+            padding: 12px 15px;
+            border-radius: 8px;
+            font-size: 13px;
+        }
+        
+        .github-status.pending {
+            background: rgba(245, 158, 11, 0.15);
+            border: 1px solid #f59e0b;
+            color: #fcd34d;
+        }
+        
+        .github-status.success {
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid #10b981;
+            color: #6ee7b7;
+        }
+        
+        .github-status.error {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid #ef4444;
+            color: #fca5a5;
+        }
+        
+        .github-status a {
+            color: inherit;
+            font-weight: bold;
+        }
+        
+        .filter-section {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .filter-btn {
+            padding: 6px 12px;
+            border: 1px solid #475569;
+            border-radius: 6px;
+            background: transparent;
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+        
+        .filter-btn:hover,
+        .filter-btn.active {
+            background: #3b82f6;
+            border-color: #3b82f6;
+            color: white;
+        }
+        
+        .signal-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        
+        .signal-bullish { background: #10b981; }
+        .signal-bearish { background: #ef4444; }
+        .signal-neutral { background: #6b7280; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>
+                <span>🕵️</span>
+                Insider Tracker - SmartMoney Scraper
+            </h1>
+            <p>Collecte et analyse des transactions insiders (Form 4 SEC)</p>
+            
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressBar" style="width: 0%"></div>
+            </div>
+            
+            <div class="controls">
+                <button class="btn btn-primary" onclick="parseInsiderText()">
+                    <span>🧩</span> Parser
+                </button>
+                <button class="btn btn-success" onclick="downloadInsiderJSON()">
+                    <span>💾</span> Download JSON
+                </button>
+                <button class="btn btn-github" onclick="pushToGitHub()">
+                    <span>🚀</span> Push to GitHub
+                </button>
+                <button class="btn btn-warning" onclick="analyzeSignals()">
+                    <span>📊</span> Analyser Signaux
+                </button>
+                <button class="btn btn-danger" onclick="clearAll()">
+                    <span>🗑️</span> Clear
+                </button>
+                <button class="btn btn-secondary" onclick="clearGitHubToken()" title="Reset GitHub token">
+                    <span>🔑</span>
+                </button>
+            </div>
+            
+            <div id="github-status" class="github-status" style="display:none;"></div>
+        </div>
+        
+        <!-- Stats Section -->
+        <div class="stats-grid" id="statsSection" style="display:none;">
+            <div class="stat-card">
+                <div class="value" id="statTotal">0</div>
+                <div class="label">Transactions</div>
+            </div>
+            <div class="stat-card">
+                <div class="value negative" id="statSells">0</div>
+                <div class="label">Ventes</div>
+            </div>
+            <div class="stat-card">
+                <div class="value positive" id="statBuys">0</div>
+                <div class="label">Achats</div>
+            </div>
+            <div class="stat-card">
+                <div class="value" id="statTickers">0</div>
+                <div class="label">Tickers</div>
+            </div>
+            <div class="stat-card">
+                <div class="value negative" id="statSellVolume">$0</div>
+                <div class="label">Vol. Ventes</div>
+            </div>
+            <div class="stat-card">
+                <div class="value positive" id="statBuyVolume">$0</div>
+                <div class="label">Vol. Achats</div>
+            </div>
+        </div>
+        
+        <!-- Alerts Section -->
+        <div class="alert-section" id="alertsSection" style="display:none;"></div>
+        
+        <div class="main-content">
+            <!-- Left Panel: Input -->
+            <div class="panel">
+                <h2><span>📋</span> Copier-Coller Insider Data</h2>
+                
+                <div class="paste-zone">
+                    <textarea 
+                        class="paste-textarea"
+                        id="insider-paste" 
+                        placeholder="📋 COLLER ICI le tableau d'insider trades
+
+Formats supportés:
+• OpenInsider (tableau complet)
+• Finviz Insider Trading
+• Export CSV/TSV
+
+Colonnes attendues:
+Stock | Insider Name/Role | Trade | Change in Shares | Avg Price | Transaction Value | Shares Owned | Title | Date | Filed
+
+Exemple:
+RDDT    Wong Jennifer L.    Sale Plan    ↓ 40.97k    $ 192.72    $ 7.90M    62.13k    Class A Common    2025-11-24    2025-11-24
+PLTR    Taylor Ryan D.    Sale Plan    ↓ 36.05k    $ 162.37    $ 5.85M    251.41k    Class A Common    2025-11-24    2025-11-24"
+                        rows="15"
+                    ></textarea>
+                </div>
+                
+                <div class="format-hint">
+                    <strong>💡 Astuce:</strong> Sur OpenInsider, sélectionne tout le tableau (Ctrl+A dans le tableau) puis Ctrl+C. 
+                    Les flèches ↓↑ et les suffixes k/M/B sont automatiquement parsés.
+                </div>
+            </div>
+            
+            <!-- Right Panel: Preview -->
+            <div class="panel">
+                <h2><span>📄</span> Prévisualisation JSON</h2>
+                <pre class="json-preview" id="json-preview">// Le JSON apparaîtra ici après parsing...</pre>
+            </div>
+        </div>
+        
+        <!-- Trades Table -->
+        <div class="panel" style="margin-top: 20px;" id="tradesPanel" hidden>
+            <h2><span>📊</span> Transactions Parsées</h2>
+            
+            <div class="filter-section">
+                <button class="filter-btn active" onclick="filterTrades('all')">Toutes</button>
+                <button class="filter-btn" onclick="filterTrades('sell')">🔴 Ventes</button>
+                <button class="filter-btn" onclick="filterTrades('buy')">🟢 Achats</button>
+                <button class="filter-btn" onclick="filterTrades('ceo')">👔 CEO/CFO</button>
+                <button class="filter-btn" onclick="filterTrades('large')">💰 >$5M</button>
+            </div>
+            
+            <div style="overflow-x: auto;">
+                <table class="trades-table" id="tradesTable">
+                    <thead>
+                        <tr>
+                            <th>Ticker</th>
+                            <th>Insider</th>
+                            <th>Role</th>
+                            <th>Type</th>
+                            <th>Direction</th>
+                            <th>Shares</th>
+                            <th>Prix</th>
+                            <th>Valeur</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tradesBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="insider_collector.js"></script>
+</body>
+</html>
