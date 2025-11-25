@@ -454,31 +454,39 @@
             background: #4caf50;
         }
         
+        /* Navigation entre outils */
         .tools-nav {
             background: rgba(255,255,255,0.1);
-            padding: 10px 15px;
-            border-radius: 8px;
-            margin-bottom: 15px;
+            padding: 12px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
             display: flex;
-            gap: 15px;
+            gap: 20px;
             align-items: center;
+            backdrop-filter: blur(10px);
         }
-        
+        .tools-nav .nav-label {
+            color: white;
+            opacity: 0.6;
+            font-size: 14px;
+        }
         .tools-nav a {
             color: white;
             text-decoration: none;
             font-size: 14px;
-            opacity: 0.8;
-            transition: opacity 0.2s;
+            padding: 6px 12px;
+            border-radius: 6px;
+            opacity: 0.7;
+            transition: all 0.2s;
         }
-        
         .tools-nav a:hover {
             opacity: 1;
+            background: rgba(255,255,255,0.1);
         }
-        
-        .tools-nav .active {
+        .tools-nav a.active {
             opacity: 1;
             font-weight: 600;
+            background: rgba(255,255,255,0.2);
         }
     </style>
 </head>
@@ -486,9 +494,10 @@
     <div class="container">
         <!-- Navigation entre outils -->
         <div class="tools-nav">
-            <span style="color: white; opacity: 0.6;">📁 Outils:</span>
+            <span class="nav-label">📁 Outils:</span>
             <a href="smart_money_collector_v3.html" class="active">📈 HedgeFollow</a>
             <a href="../insider-tracker/insider_collector.html">🕵️ Insider Tracker</a>
+            <a href="../institutional-tracker/institutional_collector.html">🏦 Institutional</a>
         </div>
         
         <div class="header">
