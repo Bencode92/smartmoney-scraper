@@ -10,7 +10,8 @@ from src.dashboard import generate_dashboard
 
 def main():
     print("="*60)
-    print("🚀 SMARTMONEY ENGINE")
+    print("🚀 SMARTMONEY ENGINE v2.0")
+    print("   Scoring + Fondamentaux + HRP + Backtest")
     print("="*60)
     
     # === VÉRIFICATIONS ===
@@ -28,6 +29,8 @@ def main():
     
     print("\n" + "-"*60)
     print("PHASE 2: Enrichissement Twelve Data")
+    print("   (Quote, Profile, RSI, TimeSeries, Statistics,")
+    print("    Balance Sheet, Income Statement, Cash Flow)")
     print("-"*60)
     if TWELVE_DATA_KEY:
         engine.enrich(top_n=40)
@@ -56,10 +59,24 @@ def main():
     print("-"*60)
     generate_dashboard(portfolio, OUTPUTS)
     
+    # === BACKTEST ===
+    print("\n" + "-"*60)
+    print("PHASE 7: Backtest & Benchmark")
+    print("-"*60)
+    if TWELVE_DATA_KEY:
+        try:
+            from src.backtest import Backtester
+            backtester = Backtester()
+            backtester.generate_report(portfolio.get("portfolio", []), OUTPUTS)
+        except Exception as e:
+            print(f"⚠️ Erreur Backtest: {e}")
+    else:
+        print("⏭️ Skipped (pas de clé API)")
+    
     # === COPILOT ===
     if OPENAI_KEY:
         print("\n" + "-"*60)
-        print("PHASE 7: IA Copilot")
+        print("PHASE 8: IA Copilot")
         print("-"*60)
         try:
             copilot = Copilot()
@@ -81,23 +98,29 @@ def main():
     print(f"   Perf 3M: {metrics.get('perf_3m', 'N/A')}%")
     print(f"   Perf YTD: {metrics.get('perf_ytd', 'N/A')}%")
     print(f"   Vol 30j: {metrics.get('vol_30d', 'N/A')}%")
+    print(f"   ROE moyen: {metrics.get('avg_roe', 'N/A')}%")
+    print(f"   D/E moyen: {metrics.get('avg_debt_equity', 'N/A')}")
+    print(f"   Marge nette moy: {metrics.get('avg_net_margin', 'N/A')}%")
     
     print(f"\n📁 Outputs: {OUTPUTS}")
     
-    # Affiche le top 10
+    # Top 10
     print("\n🏆 TOP 10 POSITIONS:")
     for i, pos in enumerate(portfolio.get("portfolio", [])[:10], 1):
         symbol = pos.get("symbol", "?")
         weight = pos.get("weight", 0) * 100
         score = pos.get("score_composite", 0)
-        sector = pos.get("sector", "?")
-        print(f"  {i:2}. {symbol:6} {weight:5.2f}%  (score: {score:.3f}) [{sector}]")
+        sector = pos.get("sector", "?")[:15]
+        roe = pos.get("roe")
+        roe_str = f"ROE:{roe:.0f}%" if roe else ""
+        print(f"  {i:2}. {symbol:6} {weight:5.2f}%  (score: {score:.3f}) [{sector}] {roe_str}")
     
     # Répartition sectorielle
     if metrics.get("sector_weights"):
         print("\n🏢 RÉPARTITION SECTORIELLE:")
         for sector, weight in sorted(metrics["sector_weights"].items(), key=lambda x: -x[1]):
-            print(f"   {sector}: {weight}%")
+            bar = "█" * int(weight / 2)
+            print(f"   {sector:25} {weight:5.1f}% {bar}")
     
     return 0
 

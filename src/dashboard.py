@@ -5,18 +5,16 @@ from pathlib import Path
 
 
 def generate_dashboard(portfolio: dict, output_dir: Path) -> Path:
-    """Génère un dashboard HTML autonome"""
+    """Génère un dashboard HTML autonome avec fondamentaux"""
     
     today = datetime.now().strftime("%Y-%m-%d")
     metrics = portfolio.get("metrics", {})
     positions = portfolio.get("portfolio", [])
     sector_weights = metrics.get("sector_weights", {})
     
-    # Prépare les données pour Chart.js
     sector_labels = list(sector_weights.keys())
     sector_values = list(sector_weights.values())
     
-    # Couleurs par secteur
     sector_colors = {
         "Technology": "#3b82f6",
         "Healthcare": "#10b981",
@@ -49,33 +47,29 @@ def generate_dashboard(portfolio: dict, output_dir: Path) -> Path:
             padding: 20px;
             line-height: 1.6;
         }}
-        .container {{ max-width: 1400px; margin: 0 auto; }}
-        h1 {{
-            font-size: 1.8rem;
-            margin-bottom: 20px;
-            color: #38bdf8;
-        }}
+        .container {{ max-width: 1600px; margin: 0 auto; }}
+        h1 {{ font-size: 1.8rem; margin-bottom: 20px; color: #38bdf8; }}
         .metrics-grid {{
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
             gap: 15px;
             margin-bottom: 30px;
         }}
         .metric-card {{
             background: #1e293b;
             border-radius: 12px;
-            padding: 20px;
+            padding: 15px;
             text-align: center;
         }}
         .metric-value {{
-            font-size: 2rem;
+            font-size: 1.5rem;
             font-weight: 700;
             color: #38bdf8;
         }}
         .metric-value.positive {{ color: #10b981; }}
         .metric-value.negative {{ color: #ef4444; }}
         .metric-label {{
-            font-size: 0.85rem;
+            font-size: 0.75rem;
             color: #94a3b8;
             margin-top: 5px;
         }}
@@ -85,48 +79,31 @@ def generate_dashboard(portfolio: dict, output_dir: Path) -> Path:
             gap: 20px;
             margin-bottom: 30px;
         }}
-        @media (max-width: 900px) {{
-            .grid-2 {{ grid-template-columns: 1fr; }}
-        }}
+        @media (max-width: 1000px) {{ .grid-2 {{ grid-template-columns: 1fr; }} }}
         .card {{
             background: #1e293b;
             border-radius: 12px;
             padding: 20px;
         }}
         .card h2 {{
-            font-size: 1.1rem;
+            font-size: 1rem;
             margin-bottom: 15px;
             color: #94a3b8;
         }}
-        table {{
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.9rem;
-        }}
-        th, td {{
-            padding: 12px 8px;
-            text-align: left;
-            border-bottom: 1px solid #334155;
-        }}
-        th {{
-            color: #94a3b8;
-            font-weight: 500;
-            font-size: 0.8rem;
-            text-transform: uppercase;
-        }}
+        table {{ width: 100%; border-collapse: collapse; font-size: 0.8rem; }}
+        th, td {{ padding: 10px 6px; text-align: left; border-bottom: 1px solid #334155; }}
+        th {{ color: #94a3b8; font-weight: 500; font-size: 0.7rem; text-transform: uppercase; }}
         tr:hover {{ background: #334155; }}
-        .ticker {{
-            font-weight: 600;
-            color: #38bdf8;
-        }}
+        .ticker {{ font-weight: 600; color: #38bdf8; }}
         .weight {{ color: #fbbf24; }}
         .positive {{ color: #10b981; }}
         .negative {{ color: #ef4444; }}
+        .neutral {{ color: #94a3b8; }}
         .sector-badge {{
             display: inline-block;
-            padding: 2px 8px;
+            padding: 2px 6px;
             border-radius: 4px;
-            font-size: 0.75rem;
+            font-size: 0.65rem;
             background: #334155;
         }}
         .input-group {{
@@ -135,9 +112,7 @@ def generate_dashboard(portfolio: dict, output_dir: Path) -> Path:
             margin-bottom: 20px;
             align-items: center;
         }}
-        .input-group label {{
-            color: #94a3b8;
-        }}
+        .input-group label {{ color: #94a3b8; }}
         .input-group input {{
             background: #334155;
             border: 1px solid #475569;
@@ -147,10 +122,7 @@ def generate_dashboard(portfolio: dict, output_dir: Path) -> Path:
             font-size: 1rem;
             width: 150px;
         }}
-        .input-group input:focus {{
-            outline: none;
-            border-color: #38bdf8;
-        }}
+        .input-group input:focus {{ outline: none; border-color: #38bdf8; }}
         #allocation-result {{
             margin-top: 15px;
             padding: 15px;
@@ -162,13 +134,22 @@ def generate_dashboard(portfolio: dict, output_dir: Path) -> Path:
         .alloc-row {{
             display: flex;
             justify-content: space-between;
-            padding: 8px 0;
+            padding: 6px 0;
             border-bottom: 1px solid #1e293b;
+            font-size: 0.85rem;
         }}
-        .chart-container {{
-            position: relative;
-            height: 300px;
+        .chart-container {{ position: relative; height: 280px; }}
+        .fundamentals-summary {{
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #334155;
         }}
+        .fund-item {{ text-align: center; }}
+        .fund-value {{ font-size: 1.2rem; font-weight: 600; color: #38bdf8; }}
+        .fund-label {{ font-size: 0.7rem; color: #64748b; }}
     </style>
 </head>
 <body>
@@ -184,17 +165,29 @@ def generate_dashboard(portfolio: dict, output_dir: Path) -> Path:
                 <div class="metric-value {'positive' if (metrics.get('perf_3m') or 0) >= 0 else 'negative'}">
                     {'+' if (metrics.get('perf_3m') or 0) >= 0 else ''}{metrics.get('perf_3m', 'N/A')}%
                 </div>
-                <div class="metric-label">Performance 3M</div>
+                <div class="metric-label">Perf 3M</div>
             </div>
             <div class="metric-card">
                 <div class="metric-value {'positive' if (metrics.get('perf_ytd') or 0) >= 0 else 'negative'}">
                     {'+' if (metrics.get('perf_ytd') or 0) >= 0 else ''}{metrics.get('perf_ytd', 'N/A')}%
                 </div>
-                <div class="metric-label">Performance YTD</div>
+                <div class="metric-label">Perf YTD</div>
             </div>
             <div class="metric-card">
                 <div class="metric-value">{metrics.get('vol_30d', 'N/A')}%</div>
-                <div class="metric-label">Volatilité 30j</div>
+                <div class="metric-label">Vol 30j</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">{metrics.get('avg_roe', 'N/A')}%</div>
+                <div class="metric-label">ROE Moy.</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">{metrics.get('avg_debt_equity', 'N/A')}</div>
+                <div class="metric-label">D/E Moy.</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">{metrics.get('avg_net_margin', 'N/A')}%</div>
+                <div class="metric-label">Marge Moy.</div>
             </div>
         </div>
         
@@ -209,7 +202,7 @@ def generate_dashboard(portfolio: dict, output_dir: Path) -> Path:
             <div class="card">
                 <h2>Calculateur d'Allocation</h2>
                 <div class="input-group">
-                    <label for="amount">Montant à investir:</label>
+                    <label for="amount">Montant:</label>
                     <input type="number" id="amount" value="10000" step="1000">
                     <span>€</span>
                 </div>
@@ -223,40 +216,52 @@ def generate_dashboard(portfolio: dict, output_dir: Path) -> Path:
                 <thead>
                     <tr>
                         <th>Ticker</th>
-                        <th>Société</th>
                         <th>Secteur</th>
                         <th>Poids</th>
                         <th>Score</th>
-                        <th>Perf 3M</th>
-                        <th>Perf YTD</th>
-                        <th>Vol 30j</th>
+                        <th>3M</th>
+                        <th>YTD</th>
+                        <th>Vol</th>
                         <th>RSI</th>
+                        <th>ROE</th>
+                        <th>D/E</th>
+                        <th>Marge</th>
+                        <th>CAPEX</th>
                     </tr>
                 </thead>
                 <tbody>
 """
     
-    # Ajoute les lignes du tableau
     for pos in positions:
         weight = pos.get('weight', 0) * 100
         perf_3m = pos.get('perf_3m')
         perf_ytd = pos.get('perf_ytd')
         vol = pos.get('vol_30d')
         rsi = pos.get('rsi')
+        roe = pos.get('roe')
+        de = pos.get('debt_equity')
+        margin = pos.get('net_margin')
+        capex = pos.get('capex_ratio')
         
-        perf_3m_class = 'positive' if perf_3m and perf_3m > 0 else 'negative' if perf_3m and perf_3m < 0 else ''
-        perf_ytd_class = 'positive' if perf_ytd and perf_ytd > 0 else 'negative' if perf_ytd and perf_ytd < 0 else ''
+        perf_3m_class = 'positive' if perf_3m and perf_3m > 0 else 'negative' if perf_3m and perf_3m < 0 else 'neutral'
+        perf_ytd_class = 'positive' if perf_ytd and perf_ytd > 0 else 'negative' if perf_ytd and perf_ytd < 0 else 'neutral'
+        roe_class = 'positive' if roe and roe > 15 else 'negative' if roe and roe < 0 else 'neutral'
+        de_class = 'positive' if de and de < 1 else 'negative' if de and de > 2 else 'neutral'
+        margin_class = 'positive' if margin and margin > 10 else 'negative' if margin and margin < 0 else 'neutral'
         
         html += f"""                    <tr>
                         <td class="ticker">{pos.get('symbol', '')}</td>
-                        <td>{pos.get('company', '')[:30]}</td>
-                        <td><span class="sector-badge">{pos.get('sector', 'N/A')}</span></td>
+                        <td><span class="sector-badge">{pos.get('sector', 'N/A')[:12]}</span></td>
                         <td class="weight">{weight:.2f}%</td>
                         <td>{pos.get('score_composite', 0):.3f}</td>
-                        <td class="{perf_3m_class}">{f'{perf_3m:+.1f}%' if perf_3m is not None else 'N/A'}</td>
-                        <td class="{perf_ytd_class}">{f'{perf_ytd:+.1f}%' if perf_ytd is not None else 'N/A'}</td>
-                        <td>{f'{vol:.1f}%' if vol is not None else 'N/A'}</td>
-                        <td>{f'{rsi:.0f}' if rsi is not None else 'N/A'}</td>
+                        <td class="{perf_3m_class}">{f'{perf_3m:+.1f}%' if perf_3m is not None else '-'}</td>
+                        <td class="{perf_ytd_class}">{f'{perf_ytd:+.1f}%' if perf_ytd is not None else '-'}</td>
+                        <td>{f'{vol:.0f}%' if vol is not None else '-'}</td>
+                        <td>{f'{rsi:.0f}' if rsi is not None else '-'}</td>
+                        <td class="{roe_class}">{f'{roe:.1f}%' if roe is not None else '-'}</td>
+                        <td class="{de_class}">{f'{de:.2f}' if de is not None else '-'}</td>
+                        <td class="{margin_class}">{f'{margin:.1f}%' if margin is not None else '-'}</td>
+                        <td>{f'{capex:.1f}%' if capex is not None else '-'}</td>
                     </tr>
 """
     
@@ -266,10 +271,8 @@ def generate_dashboard(portfolio: dict, output_dir: Path) -> Path:
     </div>
     
     <script>
-        // Données du portefeuille
         const portfolio = {json.dumps(positions, default=str)};
         
-        // Pie Chart secteurs
         const ctx = document.getElementById('sectorChart').getContext('2d');
         new Chart(ctx, {{
             type: 'doughnut',
@@ -285,30 +288,34 @@ def generate_dashboard(portfolio: dict, output_dir: Path) -> Path:
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {{
-                    legend: {{
-                        position: 'right',
-                        labels: {{ color: '#94a3b8', font: {{ size: 11 }} }}
-                    }}
+                    legend: {{ position: 'right', labels: {{ color: '#94a3b8', font: {{ size: 10 }} }} }}
                 }}
             }}
         }});
         
-        // Calculateur d'allocation
         function calculateAllocation() {{
             const amount = parseFloat(document.getElementById('amount').value) || 0;
             const result = document.getElementById('allocation-result');
-            
             let html = '';
+            let total = 0;
+            
             portfolio.forEach(pos => {{
                 const alloc = amount * pos.weight;
                 const price = pos.td_price || pos.current_price || 0;
                 const shares = price > 0 ? Math.floor(alloc / price) : 0;
+                const actualAlloc = shares * price;
+                total += actualAlloc;
                 
                 html += `<div class="alloc-row">
-                    <span><strong>${{pos.symbol}}</strong> (${{price.toFixed(2)}})</span>
-                    <span>${{alloc.toFixed(0)}}€ → ${{shares}} actions</span>
+                    <span><strong>${{pos.symbol}}</strong></span>
+                    <span>${{shares}} × ${{price.toFixed(0)}} = ${{actualAlloc.toFixed(0)}}</span>
                 </div>`;
             }});
+            
+            html = `<div class="alloc-row" style="font-weight:bold; border-bottom: 2px solid #475569;">
+                <span>TOTAL INVESTI</span>
+                <span>${{total.toFixed(0)}} / ${{amount.toFixed(0)}}</span>
+            </div>` + html;
             
             result.innerHTML = html;
         }}
@@ -320,7 +327,6 @@ def generate_dashboard(portfolio: dict, output_dir: Path) -> Path:
 </html>
 """
     
-    # Sauvegarde
     html_path = output_dir / f"portfolio_{today}.html"
     with open(html_path, "w", encoding="utf-8") as f:
         f.write(html)
@@ -332,7 +338,6 @@ def generate_dashboard(portfolio: dict, output_dir: Path) -> Path:
 if __name__ == "__main__":
     from config import OUTPUTS
     
-    # Charge le dernier portfolio
     portfolio_files = list(OUTPUTS.glob("portfolio_*.json"))
     if portfolio_files:
         latest = max(portfolio_files, key=lambda x: x.stat().st_mtime)

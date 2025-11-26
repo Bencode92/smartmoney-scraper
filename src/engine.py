@@ -23,7 +23,7 @@ class SmartMoneyEngine:
     def __init__(self):
         self.universe = pd.DataFrame()
         self.portfolio = pd.DataFrame()
-        self.portfolio_metrics = {}  # Métriques agrégées
+        self.portfolio_metrics = {}
         self._last_api_call = 0
     
     # === DATA LOADING ===
@@ -81,7 +81,6 @@ class SmartMoneyEngine:
         
         self.universe = pd.DataFrame(list(stocks.values()))
         
-        # Valeurs par défaut
         defaults = {
             "gp_weight": 0, "gp_buys": 0, "gp_tier": "D",
             "hold_price": 0, "current_price": 0,
@@ -192,6 +191,86 @@ class SmartMoneyEngine:
             print(f"⚠️ Time series error {symbol}: {e}")
         return []
     
+    def _fetch_statistics(self, symbol: str) -> dict:
+        """Récupère les statistiques (ROE, ROA, etc.) via Twelve Data"""
+        if not TWELVE_DATA_KEY:
+            return {}
+        
+        self._rate_limit()
+        try:
+            resp = requests.get(
+                f"{TWELVE_DATA_BASE}/statistics",
+                params={"symbol": symbol, "apikey": TWELVE_DATA_KEY},
+                timeout=10
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                if "code" not in data:
+                    return data
+        except Exception as e:
+            print(f"⚠️ Statistics error {symbol}: {e}")
+        return {}
+    
+    def _fetch_balance_sheet(self, symbol: str) -> dict:
+        """Récupère le bilan (Debt, Equity, Assets) via Twelve Data"""
+        if not TWELVE_DATA_KEY:
+            return {}
+        
+        self._rate_limit()
+        try:
+            resp = requests.get(
+                f"{TWELVE_DATA_BASE}/balance_sheet",
+                params={"symbol": symbol, "period": "annual", "apikey": TWELVE_DATA_KEY},
+                timeout=10
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                if "balance_sheet" in data and len(data["balance_sheet"]) > 0:
+                    return data["balance_sheet"][0]  # Le plus récent
+        except Exception as e:
+            print(f"⚠️ Balance sheet error {symbol}: {e}")
+        return {}
+    
+    def _fetch_income_statement(self, symbol: str) -> dict:
+        """Récupère le compte de résultat (Revenue, Net Income, Marges) via Twelve Data"""
+        if not TWELVE_DATA_KEY:
+            return {}
+        
+        self._rate_limit()
+        try:
+            resp = requests.get(
+                f"{TWELVE_DATA_BASE}/income_statement",
+                params={"symbol": symbol, "period": "annual", "apikey": TWELVE_DATA_KEY},
+                timeout=10
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                if "income_statement" in data and len(data["income_statement"]) > 0:
+                    return data["income_statement"][0]
+        except Exception as e:
+            print(f"⚠️ Income statement error {symbol}: {e}")
+        return {}
+    
+    def _fetch_cash_flow(self, symbol: str) -> dict:
+        """Récupère le cash flow (CAPEX, FCF) via Twelve Data"""
+        if not TWELVE_DATA_KEY:
+            return {}
+        
+        self._rate_limit()
+        try:
+            resp = requests.get(
+                f"{TWELVE_DATA_BASE}/cash_flow",
+                params={"symbol": symbol, "period": "annual", "apikey": TWELVE_DATA_KEY},
+                timeout=10
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                if "cash_flow" in data and len(data["cash_flow"]) > 0:
+                    return data["cash_flow"][0]
+        except Exception as e:
+            print(f"⚠️ Cash flow error {symbol}: {e}")
+        return {}
+    
     def _calculate_perf_vol(self, prices: list) -> dict:
         """Calcule perf 3M, YTD, vol 30j depuis l'historique"""
         result = {"perf_3m": None, "perf_ytd": None, "vol_30d": None}
@@ -200,10 +279,8 @@ class SmartMoneyEngine:
             return result
         
         try:
-            # Prix du plus récent au plus ancien
             current_price = float(prices[0]["close"])
             
-            # Perf 3M (environ 63 jours de trading)
             if len(prices) >= 63:
                 price_3m = float(prices[62]["close"])
                 result["perf_3m"] = round((current_price / price_3m - 1) * 100, 2)
@@ -211,7 +288,6 @@ class SmartMoneyEngine:
                 price_old = float(prices[-1]["close"])
                 result["perf_3m"] = round((current_price / price_old - 1) * 100, 2)
             
-            # Perf YTD
             current_year = datetime.now().year
             for p in prices:
                 if p["datetime"].startswith(f"{current_year}-01"):
@@ -219,7 +295,6 @@ class SmartMoneyEngine:
                     result["perf_ytd"] = round((current_price / price_ytd - 1) * 100, 2)
                     break
             
-            # Vol 30j (annualisée)
             if len(prices) >= 30:
                 closes = [float(p["close"]) for p in prices[:30]]
                 returns = [(closes[i] / closes[i+1] - 1) for i in range(len(closes)-1)]
@@ -231,10 +306,95 @@ class SmartMoneyEngine:
         
         return result
     
+    def _extract_fundamentals(self, stats: dict, balance: dict, income: dict, cashflow: dict) -> dict:
+        """Extrait et calcule les ratios fondamentaux"""
+        result = {
+            "roe": None,
+            "roa": None,
+            "debt_equity": None,
+            "current_ratio": None,
+            "gross_margin": None,
+            "operating_margin": None,
+            "net_margin": None,
+            "capex_ratio": None,
+            "fcf": None,
+            "revenue": None,
+            "net_income": None
+        }
+        
+        try:
+            # Depuis statistics (si disponible)
+            if stats:
+                financials = stats.get("financials", {})
+                if financials:
+                    result["roe"] = self._safe_float(financials.get("return_on_equity_ttm"))
+                    result["roa"] = self._safe_float(financials.get("return_on_assets_ttm"))
+                    result["gross_margin"] = self._safe_float(financials.get("gross_margin_ttm"))
+                    result["operating_margin"] = self._safe_float(financials.get("operating_margin_ttm"))
+                    result["net_margin"] = self._safe_float(financials.get("profit_margin_ttm"))
+                    result["current_ratio"] = self._safe_float(financials.get("current_ratio"))
+            
+            # Depuis balance_sheet
+            if balance:
+                total_debt = self._safe_float(balance.get("total_debt", balance.get("long_term_debt")))
+                total_equity = self._safe_float(balance.get("total_shareholders_equity", balance.get("total_equity")))
+                
+                if total_equity and total_equity > 0 and total_debt is not None:
+                    result["debt_equity"] = round(total_debt / total_equity, 2)
+            
+            # Depuis income_statement
+            if income:
+                result["revenue"] = self._safe_float(income.get("revenue", income.get("total_revenue")))
+                result["net_income"] = self._safe_float(income.get("net_income"))
+                
+                # Calcul des marges si pas dans statistics
+                revenue = result["revenue"]
+                if revenue and revenue > 0:
+                    gross_profit = self._safe_float(income.get("gross_profit"))
+                    operating_income = self._safe_float(income.get("operating_income"))
+                    net_income = result["net_income"]
+                    
+                    if gross_profit and result["gross_margin"] is None:
+                        result["gross_margin"] = round(gross_profit / revenue * 100, 2)
+                    if operating_income and result["operating_margin"] is None:
+                        result["operating_margin"] = round(operating_income / revenue * 100, 2)
+                    if net_income and result["net_margin"] is None:
+                        result["net_margin"] = round(net_income / revenue * 100, 2)
+            
+            # Depuis cash_flow
+            if cashflow:
+                capex = self._safe_float(cashflow.get("capital_expenditure", cashflow.get("capital_expenditures")))
+                operating_cf = self._safe_float(cashflow.get("operating_cash_flow", cashflow.get("cash_flow_from_operating_activities")))
+                
+                if capex is not None:
+                    capex = abs(capex)  # CAPEX est souvent négatif
+                    
+                    # CAPEX / Revenue
+                    if result["revenue"] and result["revenue"] > 0:
+                        result["capex_ratio"] = round(capex / result["revenue"] * 100, 2)
+                    
+                    # Free Cash Flow
+                    if operating_cf is not None:
+                        result["fcf"] = round(operating_cf - capex, 0)
+        
+        except Exception as e:
+            print(f"⚠️ Fundamentals calc error: {e}")
+        
+        return result
+    
+    def _safe_float(self, value) -> float:
+        """Convertit en float de manière sécurisée"""
+        if value is None:
+            return None
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            return None
+    
     # === ENRICHISSEMENT COMPLET ===
     
     def enrich(self, top_n: int = 50) -> pd.DataFrame:
-        """Enrichit les top N candidats avec Twelve Data (quote, profile, time_series)"""
+        """Enrichit les top N candidats avec Twelve Data (toutes les données)"""
         if self.universe.empty:
             self.load_data()
         
@@ -244,46 +404,75 @@ class SmartMoneyEngine:
         ].head(top_n)
         
         print(f"📊 Enrichissement de {len(candidates)} tickers via Twelve Data...")
+        print(f"   (Quote + Profile + RSI + TimeSeries + Statistics + Balance + Income + CashFlow)")
+        print(f"   ⏱️  Temps estimé: ~{len(candidates) * 8 // 8} minutes (rate limit 8/min)")
         
         enriched = []
-        for _, row in candidates.iterrows():
+        for idx, (_, row) in enumerate(candidates.iterrows(), 1):
             symbol = row["symbol"]
+            print(f"\n  [{idx}/{len(candidates)}] {symbol}")
             
-            # Quote
+            # 1. Quote
             quote = self._fetch_quote(symbol)
-            row["td_price"] = float(quote.get("close", row.get("current_price", 0)))
-            row["td_change_pct"] = float(quote.get("percent_change", 0))
-            row["td_volume"] = int(quote.get("volume", 0))
-            row["td_avg_volume"] = int(quote.get("average_volume", 0))
-            row["td_high_52w"] = float(quote.get("fifty_two_week", {}).get("high", row.get("high_52w", 0)))
-            row["td_low_52w"] = float(quote.get("fifty_two_week", {}).get("low", row.get("low_52w", 0)))
+            row["td_price"] = float(quote.get("close", row.get("current_price", 0)) or 0)
+            row["td_change_pct"] = float(quote.get("percent_change", 0) or 0)
+            row["td_volume"] = int(quote.get("volume", 0) or 0)
+            row["td_avg_volume"] = int(quote.get("average_volume", 0) or 0)
+            row["td_high_52w"] = float(quote.get("fifty_two_week", {}).get("high", row.get("high_52w", 0)) or 0)
+            row["td_low_52w"] = float(quote.get("fifty_two_week", {}).get("low", row.get("low_52w", 0)) or 0)
+            print(f"    ✓ Quote: ${row['td_price']:.2f}")
             
-            # Profile (secteur)
+            # 2. Profile (secteur)
             profile = self._fetch_profile(symbol)
             row["sector"] = profile.get("sector", "Unknown")
             row["industry"] = profile.get("industry", "Unknown")
+            print(f"    ✓ Profile: {row['sector']}")
             
-            # RSI
+            # 3. RSI
             tech = self._fetch_technicals(symbol)
             row["rsi"] = tech.get("rsi", 50)
+            print(f"    ✓ RSI: {row['rsi']:.1f}")
             
-            # Time series (perf, vol)
+            # 4. Time series (perf, vol)
             prices = self._fetch_time_series(symbol, 90)
             perf_vol = self._calculate_perf_vol(prices)
             row["perf_3m"] = perf_vol["perf_3m"]
             row["perf_ytd"] = perf_vol["perf_ytd"]
             row["vol_30d"] = perf_vol["vol_30d"]
+            print(f"    ✓ Perf 3M: {row['perf_3m']}% | Vol: {row['vol_30d']}%")
             
-            # Champs Quality futurs (vides pour l'instant)
-            row["roe"] = None
-            row["debt_equity"] = None
-            row["capex_ratio"] = None
+            # 5. Statistics
+            stats = self._fetch_statistics(symbol)
+            
+            # 6. Balance Sheet
+            balance = self._fetch_balance_sheet(symbol)
+            
+            # 7. Income Statement
+            income = self._fetch_income_statement(symbol)
+            
+            # 8. Cash Flow
+            cashflow = self._fetch_cash_flow(symbol)
+            
+            # Extraction des fondamentaux
+            fundamentals = self._extract_fundamentals(stats, balance, income, cashflow)
+            row["roe"] = fundamentals["roe"]
+            row["roa"] = fundamentals["roa"]
+            row["debt_equity"] = fundamentals["debt_equity"]
+            row["current_ratio"] = fundamentals["current_ratio"]
+            row["gross_margin"] = fundamentals["gross_margin"]
+            row["operating_margin"] = fundamentals["operating_margin"]
+            row["net_margin"] = fundamentals["net_margin"]
+            row["capex_ratio"] = fundamentals["capex_ratio"]
+            row["fcf"] = fundamentals["fcf"]
+            row["revenue"] = fundamentals["revenue"]
+            row["net_income"] = fundamentals["net_income"]
+            
+            print(f"    ✓ Fundamentals: ROE={row['roe']}% | D/E={row['debt_equity']} | Margin={row['net_margin']}%")
             
             enriched.append(row)
-            print(f"  ✓ {symbol} | {row['sector']} | perf_3m: {row['perf_3m']}%")
         
         self.universe = pd.DataFrame(enriched)
-        print(f"✅ Enrichissement terminé")
+        print(f"\n✅ Enrichissement terminé")
         return self.universe
     
     # === SCORING ===
@@ -319,7 +508,7 @@ class SmartMoneyEngine:
         """Score Momentum (0-1)"""
         score = 0
         
-        # RSI
+        # RSI (40%)
         rsi = row.get("rsi", 50)
         if 40 <= rsi <= 60:
             rsi_score = 1.0
@@ -331,7 +520,7 @@ class SmartMoneyEngine:
             rsi_score = 0.3
         score += rsi_score * 0.4
         
-        # Position vs 52W range
+        # Position vs 52W range (30%)
         low = row.get("td_low_52w", row.get("low_52w", 0))
         high = row.get("td_high_52w", row.get("high_52w", 0))
         price = row.get("td_price", row.get("current_price", 0))
@@ -344,10 +533,12 @@ class SmartMoneyEngine:
             range_score = 0.5
         score += range_score * 0.3
         
-        # Perf 3M (bonus si positif)
+        # Perf 3M (30%)
         perf_3m = row.get("perf_3m", 0) or 0
-        if perf_3m > 10:
+        if perf_3m > 15:
             score += 0.3
+        elif perf_3m > 5:
+            score += 0.25
         elif perf_3m > 0:
             score += 0.2
         elif perf_3m > -10:
@@ -356,45 +547,110 @@ class SmartMoneyEngine:
         return round(min(score, 1.0), 3)
     
     def score_quality(self, row) -> float:
-        """Score Quality (0-1) - utilise ROE/Debt si disponibles"""
-        score = 0.5
+        """Score Quality AMÉLIORÉ (0-1) - utilise les vrais fondamentaux"""
+        score = 0.5  # Base neutre
+        has_fundamentals = False
         
-        # Prix (proxy liquidité)
-        price = row.get("td_price", row.get("current_price", 0))
-        if price >= 50:
-            score += 0.15
-        elif price >= 20:
-            score += 0.1
-        elif price < 10:
-            score -= 0.15
-        
-        # Volume relatif
-        vol = row.get("td_volume", 0)
-        avg_vol = row.get("td_avg_volume", 1)
-        if avg_vol > 0:
-            vol_ratio = vol / avg_vol
-            if vol_ratio > 1.5:
-                score += 0.1
-            elif vol_ratio < 0.5:
-                score -= 0.1
-        
-        # ROE si disponible
+        # === ROE (Return on Equity) - 20% ===
         roe = row.get("roe")
         if roe is not None:
-            if roe >= 20:
+            has_fundamentals = True
+            if roe >= 25:
+                score += 0.20
+            elif roe >= 15:
                 score += 0.15
             elif roe >= 10:
-                score += 0.1
-            elif roe < 0:
+                score += 0.10
+            elif roe >= 0:
+                score += 0.05
+            else:  # ROE négatif
                 score -= 0.15
         
-        # Debt/Equity si disponible
+        # === Debt/Equity - 15% ===
         debt_eq = row.get("debt_equity")
         if debt_eq is not None:
-            if debt_eq < 0.5:
-                score += 0.1
-            elif debt_eq > 2:
-                score -= 0.1
+            has_fundamentals = True
+            if debt_eq < 0.3:
+                score += 0.15  # Très peu endetté
+            elif debt_eq < 0.7:
+                score += 0.10
+            elif debt_eq < 1.5:
+                score += 0.05
+            elif debt_eq > 3:
+                score -= 0.15  # Très endetté
+            else:
+                score -= 0.05
+        
+        # === Marge Nette - 15% ===
+        net_margin = row.get("net_margin")
+        if net_margin is not None:
+            has_fundamentals = True
+            if net_margin >= 20:
+                score += 0.15
+            elif net_margin >= 10:
+                score += 0.10
+            elif net_margin >= 5:
+                score += 0.05
+            elif net_margin < 0:
+                score -= 0.10
+        
+        # === CAPEX/Revenue - 10% ===
+        capex_ratio = row.get("capex_ratio")
+        sector = row.get("sector", "Unknown")
+        if capex_ratio is not None:
+            has_fundamentals = True
+            # Interprétation selon secteur
+            if sector in ["Technology", "Industrials", "Communication Services"]:
+                # Pour ces secteurs, CAPEX élevé = investissement = positif
+                if 5 <= capex_ratio <= 15:
+                    score += 0.10
+                elif capex_ratio > 15:
+                    score += 0.05  # Très élevé = risque de sur-investissement
+            else:
+                # Pour les autres, CAPEX bas = efficience
+                if capex_ratio < 5:
+                    score += 0.10
+                elif capex_ratio < 10:
+                    score += 0.05
+        
+        # === Current Ratio (liquidité) - 5% ===
+        current_ratio = row.get("current_ratio")
+        if current_ratio is not None:
+            has_fundamentals = True
+            if current_ratio >= 1.5:
+                score += 0.05
+            elif current_ratio < 1:
+                score -= 0.05  # Risque de liquidité
+        
+        # === FCF positif - 5% ===
+        fcf = row.get("fcf")
+        if fcf is not None:
+            has_fundamentals = True
+            if fcf > 0:
+                score += 0.05
+            else:
+                score -= 0.05
+        
+        # === Fallback si pas de fondamentaux ===
+        if not has_fundamentals:
+            # Prix (proxy liquidité)
+            price = row.get("td_price", row.get("current_price", 0))
+            if price >= 50:
+                score += 0.10
+            elif price >= 20:
+                score += 0.05
+            elif price < 10:
+                score -= 0.10
+            
+            # Volume relatif
+            vol = row.get("td_volume", 0)
+            avg_vol = row.get("td_avg_volume", 1)
+            if avg_vol > 0:
+                vol_ratio = vol / avg_vol
+                if vol_ratio > 1.5:
+                    score += 0.05
+                elif vol_ratio < 0.5:
+                    score -= 0.05
         
         return round(max(0, min(1, score)), 3)
     
@@ -461,10 +717,10 @@ class SmartMoneyEngine:
         for i in range(n):
             for j in range(i+1, n):
                 if sectors[i] == sectors[j] and sectors[i] != "Unknown":
-                    corr[i, j] = 0.7  # Même secteur = plus corrélé
+                    corr[i, j] = 0.7
                     corr[j, i] = 0.7
                 else:
-                    corr[i, j] = 0.4  # Secteurs différents
+                    corr[i, j] = 0.4
                     corr[j, i] = 0.4
         
         return pd.DataFrame(corr, index=symbols, columns=symbols)
@@ -521,7 +777,6 @@ class SmartMoneyEngine:
         if n < CONSTRAINTS["min_positions"]:
             print(f"⚠️ Seulement {n} tickers, minimum {CONSTRAINTS['min_positions']} requis")
         
-        # Volatilité par ticker (ou 25% par défaut)
         if "vol_30d" in self.universe.columns:
             vols = self.universe["vol_30d"].fillna(25).values / 100
         else:
@@ -532,13 +787,11 @@ class SmartMoneyEngine:
         
         weights = self._hrp_weights(cov, corr)
         
-        # Tilt par score
         scores = self.universe["score_composite"].values
         score_tilt = scores / scores.mean()
         weights = weights * score_tilt
         weights = weights / weights.sum()
         
-        # Contrainte max weight
         weights = np.minimum(weights, CONSTRAINTS["max_weight"])
         weights = weights / weights.sum()
         
@@ -547,7 +800,6 @@ class SmartMoneyEngine:
         self.portfolio["weight"] = self.portfolio["weight"] / self.portfolio["weight"].sum()
         self.portfolio["weight"] = self.portfolio["weight"].round(4)
         
-        # Calcul métriques portefeuille
         self._calculate_portfolio_metrics()
         
         print(f"✅ Portefeuille: {len(self.portfolio)} positions")
@@ -557,18 +809,9 @@ class SmartMoneyEngine:
         """Calcule les métriques agrégées du portefeuille"""
         df = self.portfolio
         
-        # Perf pondérée
-        if "perf_3m" in df.columns:
-            perf_3m = (df["weight"] * df["perf_3m"].fillna(0)).sum()
-        else:
-            perf_3m = None
+        perf_3m = (df["weight"] * df["perf_3m"].fillna(0)).sum() if "perf_3m" in df.columns else None
+        perf_ytd = (df["weight"] * df["perf_ytd"].fillna(0)).sum() if "perf_ytd" in df.columns else None
         
-        if "perf_ytd" in df.columns:
-            perf_ytd = (df["weight"] * df["perf_ytd"].fillna(0)).sum()
-        else:
-            perf_ytd = None
-        
-        # Vol approx: sqrt(sum(wi² × voli²))
         if "vol_30d" in df.columns:
             vol = np.sqrt((df["weight"]**2 * (df["vol_30d"].fillna(25)/100)**2).sum()) * 100
         else:
@@ -582,12 +825,20 @@ class SmartMoneyEngine:
                 sector_weights[sector] = sector_weights.get(sector, 0) + row["weight"]
             sector_weights = {k: round(v * 100, 1) for k, v in sector_weights.items()}
         
+        # Moyennes fondamentaux
+        avg_roe = df["roe"].dropna().mean() if "roe" in df.columns else None
+        avg_de = df["debt_equity"].dropna().mean() if "debt_equity" in df.columns else None
+        avg_margin = df["net_margin"].dropna().mean() if "net_margin" in df.columns else None
+        
         self.portfolio_metrics = {
             "positions": len(df),
             "perf_3m": round(perf_3m, 2) if perf_3m else None,
             "perf_ytd": round(perf_ytd, 2) if perf_ytd else None,
             "vol_30d": round(vol, 2) if vol else None,
-            "sector_weights": sector_weights
+            "sector_weights": sector_weights,
+            "avg_roe": round(avg_roe, 1) if avg_roe else None,
+            "avg_debt_equity": round(avg_de, 2) if avg_de else None,
+            "avg_net_margin": round(avg_margin, 1) if avg_margin else None
         }
     
     # === EXPORT ===
@@ -598,17 +849,18 @@ class SmartMoneyEngine:
         today = datetime.now().strftime("%Y-%m-%d")
         
         export_cols = [
-            "symbol", "company", "sector", "weight",
+            "symbol", "company", "sector", "industry", "weight",
             "score_composite", "score_sm", "score_insider", "score_momentum", "score_quality",
             "perf_3m", "perf_ytd", "vol_30d",
             "gp_buys", "gp_tier", "insider_buys", "rsi", "td_price",
-            "roe", "debt_equity", "capex_ratio"
+            "roe", "roa", "debt_equity", "current_ratio",
+            "gross_margin", "operating_margin", "net_margin",
+            "capex_ratio", "fcf", "revenue", "net_income"
         ]
         
         cols = [c for c in export_cols if c in self.portfolio.columns]
         df = self.portfolio[cols].copy()
         
-        # JSON
         json_path = output_dir / f"portfolio_{today}.json"
         result = {
             "metadata": {
@@ -622,7 +874,6 @@ class SmartMoneyEngine:
         with open(json_path, "w") as f:
             json.dump(result, f, indent=2, default=str)
         
-        # CSV
         csv_path = output_dir / f"portfolio_{today}.csv"
         df.to_csv(csv_path, index=False)
         
