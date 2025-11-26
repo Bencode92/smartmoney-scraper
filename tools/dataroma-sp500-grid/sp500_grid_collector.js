@@ -57,7 +57,7 @@ function toggleZeroSection(type) {
 
 // ============ PARSING HELPERS ============
 
-// Simple: tickers seuls (pour les listes "zéro")
+// Simple : tickers seuls (pour les listes "zéro")
 function parseTickers(text) {
     if (!text || !text.trim()) return [];
     
@@ -73,10 +73,14 @@ function parseTickers(text) {
 
 /**
  * Parse un texte de métrique (ownership >0, 6M buys >0)
- * Accepte:
- *  - "MSFT"                → {ticker:"MSFT", value:null}
- *  - "MSFT:5" / "MSFT=5"   → {ticker:"MSFT", value:5}
- *  - Mélange autorisé, l'ordre est respecté
+ *
+ * Formats supportés :
+ *  - "MSFT"                 → { ticker: "MSFT", value: null }
+ *  - "MSFT:5" / "MSFT=5"    → { ticker: "MSFT", value: 5 }
+ *  - "0,01% YUM BRO BXP"    → YUM/BRO/BXP avec value = 0.01
+ *  - "0,02%\nPEG\nRMD\nSTT" → PEG/RMD/STT avec value = 0.02
+ *
+ * On peut mélanger les styles, l'ordre est respecté.
  */
 function parseMetricText(text) {
     if (!text || !text.trim()) return [];
@@ -88,45 +92,56 @@ function parseMetricText(text) {
         .filter(t => t.length > 0);
 
     const items = [];
-    const seen = new Set();
+    const indexByTicker = new Map();
+    let currentGroupValue = null; // valeur pour le bloc en cours (ex: 0.01)
+
+    const addOrUpdate = (ticker, value) => {
+        const cleanTicker = ticker.trim();
+        if (!/^[A-Z.]{1,6}$/.test(cleanTicker)) return;
+
+        const v = Number.isFinite(value) && value >= 0 ? value : null;
+        const existingIdx = indexByTicker.get(cleanTicker);
+
+        if (existingIdx === undefined) {
+            items.push({ ticker: cleanTicker, value: v });
+            indexByTicker.set(cleanTicker, items.length - 1);
+        } else if (v !== null) {
+            // si le ticker existait déjà, on écrase avec la valeur explicite
+            items[existingIdx].value = v;
+        }
+    };
 
     for (const token of tokens) {
-        let ticker = null;
-        let value = null;
-
-        // Format TICKER:val / TICKER=val
-        const m = token.match(/^([A-Z.]{1,6})[:=]([-+]?\d*[\.,]?\d+)$/);
-        if (m) {
-            ticker = m[1];
-            value = parseFloat(m[2].replace(',', '.'));
-            
-            // Validation: valeur doit être >= 0
-            if (value < 0) {
-                console.warn(`Valeur négative ignorée pour ${ticker}: ${value}`);
-                value = null;
+        // 1) Valeur seule de bloc : "0,01", "0,01%", "0.02"
+        const numMatch = token.match(/^([-+]?\d*[\.,]?\d+)%?$/);
+        if (numMatch) {
+            let v = parseFloat(numMatch[1].replace(',', '.'));
+            if (!Number.isFinite(v) || v < 0) {
+                currentGroupValue = null;
+            } else {
+                currentGroupValue = v;
             }
-        } else if (/^[A-Z.]{1,6}$/.test(token)) {
-            // Ticker seul
-            ticker = token;
-        } else {
-            // On ignore le reste
+            // on ne crée pas d'item, on définit juste la valeur du bloc
             continue;
         }
 
-        if (!seen.has(ticker)) {
-            items.push({
-                ticker,
-                value: Number.isFinite(value) ? value : null
-            });
-            seen.add(ticker);
-        } else if (value != null) {
-            // Si le ticker existait sans valeur et qu'on voit TICKER:val plus tard,
-            // on met à jour la valeur brute
-            const existing = items.find(i => i.ticker === ticker);
-            if (existing && (existing.value == null || !Number.isFinite(existing.value))) {
-                existing.value = value;
-            }
+        // 2) Format TICKER:val ou TICKER=val
+        const pairMatch = token.match(/^([A-Z.]{1,6})[:=]([-+]?\d*[\.,]?\d+)$/);
+        if (pairMatch) {
+            const ticker = pairMatch[1];
+            let v = parseFloat(pairMatch[2].replace(',', '.'));
+            if (!Number.isFinite(v) || v < 0) v = null;
+            addOrUpdate(ticker, v);
+            continue;
         }
+
+        // 3) Ticker seul → reçoit la valeur du bloc courant si disponible
+        if (/^[A-Z.]{1,6}$/.test(token)) {
+            addOrUpdate(token, currentGroupValue);
+            continue;
+        }
+
+        // 4) Tout le reste est ignoré
     }
 
     return items;
