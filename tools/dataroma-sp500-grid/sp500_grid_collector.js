@@ -1,12 +1,11 @@
 /**
  * Dataroma S&P500 Grid Collector
- * Version: 2.0.0
+ * Version: 2.1.0
  * 
  * Features:
  * - Dual-metric: Ownership + 6M Buys
+ * - RAW DATA storage (no artificial ranking)
  * - Zero-value support (white cells)
- * - Custom numeric values per ticker (TICKER:value format)
- * - Composite scoring with bonus
  * - S&P500 ticker validation
  * - Auto-save to localStorage
  * - Secure token handling (session only)
@@ -22,7 +21,6 @@ const GITHUB_CONFIG = {
 };
 
 // ============ S&P500 VALIDATION ============
-// Liste officielle S&P500 (mise à jour régulièrement)
 const SP500_TICKERS = new Set([
     'A','AAL','AAPL','ABBV','ABNB','ABT','ACGL','ACN','ADBE','ADI','ADM','ADP','ADSK','AEE','AEP','AES','AFL','AIG','AIZ','AJG',
     'AKAM','ALB','ALGN','ALL','ALLE','AMAT','AMCR','AMD','AME','AMGN','AMP','AMT','AMZN','ANET','ANSS','AON','AOS','APA','APD','APH',
@@ -52,7 +50,6 @@ const SP500_TICKERS = new Set([
     'XEL','XOM','XYL','YUM','ZBH','ZBRA','ZTS'
 ]);
 
-// Aliases pour les classes d'actions
 const TICKER_ALIASES = {
     'BRK-A': 'BRK.A', 'BRK-B': 'BRK.B', 'BRKA': 'BRK.A', 'BRKB': 'BRK.B',
     'BF-A': 'BF.A', 'BF-B': 'BF.B', 'BFA': 'BF.A', 'BFB': 'BF.B'
@@ -70,12 +67,12 @@ function isValidSP500Ticker(ticker) {
 
 // ============ SESSION STATE ============
 let sessionToken = null;
-let ownershipData = [];      // { ticker, rank, score, raw_value }
-let buysData = [];           // { ticker, rank, score, raw_value }
+let ownershipData = [];      // { ticker, value }
+let buysData = [];           // { ticker, value }
 let ownershipZeroData = [];  // tickers explicitement = 0
 let buysZeroData = [];       // tickers explicitement = 0
-let compositeData = [];      // merged results
-let invalidTickers = [];     // tickers non-S&P500 détectés
+let compositeData = [];      // merged results for UI display
+let invalidTickers = [];
 
 // ============ AUTO-SAVE ============
 const STORAGE_KEY = 'sp500_grid_draft_v2';
@@ -120,19 +117,16 @@ function restoreFromStorage() {
         const savedDate = new Date(state.savedAt);
         const hoursSince = (Date.now() - savedDate.getTime()) / (1000 * 60 * 60);
         
-        // Ne restaurer que si < 24h
         if (hoursSince > 24) {
             localStorage.removeItem(STORAGE_KEY);
             return false;
         }
         
-        // Restaurer les données
         ownershipData = state.ownershipData || [];
         buysData = state.buysData || [];
         ownershipZeroData = state.ownershipZeroData || [];
         buysZeroData = state.buysZeroData || [];
         
-        // Restaurer les inputs
         if (state.inputOwnership) {
             const el = document.getElementById('inputOwnership');
             if (el) el.value = state.inputOwnership;
@@ -150,7 +144,6 @@ function restoreFromStorage() {
             if (el) el.value = state.inputBuysZero;
         }
         
-        // Restaurer les blocs
         restoreBlocks('ownershipBlocks', state.ownershipBlocks);
         restoreBlocks('buysBlocks', state.buysBlocks);
         
@@ -170,9 +163,8 @@ function restoreBlocks(containerId, blocksData) {
     const container = document.getElementById(containerId);
     if (!container) return;
     
-    // Vider et recréer
     container.innerHTML = '';
-    blocksData.forEach((block, idx) => {
+    blocksData.forEach((block) => {
         const row = createBlockRow(block.value, block.tickers);
         container.appendChild(row);
     });
@@ -189,7 +181,6 @@ function createBlockRow(value = '', tickers = '') {
     return row;
 }
 
-// Auto-save toutes les 30s
 setInterval(autoSave, 30000);
 
 // ============ GITHUB TOKEN ============
@@ -295,7 +286,6 @@ function prepareOwnershipAndParse() {
     const textareaEl = document.getElementById('inputOwnership');
     const existingText = textareaEl.value.trim();
     
-    // Combiner blocs + textarea
     if (blockText && existingText) {
         textareaEl.value = blockText + '\n' + existingText;
     } else if (blockText) {
@@ -331,6 +321,11 @@ function parseTickers(text) {
     return [...new Set(tickers)];
 }
 
+/**
+ * Parse metric text - returns RAW DATA
+ * Structure: { ticker, value }
+ * value = the exact number entered (0.01, 0.02, etc.)
+ */
 function parseMetricText(text) {
     if (!text || !text.trim()) return [];
     
@@ -349,7 +344,6 @@ function parseMetricText(text) {
         const cleanTicker = normalizeTicker(ticker.trim());
         if (!/^[A-Z.]{1,6}$/.test(cleanTicker)) return;
 
-        // Validation S&P500
         if (!isValidSP500Ticker(cleanTicker)) {
             if (!invalidTickers.includes(cleanTicker)) {
                 invalidTickers.push(cleanTicker);
@@ -357,18 +351,21 @@ function parseMetricText(text) {
             return;
         }
 
-        const v = Number.isFinite(value) && value >= 0 ? value : null;
+        // Store the raw value exactly as entered
+        const v = (value !== null && Number.isFinite(value) && value >= 0) ? value : null;
         const existingIdx = indexByTicker.get(cleanTicker);
 
         if (existingIdx === undefined) {
             items.push({ ticker: cleanTicker, value: v });
             indexByTicker.set(cleanTicker, items.length - 1);
         } else if (v !== null) {
+            // Update with new value if provided
             items[existingIdx].value = v;
         }
     };
 
     for (const token of tokens) {
+        // Check if token is a number (with optional % suffix)
         const numMatch = token.match(/^([-+]?\d*[\.,]?\d+)%?$/);
         if (numMatch) {
             let v = parseFloat(numMatch[1].replace(',', '.'));
@@ -376,6 +373,7 @@ function parseMetricText(text) {
             continue;
         }
 
+        // Check for TICKER:value or TICKER=value format
         const pairMatch = token.match(/^([A-Z.\-]{1,8})[:=]([-+]?\d*[\.,]?\d+)$/);
         if (pairMatch) {
             const ticker = pairMatch[1];
@@ -385,6 +383,7 @@ function parseMetricText(text) {
             continue;
         }
 
+        // Plain ticker - use current group value
         if (/^[A-Z.\-]{1,8}$/.test(token)) {
             addOrUpdate(token, currentGroupValue);
             continue;
@@ -392,10 +391,6 @@ function parseMetricText(text) {
     }
 
     return items;
-}
-
-function calculateScore(rank, total) {
-    return Math.round((1 - Math.log(rank) / Math.log(total + 1)) * 100);
 }
 
 // ============ PARSING OWNERSHIP ============
@@ -418,31 +413,18 @@ function parseOwnership() {
         ownershipZeroData = ownershipZeroData.filter(t => !conflicts.includes(t));
     }
 
-    const explicitValues = entries
-        .map(e => e.value)
-        .filter(v => v != null && Number.isFinite(v) && v >= 0);
+    // Store RAW DATA - just ticker + value
+    ownershipData = entries.map(item => ({
+        ticker: item.ticker,
+        value: item.value  // Exact value: 0.01, 0.02, etc.
+    }));
 
-    const hasCustomValues = explicitValues.length > 0;
-    const maxValue = hasCustomValues ? Math.max(...explicitValues) : 0;
+    // Sort by value descending for display
+    ownershipData.sort((a, b) => (b.value || 0) - (a.value || 0));
 
-    ownershipData = entries.map((item, idx) => {
-        const rank = idx + 1;
-        let score;
-        let raw = null;
-
-        if (hasCustomValues && item.value != null && Number.isFinite(item.value)) {
-            raw = item.value;
-            score = maxValue > 0 ? Math.round((item.value / maxValue) * 100) : 0;
-        } else {
-            score = calculateScore(rank, entries.length);
-        }
-
-        return { ticker: item.ticker, rank, score, raw_value: raw };
-    });
-
-    const customCount = ownershipData.filter(d => d.raw_value !== null).length;
+    const withValue = ownershipData.filter(d => d.value !== null).length;
     let msg = `✅ ${ownershipData.length} tickers S&P500 parsés`;
-    if (customCount > 0) msg += ` (${customCount} avec valeur)`;
+    if (withValue > 0) msg += ` (${withValue} avec valeur)`;
     if (conflicts.length > 0) msg += ` | ${conflicts.length} retirés de 0%`;
     if (invalidTickers.length > 0) msg += ` | ⚠️ ${invalidTickers.length} hors S&P500`;
     
@@ -498,31 +480,18 @@ function parseBuys() {
         buysZeroData = buysZeroData.filter(t => !conflicts.includes(t));
     }
 
-    const explicitValues = entries
-        .map(e => e.value)
-        .filter(v => v != null && Number.isFinite(v) && v >= 0);
+    // Store RAW DATA - just ticker + value
+    buysData = entries.map(item => ({
+        ticker: item.ticker,
+        value: item.value  // Exact value: 5, 10, etc.
+    }));
 
-    const hasCustomValues = explicitValues.length > 0;
-    const maxValue = hasCustomValues ? Math.max(...explicitValues) : 0;
+    // Sort by value descending for display
+    buysData.sort((a, b) => (b.value || 0) - (a.value || 0));
 
-    buysData = entries.map((item, idx) => {
-        const rank = idx + 1;
-        let score;
-        let raw = null;
-
-        if (hasCustomValues && item.value != null && Number.isFinite(item.value)) {
-            raw = item.value;
-            score = maxValue > 0 ? Math.round((item.value / maxValue) * 100) : 0;
-        } else {
-            score = calculateScore(rank, entries.length);
-        }
-
-        return { ticker: item.ticker, rank, score, raw_value: raw };
-    });
-
-    const customCount = buysData.filter(d => d.raw_value !== null).length;
+    const withValue = buysData.filter(d => d.value !== null).length;
     let msg = `✅ ${buysData.length} tickers S&P500 parsés`;
-    if (customCount > 0) msg += ` (${customCount} avec valeur)`;
+    if (withValue > 0) msg += ` (${withValue} avec valeur)`;
     if (conflicts.length > 0) msg += ` | ${conflicts.length} retirés de 0 buy`;
     if (invalidTickers.length > 0) msg += ` | ⚠️ ${invalidTickers.length} hors S&P500`;
     
@@ -558,7 +527,7 @@ function parseBuysZero() {
     autoSave();
 }
 
-// ============ COMPOSITE CALCULATION ============
+// ============ COMPOSITE CALCULATION (for UI display) ============
 function calculateComposite() {
     const hasData =
         ownershipData.length > 0 ||
@@ -576,6 +545,13 @@ function calculateComposite() {
     const buysMap = new Map(buysData.map(d => [d.ticker, d]));
     const ownershipZeroSet = new Set(ownershipZeroData);
     const buysZeroSet = new Set(buysZeroData);
+    
+    // Calculate ranks based on value (for UI display only)
+    const ownershipSorted = [...ownershipData].sort((a, b) => (b.value || 0) - (a.value || 0));
+    const buysSorted = [...buysData].sort((a, b) => (b.value || 0) - (a.value || 0));
+    
+    const ownershipRankMap = new Map(ownershipSorted.map((d, i) => [d.ticker, i + 1]));
+    const buysRankMap = new Map(buysSorted.map((d, i) => [d.ticker, i + 1]));
     
     const allTickers = new Set([
         ...ownershipMap.keys(),
@@ -595,12 +571,18 @@ function calculateComposite() {
         const ownershipEntry = inOwnership ? ownershipMap.get(ticker) : null;
         const buysEntry = inBuys ? buysMap.get(ticker) : null;
 
-        const ownershipRank = ownershipEntry ? ownershipEntry.rank : null;
-        const buysRank = buysEntry ? buysEntry.rank : null;
-        const ownershipScore = ownershipEntry ? ownershipEntry.score : 0;
-        const buysScore = buysEntry ? buysEntry.score : 0;
-        const ownershipRaw = ownershipEntry ? ownershipEntry.raw_value : null;
-        const buysRaw = buysEntry ? buysEntry.raw_value : null;
+        const ownershipRank = inOwnership ? ownershipRankMap.get(ticker) : null;
+        const buysRank = inBuys ? buysRankMap.get(ticker) : null;
+        const ownershipValue = ownershipEntry ? ownershipEntry.value : null;
+        const buysValue = buysEntry ? buysEntry.value : null;
+        
+        // Calculate percentile scores for UI (0-100)
+        const ownershipScore = ownershipRank 
+            ? Math.round((1 - (ownershipRank - 1) / Math.max(ownershipData.length - 1, 1)) * 100)
+            : 0;
+        const buysScore = buysRank 
+            ? Math.round((1 - (buysRank - 1) / Math.max(buysData.length - 1, 1)) * 100)
+            : 0;
         
         let compositeScore = 0;
         let bonus = false;
@@ -625,10 +607,8 @@ function calculateComposite() {
             ticker,
             ownership_rank: ownershipRank,
             buys_rank: buysRank,
-            ownership_score: ownershipScore,
-            buys_score: buysScore,
-            ownership_raw_value: ownershipRaw,
-            buys_raw_value: buysRaw,
+            ownership_value: ownershipValue,
+            buys_value: buysValue,
             ownership_zero: isZeroOwnership,
             buys_zero: isZeroBuys,
             composite_score: Math.round(compositeScore),
@@ -675,14 +655,14 @@ function updateUI() {
     
     const inBoth = compositeData.filter(d => d.in_both);
     const top50Both = inBoth.filter(d => d.ownership_rank <= 50 && d.buys_rank <= 50);
-    const customValuesCount = compositeData.filter(d => 
-        d.ownership_raw_value !== null || d.buys_raw_value !== null
+    const withValues = compositeData.filter(d => 
+        d.ownership_value !== null || d.buys_value !== null
     ).length;
     
     document.getElementById('statTotal').textContent = compositeData.length;
     document.getElementById('statBoth').textContent = inBoth.length;
     document.getElementById('statTop50Both').textContent = top50Both.length;
-    document.getElementById('statCustomValues').textContent = customValuesCount;
+    document.getElementById('statCustomValues').textContent = withValues;
     document.getElementById('statZeroOwnership').textContent = ownershipZeroData.length;
     document.getElementById('statZeroBuys').textContent = buysZeroData.length;
     
@@ -701,13 +681,13 @@ function updateUI() {
                         #${d.ownership_rank}
                     </td>
                     <td style="color: var(--text-muted);">
-                        ${d.ownership_raw_value !== null ? d.ownership_raw_value : '-'}
+                        ${d.ownership_value !== null ? d.ownership_value : '-'}
                     </td>
                     <td class="${d.buys_rank <= 20 ? 'rank-top' : d.buys_rank <= 50 ? 'rank-mid' : ''}">
                         #${d.buys_rank}
                     </td>
                     <td style="color: var(--text-muted);">
-                        ${d.buys_raw_value !== null ? d.buys_raw_value : '-'}
+                        ${d.buys_value !== null ? d.buys_value : '-'}
                     </td>
                     <td><strong>${d.composite_score}</strong></td>
                     <td>${d.bonus ? '⭐ +20%' : ''}</td>
@@ -718,53 +698,38 @@ function updateUI() {
     }
 }
 
-// ============ JSON GENERATION ============
+// ============ JSON GENERATION - RAW DATA ONLY ============
 function generateJSON() {
     const today = new Date().toISOString().split('T')[0];
-    const hasCustomOwnership = ownershipData.some(d => d.raw_value !== null);
-    const hasCustomBuys = buysData.some(d => d.raw_value !== null);
     
     return {
         metadata: {
             source: 'Dataroma',
-            dataset: 'S&P500 Grid - Superinvestor Rankings',
+            dataset: 'S&P500 Grid - Superinvestor Data',
             url: 'https://www.dataroma.com/m/g/portfolio_b.php',
             as_of: today,
-            description: 'S&P500 stocks ranked by superinvestor ownership and recent buying activity',
-            collector_version: '2.0.0',
-            includes_zero_data: ownershipZeroData.length > 0 || buysZeroData.length > 0,
-            includes_custom_values: hasCustomOwnership || hasCustomBuys,
+            description: 'S&P500 stocks with superinvestor ownership % and recent buying activity',
+            collector_version: '2.1.0',
             sp500_validated: true
         },
         summary: {
-            total_unique_tickers: compositeData.length,
+            total_unique_tickers: new Set([
+                ...ownershipData.map(d => d.ticker),
+                ...buysData.map(d => d.ticker),
+                ...ownershipZeroData,
+                ...buysZeroData
+            ]).size,
             ownership_count: ownershipData.length,
             ownership_zero_count: ownershipZeroData.length,
-            ownership_with_custom_values: ownershipData.filter(d => d.raw_value !== null).length,
             buys_6m_count: buysData.length,
             buys_zero_count: buysZeroData.length,
-            buys_with_custom_values: buysData.filter(d => d.raw_value !== null).length,
-            in_both_lists: compositeData.filter(d => d.in_both).length,
-            top_50_both: compositeData.filter(d => d.in_both && d.ownership_rank <= 50 && d.buys_rank <= 50).length
+            in_both_lists: compositeData.filter(d => d.in_both).length
         },
+        // RAW DATA - simple structure: { ticker, value }
         sp500_ownership: ownershipData,
         sp500_ownership_zero: ownershipZeroData,
         sp500_6m_buys: buysData,
-        sp500_buys_zero: buysZeroData,
-        composite_rankings: compositeData
-            .filter(d => d.composite_score > 0)
-            .map((d, idx) => ({
-                composite_rank: idx + 1,
-                ticker: d.ticker,
-                ownership_rank: d.ownership_rank,
-                ownership_raw_value: d.ownership_raw_value,
-                buys_rank: d.buys_rank,
-                buys_raw_value: d.buys_raw_value,
-                composite_score: d.composite_score,
-                top_50_bonus: d.bonus,
-                ownership_zero: d.ownership_zero || false,
-                buys_zero: d.buys_zero || false
-            }))
+        sp500_buys_zero: buysZeroData
     };
 }
 
@@ -849,12 +814,8 @@ async function pushToGitHub(retries = 3) {
             
             const putUrl = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${filePath}`;
             
-            const customCount = compositeData.filter(d => 
-                d.ownership_raw_value !== null || d.buys_raw_value !== null
-            ).length;
-            
             const body = {
-                message: `📊 Update S&P500 Grid ${today} - ${compositeData.length} tickers (${customCount} custom, ${ownershipZeroData.length + buysZeroData.length} zeros)`,
+                message: `📊 Update S&P500 Grid ${today} - ${jsonData.summary.total_unique_tickers} tickers`,
                 content: content,
                 branch: GITHUB_CONFIG.branch
             };
@@ -876,7 +837,6 @@ async function pushToGitHub(retries = 3) {
                 throw new Error(result.message || 'GitHub API error');
             }
             
-            // Succès - effacer le brouillon
             localStorage.removeItem(STORAGE_KEY);
             
             showStatus('githubStatus', 'success', 
@@ -910,7 +870,6 @@ function clearInput(type) {
         document.getElementById('inputOwnership').value = '';
         document.getElementById('inputOwnershipZero').value = '';
         document.getElementById('statusOwnership').className = 'status';
-        // Clear blocks
         const container = document.getElementById('ownershipBlocks');
         if (container) {
             container.innerHTML = '';
@@ -947,7 +906,6 @@ function resetAll() {
     document.getElementById('statusBuys').className = 'status';
     document.getElementById('githubStatus').className = 'status';
     
-    // Reset blocks
     ['ownershipBlocks', 'buysBlocks'].forEach(id => {
         const container = document.getElementById(id);
         if (container) {
@@ -964,11 +922,10 @@ function resetAll() {
 
 // ============ INIT ============
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('📊 S&P500 Grid Collector v2.0.0');
-    console.log('✅ Validation S&P500 active (' + SP500_TICKERS.size + ' tickers)');
+    console.log('📊 S&P500 Grid Collector v2.1.0');
+    console.log('✅ Raw data mode - no artificial ranking');
     console.log('💾 Auto-save activé');
     
-    // Restaurer le brouillon si existant
     const restored = restoreFromStorage();
     if (restored) {
         showStatus('githubStatus', 'info', '📦 Brouillon restauré automatiquement');
