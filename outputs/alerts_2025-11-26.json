@@ -1,0 +1,14 @@
+[
+  {
+    "level": "warning",
+    "type": "momentum",
+    "symbol": "GOOGL",
+    "message": "RSI > 70, indication d'un momentum extr\u00eame"
+  },
+  {
+    "level": "warning",
+    "type": "sector",
+    "symbol": null,
+    "message": "Plus de 3 positions dans le secteur tech (AMZN, NVDA, GOOGL, V)"
+  }
+]

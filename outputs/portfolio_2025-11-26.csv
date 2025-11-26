@@ -1,0 +1,26 @@
+symbol,company,weight,score_composite,score_sm,score_insider,score_momentum,score_quality,gp_buys,gp_tier,insider_buys,rsi
+AMZN,Amazon.com Inc.,0.0551,0.743,0.852,0.5,0.779,0.6,8,A,0,50.64182
+UNH,United Health Group Inc.,0.0541,0.729,0.837,0.5,0.748,0.6,9,A,0,50.033547
+NVDA,NVIDIA Corp.,0.0524,0.706,0.786,0.5,0.751,0.6,8,A,0,44.39708
+UNP,Union Pacific,0.0466,0.629,0.567,0.5,0.835,0.6,5,C,0,64.77093
+DIS,Walt Disney Co.,0.046,0.62,0.562,0.5,0.809,0.6,6,B,0,39.74111
+BRK.B,Berkshire Hathaway CL B,0.0453,0.611,0.636,0.5,0.64,0.6,6,B,0,64.83355
+SPGI,S&P Global Inc.,0.0422,0.569,0.365,0.5,0.959,0.6,4,C,0,53.30458
+FICO,Fair Isaac Corp.,0.0422,0.569,0.367,0.5,0.956,0.6,3,C,0,59.90129
+TSM,Taiwan Semiconductor S.A.,0.042,0.567,0.551,0.5,0.617,0.6,6,B,0,53.12871
+BN,Brookfield Corp.,0.0404,0.545,0.52,0.5,0.644,0.5,3,C,0,58.5222
+UPS,United Parcel Service,0.0402,0.542,0.428,0.5,0.738,0.6,4,C,0,57.25175
+CP,Canadian Pacific Kansas City,0.04,0.539,0.371,0.5,0.828,0.6,4,C,0,52.020958
+LULU,Lululemon Athletica Inc.,0.0391,0.527,0.56,0.5,0.439,0.6,4,C,0,63.72756
+IFF,International Flavors & Fragrances Inc.,0.0389,0.525,0.419,0.5,0.684,0.6,5,C,0,67.26728
+MDB,MongoDB Inc.,0.0386,0.521,0.383,0.5,0.734,0.6,3,C,0,43.54027
+SCHW,Charles Schwab Corp.,0.0383,0.516,0.377,0.5,0.727,0.6,4,C,0,44.32417
+XOM,Exxon Mobil Corp.,0.0377,0.508,0.36,0.5,0.723,0.6,4,C,0,48.85932
+PBH,Prestige Consumer Healthcare,0.0363,0.49,0.402,0.5,0.577,0.6,3,C,0,47.21717
+KD,Kyndryl Holdings Inc,0.0344,0.464,0.36,0.5,0.609,0.5,3,C,0,44.65108
+AVGO,Broadcom Inc.,0.0344,0.464,0.468,0.5,0.354,0.6,4,C,0,66.20672
+RPRX,Royalty Pharma plc,0.033,0.445,0.415,0.5,0.433,0.5,3,C,0,60.11025
+ADBE,Adobe Inc.,0.0316,0.426,0.372,0.5,0.375,0.6,4,C,0,38.20843
+AMAT,Applied Materials,0.0313,0.422,0.376,0.5,0.352,0.6,4,C,0,62.84822
+GOOGL,Alphabet Inc.,0.0306,0.412,0.438,0.5,0.2,0.6,5,C,0,73.018552
+V,Visa Inc.,0.0294,0.793,0.853,0.5,0.975,0.6,8,A,0,50.41208
