@@ -18,46 +18,6 @@
   },
   "sp500_ownership": [
     {
-      "ticker": "ABT",
-      "value": 9
-    },
-    {
-      "ticker": "BLK",
-      "value": 9
-    },
-    {
-      "ticker": "GPN",
-      "value": 9
-    },
-    {
-      "ticker": "GS",
-      "value": 9
-    },
-    {
-      "ticker": "HUM",
-      "value": 9
-    },
-    {
-      "ticker": "LMT",
-      "value": 9
-    },
-    {
-      "ticker": "LYV",
-      "value": 9
-    },
-    {
-      "ticker": "MAR",
-      "value": 9
-    },
-    {
-      "ticker": "SYF",
-      "value": 9
-    },
-    {
-      "ticker": "VMC",
-      "value": 9
-    },
-    {
       "ticker": "MSFT",
       "value": 2.59
     },
@@ -580,6 +540,46 @@
     {
       "ticker": "VZ",
       "value": 0.1
+    },
+    {
+      "ticker": "ABT",
+      "value": 0.09
+    },
+    {
+      "ticker": "BLK",
+      "value": 0.09
+    },
+    {
+      "ticker": "GPN",
+      "value": 0.09
+    },
+    {
+      "ticker": "GS",
+      "value": 0.09
+    },
+    {
+      "ticker": "HUM",
+      "value": 0.09
+    },
+    {
+      "ticker": "LMT",
+      "value": 0.09
+    },
+    {
+      "ticker": "LYV",
+      "value": 0.09
+    },
+    {
+      "ticker": "MAR",
+      "value": 0.09
+    },
+    {
+      "ticker": "SYF",
+      "value": 0.09
+    },
+    {
+      "ticker": "VMC",
+      "value": 0.09
     },
     {
       "ticker": "AME",
