@@ -5,6 +5,9 @@ on:
   schedule:
     - cron: '0 8 * * 1'  # Lundi 8h UTC (optionnel)
 
+permissions:
+  contents: write  # Autorise le push
+
 jobs:
   generate:
     runs-on: ubuntu-latest
