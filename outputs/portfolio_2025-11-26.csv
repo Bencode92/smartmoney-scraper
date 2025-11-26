@@ -1,26 +1,26 @@
-symbol,company,weight,score_composite,score_sm,score_insider,score_momentum,score_quality,gp_buys,gp_tier,insider_buys,rsi
-AMZN,Amazon.com Inc.,0.0551,0.743,0.852,0.5,0.779,0.6,8,A,0,50.64182
-UNH,United Health Group Inc.,0.0541,0.729,0.837,0.5,0.748,0.6,9,A,0,50.033547
-NVDA,NVIDIA Corp.,0.0524,0.706,0.786,0.5,0.751,0.6,8,A,0,44.39708
-UNP,Union Pacific,0.0466,0.629,0.567,0.5,0.835,0.6,5,C,0,64.77093
-DIS,Walt Disney Co.,0.046,0.62,0.562,0.5,0.809,0.6,6,B,0,39.74111
-BRK.B,Berkshire Hathaway CL B,0.0453,0.611,0.636,0.5,0.64,0.6,6,B,0,64.83355
-SPGI,S&P Global Inc.,0.0422,0.569,0.365,0.5,0.959,0.6,4,C,0,53.30458
-FICO,Fair Isaac Corp.,0.0422,0.569,0.367,0.5,0.956,0.6,3,C,0,59.90129
-TSM,Taiwan Semiconductor S.A.,0.042,0.567,0.551,0.5,0.617,0.6,6,B,0,53.12871
-BN,Brookfield Corp.,0.0404,0.545,0.52,0.5,0.644,0.5,3,C,0,58.5222
-UPS,United Parcel Service,0.0402,0.542,0.428,0.5,0.738,0.6,4,C,0,57.25175
-CP,Canadian Pacific Kansas City,0.04,0.539,0.371,0.5,0.828,0.6,4,C,0,52.020958
-LULU,Lululemon Athletica Inc.,0.0391,0.527,0.56,0.5,0.439,0.6,4,C,0,63.72756
-IFF,International Flavors & Fragrances Inc.,0.0389,0.525,0.419,0.5,0.684,0.6,5,C,0,67.26728
-MDB,MongoDB Inc.,0.0386,0.521,0.383,0.5,0.734,0.6,3,C,0,43.54027
-SCHW,Charles Schwab Corp.,0.0383,0.516,0.377,0.5,0.727,0.6,4,C,0,44.32417
-XOM,Exxon Mobil Corp.,0.0377,0.508,0.36,0.5,0.723,0.6,4,C,0,48.85932
-PBH,Prestige Consumer Healthcare,0.0363,0.49,0.402,0.5,0.577,0.6,3,C,0,47.21717
-KD,Kyndryl Holdings Inc,0.0344,0.464,0.36,0.5,0.609,0.5,3,C,0,44.65108
-AVGO,Broadcom Inc.,0.0344,0.464,0.468,0.5,0.354,0.6,4,C,0,66.20672
-RPRX,Royalty Pharma plc,0.033,0.445,0.415,0.5,0.433,0.5,3,C,0,60.11025
-ADBE,Adobe Inc.,0.0316,0.426,0.372,0.5,0.375,0.6,4,C,0,38.20843
-AMAT,Applied Materials,0.0313,0.422,0.376,0.5,0.352,0.6,4,C,0,62.84822
-GOOGL,Alphabet Inc.,0.0306,0.412,0.438,0.5,0.2,0.6,5,C,0,73.018552
-V,Visa Inc.,0.0294,0.793,0.853,0.5,0.975,0.6,8,A,0,50.41208
+symbol,company,sector,industry,weight,score_composite,score_sm,score_insider,score_momentum,score_quality,perf_3m,perf_ytd,vol_30d,gp_buys,gp_tier,insider_buys,rsi,td_price,roe,roa,debt_equity,current_ratio,gross_margin,operating_margin,net_margin,capex_ratio,fcf,revenue,net_income
+V,Visa Inc.,Financial Services,Credit Services,0.0747,0.737,0.853,0.5,0.783,0.55,-4.73,,15.74,8,A,0,50.1267,335.135,,,,,,,,,,,20058000000.0
+UNP,Union Pacific,Industrials,Railroads,0.0747,0.606,0.567,0.5,0.773,0.55,3.47,,16.93,5,C,0,64.48441,231.32,,,,,,,,,,,6747000000.0
+PG,Procter & Gamble,Consumer Defensive,Household & Personal Products,0.0747,0.461,0.361,0.5,0.566,0.55,-5.7,,15.99,4,C,0,48.17902,148.09,,,,,,,,,,,16065000000.0
+SPGI,S&P Global Inc.,Financial Services,Financial Data & Stock Exchanges,0.0637,0.517,0.365,0.5,0.78,0.55,-9.18,,22.64,4,C,0,54.16807,498.12,,,,,,,,,,,4167000000.0
+BRK.B,Berkshire Hathaway CL B,Financial Services,Insurance - Diversified,0.0605,0.609,0.636,0.5,0.66,0.55,1.68,,14.15,6,B,0,64.018938,511.42,,,,,,,,,,,
+CP,Canadian Pacific Kansas City,Industrials,Railroads,0.0561,0.5,0.371,0.5,0.703,0.55,-5.12,,19.4,4,C,0,52.81772,72.29,,,,,,,,,,,2633482380.0
+MDB,MongoDB Inc.,Unknown,Unknown,0.0434,0.471,0.383,0.5,0.534,0.6,,,,3,C,0,50.0,330.63,,,,,,,,,,,
+SHW,Sherwin-Williams,Basic Materials,Specialty Chemicals,0.0422,0.503,0.358,0.5,0.708,0.6,-5.97,,26.08,3,C,0,55.83904,338.0,,,,,,,,,,,2681400000.0
+RPRX,Royalty Pharma plc,Unknown,Unknown,0.0419,0.455,0.415,0.5,0.443,0.55,,,,3,C,0,50.0,39.75,,,,,,,,,,,
+MCD,McDonald's Corp.,Consumer Cyclical,Restaurants,0.0398,0.492,0.363,0.5,0.684,0.55,-0.78,,18.03,4,C,0,58.68877,311.09,,,,,,,,,,,8224000000.0
+CPRT,Copart Inc.,Unknown,Unknown,0.0394,0.43,0.381,0.5,0.406,0.55,,,,4,C,0,50.0,38.91,,,,,,,,,,,
+KD,Kyndryl Holdings Inc,Unknown,Unknown,0.039,0.427,0.36,0.5,0.432,0.55,,,,3,C,0,50.0,24.38,,,,,,,,,,,
+MSFT,Microsoft Corp.,Technology,Software - Infrastructure,0.0382,0.652,0.714,0.5,0.693,0.55,-3.78,,21.18,7,B,0,41.5444,487.545,,,,,,,,,,,101832000000.0
+ELV,Elevance Health Inc.,Healthcare,Healthcare Plans,0.0381,0.597,0.499,0.5,0.861,0.55,6.31,,31.44,4,C,0,57.9956,338.76,,,,,,,,,,,5971000000.0
+XOM,Exxon Mobil Corp.,Energy,Oil & Gas Integrated,0.0347,0.504,0.36,0.5,0.739,0.55,1.03,,16.4,4,C,0,48.018279,115.47,,,,,,,,,,,
+ASML,ASML Holding NV,Technology,Semiconductor Equipment & Materials,0.0328,0.557,0.475,0.5,0.744,0.55,41.29,,34.23,4,C,0,56.63075,1049.28,,,,,,,,,,,
+ADBE,Adobe Inc.,Technology,Software - Application,0.0294,0.399,0.372,0.5,0.295,0.55,-10.93,,30.63,4,C,0,38.22761,317.73,,,,,,,,,,,5560000000.0
+AMZN,Amazon.com Inc.,Consumer Cyclical,Internet Retail,0.0283,0.736,0.852,0.5,0.781,0.55,0.12,,41.83,8,A,0,48.72894,229.27,,,,,,,,,,,59248000000.0
+UNH,United Health Group Inc.,Healthcare,Healthcare Plans,0.023,0.733,0.837,0.5,0.797,0.55,6.3,,27.91,9,A,0,48.91817,329.4,,,,,,,,,,,15242000000.0
+NVDA,NVIDIA Corp.,Technology,Semiconductors,0.0226,0.699,0.786,0.5,0.752,0.55,3.59,,40.85,8,A,0,44.1798,180.425,,,,,,,,,,,72880000000.0
+LULU,Lululemon Athletica Inc.,Consumer Cyclical,Apparel Retail,0.0225,0.518,0.56,0.5,0.433,0.55,-9.64,,39.41,4,C,0,63.6179,182.7,,,,,,,,,,,1814616000.0
+AMAT,Applied Materials,Unknown,Unknown,0.0205,0.448,0.376,0.5,0.456,0.6,,,,4,C,0,50.0,230.91,,,,,,,,,,,
+PBH,Prestige Consumer Healthcare,Unknown,Unknown,0.0204,0.446,0.402,0.5,0.401,0.6,,,,3,C,0,50.0,57.47,,,,,,,,,,,
+UPS,United Parcel Service,Unknown,Unknown,0.0198,0.497,0.428,0.5,0.558,0.6,,,,4,C,0,50.0,93.56,,,,,,,,,,,
+FICO,Fair Isaac Corp.,Unknown,Unknown,0.0196,0.491,0.367,0.5,0.644,0.6,,,,3,C,0,50.0,1748.25,,,,,,,,,,,

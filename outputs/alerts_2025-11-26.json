@@ -1,14 +1,26 @@
 [
   {
     "level": "warning",
+    "type": "concentration",
+    "symbol": "null",
+    "message": "Concentration excessive dans le portefeuille avec plusieurs positions d\u00e9passant 5.5%."
+  },
+  {
+    "level": "critical",
+    "type": "quality",
+    "symbol": "PG",
+    "message": "Score composite de Procter & Gamble est inf\u00e9rieur \u00e0 0.4."
+  },
+  {
+    "level": "warning",
     "type": "momentum",
-    "symbol": "GOOGL",
-    "message": "RSI > 70, indication d'un momentum extr\u00eame"
+    "symbol": "UNP",
+    "message": "RSI de Union Pacific est sup\u00e9rieur \u00e0 70, signalant un momentum extr\u00eame."
   },
   {
     "level": "warning",
     "type": "sector",
-    "symbol": null,
-    "message": "Plus de 3 positions dans le secteur tech (AMZN, NVDA, GOOGL, V)"
+    "symbol": "null",
+    "message": "Plus de 3 positions dans le secteur technologique."
   }
 ]
