@@ -192,7 +192,7 @@ class SmartMoneyEngine:
         return []
     
     def _fetch_statistics(self, symbol: str) -> dict:
-        """Récupère les statistiques (ROE, ROA, etc.) via Twelve Data"""
+        """Récupère les statistiques via Twelve Data"""
         if not TWELVE_DATA_KEY:
             return {}
         
@@ -212,7 +212,7 @@ class SmartMoneyEngine:
         return {}
     
     def _fetch_balance_sheet(self, symbol: str) -> dict:
-        """Récupère le bilan (Debt, Equity, Assets) via Twelve Data"""
+        """Récupère le bilan via Twelve Data"""
         if not TWELVE_DATA_KEY:
             return {}
         
@@ -226,13 +226,13 @@ class SmartMoneyEngine:
             if resp.status_code == 200:
                 data = resp.json()
                 if "balance_sheet" in data and len(data["balance_sheet"]) > 0:
-                    return data["balance_sheet"][0]  # Le plus récent
+                    return data["balance_sheet"][0]
         except Exception as e:
             print(f"⚠️ Balance sheet error {symbol}: {e}")
         return {}
     
     def _fetch_income_statement(self, symbol: str) -> dict:
-        """Récupère le compte de résultat (Revenue, Net Income, Marges) via Twelve Data"""
+        """Récupère le compte de résultat via Twelve Data"""
         if not TWELVE_DATA_KEY:
             return {}
         
@@ -252,7 +252,7 @@ class SmartMoneyEngine:
         return {}
     
     def _fetch_cash_flow(self, symbol: str) -> dict:
-        """Récupère le cash flow (CAPEX, FCF) via Twelve Data"""
+        """Récupère le cash flow via Twelve Data"""
         if not TWELVE_DATA_KEY:
             return {}
         
@@ -307,78 +307,103 @@ class SmartMoneyEngine:
         return result
     
     def _extract_fundamentals(self, stats: dict, balance: dict, income: dict, cashflow: dict) -> dict:
-        """Extrait et calcule les ratios fondamentaux"""
+        """
+        Extrait les ratios depuis les VRAIES clés Twelve Data.
+        
+        Clés vérifiées:
+        - income_statement: sales, gross_profit, operating_income, net_income
+        - balance_sheet: total_equity, total_debt, total_assets, total_current_assets/liabilities
+        - cash_flow: operating_cash_flow, capital_expenditures, free_cash_flow
+        """
         result = {
-            "roe": None,
-            "roa": None,
-            "debt_equity": None,
-            "current_ratio": None,
-            "gross_margin": None,
-            "operating_margin": None,
-            "net_margin": None,
-            "capex_ratio": None,
-            "fcf": None,
-            "revenue": None,
-            "net_income": None
+            "roe": None, "roa": None, "debt_equity": None, "current_ratio": None,
+            "gross_margin": None, "operating_margin": None, "net_margin": None,
+            "capex_ratio": None, "fcf": None, "revenue": None, "net_income": None
         }
         
         try:
-            # Depuis statistics (si disponible)
-            if stats:
-                financials = stats.get("financials", {})
-                if financials:
-                    result["roe"] = self._safe_float(financials.get("return_on_equity_ttm"))
-                    result["roa"] = self._safe_float(financials.get("return_on_assets_ttm"))
-                    result["gross_margin"] = self._safe_float(financials.get("gross_margin_ttm"))
-                    result["operating_margin"] = self._safe_float(financials.get("operating_margin_ttm"))
-                    result["net_margin"] = self._safe_float(financials.get("profit_margin_ttm"))
-                    result["current_ratio"] = self._safe_float(financials.get("current_ratio"))
-            
-            # Depuis balance_sheet
-            if balance:
-                total_debt = self._safe_float(balance.get("total_debt", balance.get("long_term_debt")))
-                total_equity = self._safe_float(balance.get("total_shareholders_equity", balance.get("total_equity")))
-                
-                if total_equity and total_equity > 0 and total_debt is not None:
-                    result["debt_equity"] = round(total_debt / total_equity, 2)
-            
-            # Depuis income_statement
+            # === INCOME STATEMENT ===
+            # Clé = "sales" (PAS "revenue")
             if income:
-                result["revenue"] = self._safe_float(income.get("revenue", income.get("total_revenue")))
+                result["revenue"] = self._safe_float(income.get("sales"))
                 result["net_income"] = self._safe_float(income.get("net_income"))
+                gross_profit = self._safe_float(income.get("gross_profit"))
+                operating_income = self._safe_float(income.get("operating_income"))
                 
-                # Calcul des marges si pas dans statistics
-                revenue = result["revenue"]
-                if revenue and revenue > 0:
-                    gross_profit = self._safe_float(income.get("gross_profit"))
-                    operating_income = self._safe_float(income.get("operating_income"))
-                    net_income = result["net_income"]
-                    
-                    if gross_profit and result["gross_margin"] is None:
-                        result["gross_margin"] = round(gross_profit / revenue * 100, 2)
-                    if operating_income and result["operating_margin"] is None:
-                        result["operating_margin"] = round(operating_income / revenue * 100, 2)
-                    if net_income and result["net_margin"] is None:
-                        result["net_margin"] = round(net_income / revenue * 100, 2)
+                # Calcul des marges
+                if result["revenue"] and result["revenue"] > 0:
+                    if gross_profit is not None:
+                        result["gross_margin"] = round(gross_profit / result["revenue"] * 100, 2)
+                    if operating_income is not None:
+                        result["operating_margin"] = round(operating_income / result["revenue"] * 100, 2)
+                    if result["net_income"] is not None:
+                        result["net_margin"] = round(result["net_income"] / result["revenue"] * 100, 2)
             
-            # Depuis cash_flow
+            # === BALANCE SHEET ===
+            # Clé = "total_equity" (PAS "total_shareholders_equity")
+            if balance:
+                total_equity = self._safe_float(balance.get("total_equity"))
+                total_assets = self._safe_float(balance.get("total_assets"))
+                
+                # Debt: essayer total_debt, sinon long_term + short_term
+                total_debt = self._safe_float(balance.get("total_debt"))
+                if total_debt is None:
+                    long_term = self._safe_float(balance.get("long_term_debt")) or 0
+                    short_term = self._safe_float(balance.get("short_term_debt")) or 0
+                    if long_term > 0 or short_term > 0:
+                        total_debt = long_term + short_term
+                
+                # Current Ratio
+                current_assets = self._safe_float(balance.get("total_current_assets"))
+                current_liabilities = self._safe_float(balance.get("total_current_liabilities"))
+                
+                if current_liabilities and current_liabilities > 0 and current_assets:
+                    result["current_ratio"] = round(current_assets / current_liabilities, 2)
+                
+                # ROE et D/E
+                if total_equity and total_equity > 0:
+                    if result["net_income"] is not None:
+                        result["roe"] = round(result["net_income"] / total_equity * 100, 2)
+                    if total_debt is not None:
+                        result["debt_equity"] = round(total_debt / total_equity, 2)
+                
+                # ROA
+                if total_assets and total_assets > 0 and result["net_income"] is not None:
+                    result["roa"] = round(result["net_income"] / total_assets * 100, 2)
+            
+            # === CASH FLOW ===
             if cashflow:
-                capex = self._safe_float(cashflow.get("capital_expenditure", cashflow.get("capital_expenditures")))
-                operating_cf = self._safe_float(cashflow.get("operating_cash_flow", cashflow.get("cash_flow_from_operating_activities")))
+                operating_cf = self._safe_float(cashflow.get("operating_cash_flow"))
+                capex = self._safe_float(cashflow.get("capital_expenditures"))
+                fcf_direct = self._safe_float(cashflow.get("free_cash_flow"))
                 
                 if capex is not None:
-                    capex = abs(capex)  # CAPEX est souvent négatif
+                    capex = abs(capex)  # CAPEX souvent négatif
                     
-                    # CAPEX / Revenue
                     if result["revenue"] and result["revenue"] > 0:
                         result["capex_ratio"] = round(capex / result["revenue"] * 100, 2)
                     
-                    # Free Cash Flow
-                    if operating_cf is not None:
+                    if fcf_direct is not None:
+                        result["fcf"] = fcf_direct
+                    elif operating_cf is not None:
                         result["fcf"] = round(operating_cf - capex, 0)
+                elif fcf_direct is not None:
+                    result["fcf"] = fcf_direct
+            
+            # === STATISTICS (fallback) ===
+            if stats:
+                fin = stats.get("financials", {}) or stats.get("statistics", {}) or {}
+                
+                if result["roe"] is None:
+                    roe_raw = self._safe_float(fin.get("return_on_equity_ttm") or fin.get("return_on_equity"))
+                    if roe_raw is not None:
+                        result["roe"] = roe_raw * 100 if -1 < roe_raw < 1 else roe_raw
+                
+                if result["current_ratio"] is None:
+                    result["current_ratio"] = self._safe_float(fin.get("current_ratio"))
         
         except Exception as e:
-            print(f"⚠️ Fundamentals calc error: {e}")
+            print(f"⚠️ Fundamentals error: {e}")
         
         return result
     
@@ -387,14 +412,17 @@ class SmartMoneyEngine:
         if value is None:
             return None
         try:
-            return float(value)
+            f = float(value)
+            if np.isnan(f) or np.isinf(f):
+                return None
+            return f
         except (ValueError, TypeError):
             return None
     
-    # === ENRICHISSEMENT COMPLET ===
+    # === ENRICHISSEMENT ===
     
     def enrich(self, top_n: int = 50) -> pd.DataFrame:
-        """Enrichit les top N candidats avec Twelve Data (toutes les données)"""
+        """Enrichit les top N candidats avec Twelve Data"""
         if self.universe.empty:
             self.load_data()
         
@@ -405,7 +433,8 @@ class SmartMoneyEngine:
         
         print(f"📊 Enrichissement de {len(candidates)} tickers via Twelve Data...")
         print(f"   (Quote + Profile + RSI + TimeSeries + Statistics + Balance + Income + CashFlow)")
-        print(f"   ⏱️  Temps estimé: ~{len(candidates) * 8 // 8} minutes (rate limit 8/min)")
+        estimated_time = len(candidates) * 8 / TWELVE_DATA_RATE_LIMIT
+        print(f"   ⏱️  Temps estimé: ~{estimated_time:.1f} minutes (rate limit {TWELVE_DATA_RATE_LIMIT}/min)")
         
         enriched = []
         for idx, (_, row) in enumerate(candidates.iterrows(), 1):
@@ -422,7 +451,7 @@ class SmartMoneyEngine:
             row["td_low_52w"] = float(quote.get("fifty_two_week", {}).get("low", row.get("low_52w", 0)) or 0)
             print(f"    ✓ Quote: ${row['td_price']:.2f}")
             
-            # 2. Profile (secteur)
+            # 2. Profile
             profile = self._fetch_profile(symbol)
             row["sector"] = profile.get("sector", "Unknown")
             row["industry"] = profile.get("industry", "Unknown")
@@ -433,7 +462,7 @@ class SmartMoneyEngine:
             row["rsi"] = tech.get("rsi", 50)
             print(f"    ✓ RSI: {row['rsi']:.1f}")
             
-            # 4. Time series (perf, vol)
+            # 4. Time series
             prices = self._fetch_time_series(symbol, 90)
             perf_vol = self._calculate_perf_vol(prices)
             row["perf_3m"] = perf_vol["perf_3m"]
@@ -441,33 +470,20 @@ class SmartMoneyEngine:
             row["vol_30d"] = perf_vol["vol_30d"]
             print(f"    ✓ Perf 3M: {row['perf_3m']}% | Vol: {row['vol_30d']}%")
             
-            # 5. Statistics
+            # 5-8. Fondamentaux
             stats = self._fetch_statistics(symbol)
-            
-            # 6. Balance Sheet
             balance = self._fetch_balance_sheet(symbol)
-            
-            # 7. Income Statement
             income = self._fetch_income_statement(symbol)
-            
-            # 8. Cash Flow
             cashflow = self._fetch_cash_flow(symbol)
             
-            # Extraction des fondamentaux
             fundamentals = self._extract_fundamentals(stats, balance, income, cashflow)
-            row["roe"] = fundamentals["roe"]
-            row["roa"] = fundamentals["roa"]
-            row["debt_equity"] = fundamentals["debt_equity"]
-            row["current_ratio"] = fundamentals["current_ratio"]
-            row["gross_margin"] = fundamentals["gross_margin"]
-            row["operating_margin"] = fundamentals["operating_margin"]
-            row["net_margin"] = fundamentals["net_margin"]
-            row["capex_ratio"] = fundamentals["capex_ratio"]
-            row["fcf"] = fundamentals["fcf"]
-            row["revenue"] = fundamentals["revenue"]
-            row["net_income"] = fundamentals["net_income"]
+            for k, v in fundamentals.items():
+                row[k] = v
             
-            print(f"    ✓ Fundamentals: ROE={row['roe']}% | D/E={row['debt_equity']} | Margin={row['net_margin']}%")
+            roe_str = f"{row['roe']:.1f}%" if row['roe'] is not None else "N/A"
+            de_str = f"{row['debt_equity']:.2f}" if row['debt_equity'] is not None else "N/A"
+            margin_str = f"{row['net_margin']:.1f}%" if row['net_margin'] is not None else "N/A"
+            print(f"    ✓ Fundamentals: ROE={roe_str} | D/E={de_str} | Margin={margin_str}")
             
             enriched.append(row)
         
@@ -478,7 +494,6 @@ class SmartMoneyEngine:
     # === SCORING ===
     
     def score_smart_money(self, row) -> float:
-        """Score Smart Money (0-1)"""
         score = 0
         tier_map = {"A": 1.0, "B": 0.75, "C": 0.5, "D": 0.25}
         score += tier_map.get(row.get("gp_tier", "D"), 0.25) * 0.4
@@ -489,7 +504,6 @@ class SmartMoneyEngine:
         return round(score, 3)
     
     def score_insider(self, row) -> float:
-        """Score Insider (0-1)"""
         buys = row.get("insider_buys", 0)
         sells = row.get("insider_sells", 0)
         net_value = row.get("insider_net_value", 0)
@@ -505,10 +519,8 @@ class SmartMoneyEngine:
         return round(ratio_score * 0.6 + value_score * 0.4, 3)
     
     def score_momentum(self, row) -> float:
-        """Score Momentum (0-1)"""
         score = 0
         
-        # RSI (40%)
         rsi = row.get("rsi", 50)
         if 40 <= rsi <= 60:
             rsi_score = 1.0
@@ -520,7 +532,6 @@ class SmartMoneyEngine:
             rsi_score = 0.3
         score += rsi_score * 0.4
         
-        # Position vs 52W range (30%)
         low = row.get("td_low_52w", row.get("low_52w", 0))
         high = row.get("td_high_52w", row.get("high_52w", 0))
         price = row.get("td_price", row.get("current_price", 0))
@@ -533,7 +544,6 @@ class SmartMoneyEngine:
             range_score = 0.5
         score += range_score * 0.3
         
-        # Perf 3M (30%)
         perf_3m = row.get("perf_3m", 0) or 0
         if perf_3m > 15:
             score += 0.3
@@ -547,11 +557,9 @@ class SmartMoneyEngine:
         return round(min(score, 1.0), 3)
     
     def score_quality(self, row) -> float:
-        """Score Quality AMÉLIORÉ (0-1) - utilise les vrais fondamentaux"""
-        score = 0.5  # Base neutre
+        score = 0.5
         has_fundamentals = False
         
-        # === ROE (Return on Equity) - 20% ===
         roe = row.get("roe")
         if roe is not None:
             has_fundamentals = True
@@ -563,25 +571,23 @@ class SmartMoneyEngine:
                 score += 0.10
             elif roe >= 0:
                 score += 0.05
-            else:  # ROE négatif
+            else:
                 score -= 0.15
         
-        # === Debt/Equity - 15% ===
         debt_eq = row.get("debt_equity")
         if debt_eq is not None:
             has_fundamentals = True
             if debt_eq < 0.3:
-                score += 0.15  # Très peu endetté
+                score += 0.15
             elif debt_eq < 0.7:
                 score += 0.10
             elif debt_eq < 1.5:
                 score += 0.05
             elif debt_eq > 3:
-                score -= 0.15  # Très endetté
+                score -= 0.15
             else:
                 score -= 0.05
         
-        # === Marge Nette - 15% ===
         net_margin = row.get("net_margin")
         if net_margin is not None:
             has_fundamentals = True
@@ -594,35 +600,29 @@ class SmartMoneyEngine:
             elif net_margin < 0:
                 score -= 0.10
         
-        # === CAPEX/Revenue - 10% ===
         capex_ratio = row.get("capex_ratio")
         sector = row.get("sector", "Unknown")
         if capex_ratio is not None:
             has_fundamentals = True
-            # Interprétation selon secteur
             if sector in ["Technology", "Industrials", "Communication Services"]:
-                # Pour ces secteurs, CAPEX élevé = investissement = positif
                 if 5 <= capex_ratio <= 15:
                     score += 0.10
                 elif capex_ratio > 15:
-                    score += 0.05  # Très élevé = risque de sur-investissement
+                    score += 0.05
             else:
-                # Pour les autres, CAPEX bas = efficience
                 if capex_ratio < 5:
                     score += 0.10
                 elif capex_ratio < 10:
                     score += 0.05
         
-        # === Current Ratio (liquidité) - 5% ===
         current_ratio = row.get("current_ratio")
         if current_ratio is not None:
             has_fundamentals = True
             if current_ratio >= 1.5:
                 score += 0.05
             elif current_ratio < 1:
-                score -= 0.05  # Risque de liquidité
+                score -= 0.05
         
-        # === FCF positif - 5% ===
         fcf = row.get("fcf")
         if fcf is not None:
             has_fundamentals = True
@@ -631,9 +631,7 @@ class SmartMoneyEngine:
             else:
                 score -= 0.05
         
-        # === Fallback si pas de fondamentaux ===
         if not has_fundamentals:
-            # Prix (proxy liquidité)
             price = row.get("td_price", row.get("current_price", 0))
             if price >= 50:
                 score += 0.10
@@ -642,7 +640,6 @@ class SmartMoneyEngine:
             elif price < 10:
                 score -= 0.10
             
-            # Volume relatif
             vol = row.get("td_volume", 0)
             avg_vol = row.get("td_avg_volume", 1)
             if avg_vol > 0:
@@ -655,7 +652,6 @@ class SmartMoneyEngine:
         return round(max(0, min(1, score)), 3)
     
     def calculate_scores(self) -> pd.DataFrame:
-        """Calcule tous les scores"""
         if self.universe.empty:
             self.load_data()
         
@@ -691,7 +687,6 @@ class SmartMoneyEngine:
     # === FILTRES ===
     
     def apply_filters(self) -> pd.DataFrame:
-        """Applique les filtres d'exclusion"""
         before = len(self.universe)
         df = self.universe.copy()
         
@@ -704,16 +699,14 @@ class SmartMoneyEngine:
         print(f"🔍 Filtres: {before} → {len(df)} tickers")
         return self.universe
     
-    # === OPTIMISATION HRP ===
+    # === HRP ===
     
     def _get_correlation_matrix(self) -> pd.DataFrame:
-        """Matrice de corrélation basée sur les secteurs"""
         n = len(self.universe)
         symbols = self.universe["symbol"].tolist()
         sectors = self.universe["sector"].tolist() if "sector" in self.universe.columns else ["Unknown"] * n
         
         corr = np.eye(n)
-        
         for i in range(n):
             for j in range(i+1, n):
                 if sectors[i] == sectors[j] and sectors[i] != "Unknown":
@@ -726,7 +719,6 @@ class SmartMoneyEngine:
         return pd.DataFrame(corr, index=symbols, columns=symbols)
     
     def _hrp_weights(self, cov: np.ndarray, corr: np.ndarray) -> np.ndarray:
-        """Calcul des poids HRP"""
         n = cov.shape[0]
         dist = np.sqrt((1 - corr) / 2)
         np.fill_diagonal(dist, 0)
@@ -766,7 +758,6 @@ class SmartMoneyEngine:
         return weights / weights.sum()
     
     def optimize(self) -> pd.DataFrame:
-        """Optimisation HRP avec contraintes"""
         if "score_composite" not in self.universe.columns:
             self.calculate_scores()
             self.apply_filters()
@@ -806,7 +797,6 @@ class SmartMoneyEngine:
         return self.portfolio
     
     def _calculate_portfolio_metrics(self):
-        """Calcule les métriques agrégées du portefeuille"""
         df = self.portfolio
         
         perf_3m = (df["weight"] * df["perf_3m"].fillna(0)).sum() if "perf_3m" in df.columns else None
@@ -817,7 +807,6 @@ class SmartMoneyEngine:
         else:
             vol = None
         
-        # Répartition sectorielle
         sector_weights = {}
         if "sector" in df.columns:
             for _, row in df.iterrows():
@@ -825,10 +814,9 @@ class SmartMoneyEngine:
                 sector_weights[sector] = sector_weights.get(sector, 0) + row["weight"]
             sector_weights = {k: round(v * 100, 1) for k, v in sector_weights.items()}
         
-        # Moyennes fondamentaux
-        avg_roe = df["roe"].dropna().mean() if "roe" in df.columns else None
-        avg_de = df["debt_equity"].dropna().mean() if "debt_equity" in df.columns else None
-        avg_margin = df["net_margin"].dropna().mean() if "net_margin" in df.columns else None
+        avg_roe = df["roe"].dropna().mean() if "roe" in df.columns and df["roe"].notna().any() else None
+        avg_de = df["debt_equity"].dropna().mean() if "debt_equity" in df.columns and df["debt_equity"].notna().any() else None
+        avg_margin = df["net_margin"].dropna().mean() if "net_margin" in df.columns and df["net_margin"].notna().any() else None
         
         self.portfolio_metrics = {
             "positions": len(df),
@@ -836,15 +824,14 @@ class SmartMoneyEngine:
             "perf_ytd": round(perf_ytd, 2) if perf_ytd else None,
             "vol_30d": round(vol, 2) if vol else None,
             "sector_weights": sector_weights,
-            "avg_roe": round(avg_roe, 1) if avg_roe else None,
-            "avg_debt_equity": round(avg_de, 2) if avg_de else None,
-            "avg_net_margin": round(avg_margin, 1) if avg_margin else None
+            "avg_roe": round(avg_roe, 1) if avg_roe is not None else None,
+            "avg_debt_equity": round(avg_de, 2) if avg_de is not None else None,
+            "avg_net_margin": round(avg_margin, 1) if avg_margin is not None else None
         }
     
     # === EXPORT ===
     
     def export(self, output_dir: Path) -> dict:
-        """Exporte le portefeuille en JSON et CSV"""
         output_dir.mkdir(exist_ok=True)
         today = datetime.now().strftime("%Y-%m-%d")
         
