@@ -421,8 +421,7 @@
                 <span>Composite: <strong id="countComposite">0</strong></span>
             </div>
         </div>
-        
-        <!-- INPUT CARDS -->
+                <!-- INPUT CARDS -->
         <div class="card-grid">
             <!-- OWNERSHIP -->
             <div class="card">
@@ -430,22 +429,34 @@
                 
                 <!-- FORMAT HINT -->
                 <div class="format-hint">
-                    <strong>🎯 Format avancé:</strong> Ajoute un score avec <code>TICKER:valeur</code> ou <code>TICKER=valeur</code><br>
-                    <div class="example">
-                        Ex: <code>MSFT:5 AMZN:5 META:3 AAPL V MA</code> → scores custom + auto-rank
-                    </div>
+                    <p class="hint">
+                        <strong>🎯 Format avancé :</strong>
+                        ajoute un score avec <code>TICKER:valeur</code> ou <code>TICKER=valeur</code><br>
+                        ou utilise des blocs de pourcentage :
+                        <code>VALEUR% TICKER1 TICKER2 ...</code>
+                    </p>
+                    <p class="hint small">
+                        Exemples :<br>
+                        <code>MSFT:0.05 AMZN=0.03 AAPL</code><br>
+                        <code>0,01% YUM BRO BXP</code><br>
+                        <code>0,02% PEG RMD STT</code>
+                    </p>
                 </div>
                 
                 <p class="help-text">
-                    Copier les tickers <strong>colorés</strong>. Optionnel: ajouter des scores par bloc de couleur.
+                    Copier les tickers <strong>colorés</strong>. Optionnel : ajouter des valeurs (% du portefeuille) par bloc ou par ticker.
                 </p>
-                <textarea id="inputOwnership" placeholder="Format simple:
+                <textarea id="inputOwnership" placeholder="Format simple :
 MSFT AMZN GOOGL AAPL META V MA
 
-Format avancé (avec scores par intensité de couleur):
-MSFT:5 AMZN:5 META:5
-BRK.B:3 GOOGL:3 AAPL:3
-V:1 MA:1 GE:1"></textarea>
+Blocs de pourcentage :
+0,01%
+YUM BRO BXP ...
+0,02%
+PEG RMD STT ...
+
+Par ticker :
+MSFT:0.05 AMZN=0.03 AAPL"></textarea>
                 <div class="btn-group">
                     <button class="btn btn-primary" onclick="parseOwnership()">🚀 Parser Ownership</button>
                     <button class="btn btn-secondary" onclick="clearInput('ownership')">Clear</button>
@@ -476,22 +487,36 @@ V:1 MA:1 GE:1"></textarea>
                 
                 <!-- FORMAT HINT -->
                 <div class="format-hint">
-                    <strong>🎯 Format avancé:</strong> Ajoute un score avec <code>TICKER:valeur</code> ou <code>TICKER=valeur</code><br>
-                    <div class="example">
-                        Ex: <code>NVDA:10 GOOGL:8 AMZN:5</code> → nombre de buys ou score maison
-                    </div>
+                    <p class="hint">
+                        <strong>🎯 Format avancé :</strong>
+                        ajoute un nombre de buys avec <code>TICKER:valeur</code> ou <code>TICKER=valeur</code><br>
+                        ou utilise des blocs :
+                        <code>N_BUYS TICKER1 TICKER2 ...</code>
+                    </p>
+                    <p class="hint small">
+                        Exemples :<br>
+                        <code>NVDA:10 GOOGL:8 AMZN=8</code><br>
+                        <code>10 NVDA GOOGL</code><br>
+                        <code>5 MSFT V</code>
+                    </p>
                 </div>
                 
                 <p class="help-text">
-                    Copier les tickers <strong>colorés</strong>. Optionnel: ajouter le nombre de buys.
+                    Copier les tickers <strong>colorés</strong>. Optionnel : ajouter le nombre de buys par bloc ou par ticker.
                 </p>
-                <textarea id="inputBuys" placeholder="Format simple:
+                <textarea id="inputBuys" placeholder="Format simple :
 NVDA GOOGL AMZN TSM META
 
-Format avancé (avec nombre de buys):
-NVDA:10 GOOGL:8 AMZN:8
-META:5 TSM:5 V:5
-MSFT:2 AAPL:2"></textarea>
+Blocs de buys :
+10
+NVDA GOOGL
+8
+AMZN TSM META
+5
+MSFT V
+
+Par ticker :
+NVDA:10 GOOGL:8"></textarea>
                 <div class="btn-group">
                     <button class="btn btn-success" onclick="parseBuys()">🚀 Parser 6M Buys</button>
                     <button class="btn btn-secondary" onclick="clearInput('buys')">Clear</button>
@@ -583,3 +608,5 @@ MSFT:2 AAPL:2"></textarea>
     <script src="sp500_grid_collector.js"></script>
 </body>
 </html>
+
+ 
