@@ -1,6 +1,6 @@
 /**
  * Dataroma S&P500 Grid Collector
- * Version: 2.1.0
+ * Version: 2.1.1
  * 
  * Features:
  * - Dual-metric: Ownership + 6M Buys
@@ -127,22 +127,8 @@ function restoreFromStorage() {
         ownershipZeroData = state.ownershipZeroData || [];
         buysZeroData = state.buysZeroData || [];
         
-        if (state.inputOwnership) {
-            const el = document.getElementById('inputOwnership');
-            if (el) el.value = state.inputOwnership;
-        }
-        if (state.inputBuys) {
-            const el = document.getElementById('inputBuys');
-            if (el) el.value = state.inputBuys;
-        }
-        if (state.inputOwnershipZero) {
-            const el = document.getElementById('inputOwnershipZero');
-            if (el) el.value = state.inputOwnershipZero;
-        }
-        if (state.inputBuysZero) {
-            const el = document.getElementById('inputBuysZero');
-            if (el) el.value = state.inputBuysZero;
-        }
+        // Ne PAS restaurer les textareas - seulement les blocs
+        // Cela évite les duplications
         
         restoreBlocks('ownershipBlocks', state.ownershipBlocks);
         restoreBlocks('buysBlocks', state.buysBlocks);
@@ -242,17 +228,23 @@ function buildTextFromBlocks(containerId, isPercent) {
 
         const rawValue = valueInput.value.trim();
         const rawTickers = tickersInput.value.trim().toUpperCase();
-        if (!rawValue && !rawTickers) return;
+        
+        // Skip empty rows
+        if (!rawTickers) return;
 
         const tickers = rawTickers.split(/[\s,;]+/).filter(Boolean).join(' ');
         if (!tickers) return;
 
-        let prefix = '';
-        if (rawValue) {
+        // Build the line: "VALUE% TICKER1 TICKER2" or just "TICKER1 TICKER2"
+        let line = '';
+        if (rawValue !== '') {
             let v = rawValue.replace(',', '.');
-            prefix = isPercent ? `${v}% ` : `${v} `;
+            line = isPercent ? `${v}% ${tickers}` : `${v} ${tickers}`;
+        } else {
+            // No value specified - tickers only (will use last group value or null)
+            line = tickers;
         }
-        blocks.push(prefix + tickers);
+        blocks.push(line);
     });
 
     return blocks.join('\n');
@@ -281,29 +273,26 @@ function removeBlockRow(btn) {
     }
 }
 
+/**
+ * FIX v2.1.1: Les blocs REMPLACENT le textarea au lieu de s'y ajouter
+ */
 function prepareOwnershipAndParse() {
     const blockText = buildTextFromBlocks('ownershipBlocks', true);
     const textareaEl = document.getElementById('inputOwnership');
-    const existingText = textareaEl.value.trim();
     
-    if (blockText && existingText) {
-        textareaEl.value = blockText + '\n' + existingText;
-    } else if (blockText) {
-        textareaEl.value = blockText;
-    }
+    // REMPLACER le textarea avec les blocs (pas ajouter)
+    textareaEl.value = blockText;
+    
     parseOwnership();
 }
 
 function prepareBuysAndParse() {
     const blockText = buildTextFromBlocks('buysBlocks', false);
     const textareaEl = document.getElementById('inputBuys');
-    const existingText = textareaEl.value.trim();
     
-    if (blockText && existingText) {
-        textareaEl.value = blockText + '\n' + existingText;
-    } else if (blockText) {
-        textareaEl.value = blockText;
-    }
+    // REMPLACER le textarea avec les blocs (pas ajouter)
+    textareaEl.value = blockText;
+    
     parseBuys();
 }
 
@@ -324,7 +313,7 @@ function parseTickers(text) {
 /**
  * Parse metric text - returns RAW DATA
  * Structure: { ticker, value }
- * value = the exact number entered (0.01, 0.02, etc.)
+ * value = the exact number entered (0.01, 0.02, 1.45, etc.)
  */
 function parseMetricText(text) {
     if (!text || !text.trim()) return [];
@@ -366,7 +355,8 @@ function parseMetricText(text) {
 
     for (const token of tokens) {
         // Check if token is a number (with optional % suffix)
-        const numMatch = token.match(/^([-+]?\d*[\.,]?\d+)%?$/);
+        // Match: 0, 0.01, 1.45, 0,01, 1,45, etc. with optional %
+        const numMatch = token.match(/^([-+]?\d+(?:[\.,]\d+)?)%?$/);
         if (numMatch) {
             let v = parseFloat(numMatch[1].replace(',', '.'));
             currentGroupValue = (!Number.isFinite(v) || v < 0) ? null : v;
@@ -374,7 +364,7 @@ function parseMetricText(text) {
         }
 
         // Check for TICKER:value or TICKER=value format
-        const pairMatch = token.match(/^([A-Z.\-]{1,8})[:=]([-+]?\d*[\.,]?\d+)$/);
+        const pairMatch = token.match(/^([A-Z.\-]{1,8})[:=]([-+]?\d+(?:[\.,]\d+)?)$/);
         if (pairMatch) {
             const ticker = pairMatch[1];
             let v = parseFloat(pairMatch[2].replace(',', '.'));
@@ -416,7 +406,7 @@ function parseOwnership() {
     // Store RAW DATA - just ticker + value
     ownershipData = entries.map(item => ({
         ticker: item.ticker,
-        value: item.value  // Exact value: 0.01, 0.02, etc.
+        value: item.value  // Exact value: 0, 0.01, 1.45, etc.
     }));
 
     // Sort by value descending for display
@@ -709,7 +699,7 @@ function generateJSON() {
             url: 'https://www.dataroma.com/m/g/portfolio_b.php',
             as_of: today,
             description: 'S&P500 stocks with superinvestor ownership % and recent buying activity',
-            collector_version: '2.1.0',
+            collector_version: '2.1.1',
             sp500_validated: true
         },
         summary: {
@@ -875,6 +865,8 @@ function clearInput(type) {
             container.innerHTML = '';
             container.appendChild(createBlockRow());
         }
+        ownershipData = [];
+        ownershipZeroData = [];
     } else {
         document.getElementById('inputBuys').value = '';
         document.getElementById('inputBuysZero').value = '';
@@ -884,7 +876,11 @@ function clearInput(type) {
             container.innerHTML = '';
             container.appendChild(createBlockRow());
         }
+        buysData = [];
+        buysZeroData = [];
     }
+    calculateComposite();
+    updateState();
     autoSave();
 }
 
@@ -922,8 +918,8 @@ function resetAll() {
 
 // ============ INIT ============
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('📊 S&P500 Grid Collector v2.1.0');
-    console.log('✅ Raw data mode - no artificial ranking');
+    console.log('📊 S&P500 Grid Collector v2.1.1');
+    console.log('✅ Raw data mode - values stored exactly as entered');
     console.log('💾 Auto-save activé');
     
     const restored = restoreFromStorage();
