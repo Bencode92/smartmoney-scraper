@@ -5,6 +5,7 @@ from pathlib import Path
 from config import OUTPUTS, TWELVE_DATA_KEY, OPENAI_KEY
 from src.engine import SmartMoneyEngine
 from src.copilot import Copilot
+from src.dashboard import generate_dashboard
 
 
 def main():
@@ -49,10 +50,16 @@ def main():
     print("-"*60)
     portfolio = engine.export(OUTPUTS)
     
+    # === DASHBOARD HTML ===
+    print("\n" + "-"*60)
+    print("PHASE 6: Dashboard HTML")
+    print("-"*60)
+    generate_dashboard(portfolio, OUTPUTS)
+    
     # === COPILOT ===
     if OPENAI_KEY:
         print("\n" + "-"*60)
-        print("PHASE 6: IA Copilot")
+        print("PHASE 7: IA Copilot")
         print("-"*60)
         try:
             copilot = Copilot()
@@ -67,7 +74,15 @@ def main():
     print("\n" + "="*60)
     print("✅ TERMINÉ")
     print("="*60)
-    print(f"📁 Outputs: {OUTPUTS}")
+    
+    metrics = engine.portfolio_metrics
+    print(f"\n📊 MÉTRIQUES PORTEFEUILLE:")
+    print(f"   Positions: {metrics.get('positions', 0)}")
+    print(f"   Perf 3M: {metrics.get('perf_3m', 'N/A')}%")
+    print(f"   Perf YTD: {metrics.get('perf_ytd', 'N/A')}%")
+    print(f"   Vol 30j: {metrics.get('vol_30d', 'N/A')}%")
+    
+    print(f"\n📁 Outputs: {OUTPUTS}")
     
     # Affiche le top 10
     print("\n🏆 TOP 10 POSITIONS:")
@@ -75,7 +90,14 @@ def main():
         symbol = pos.get("symbol", "?")
         weight = pos.get("weight", 0) * 100
         score = pos.get("score_composite", 0)
-        print(f"  {i:2}. {symbol:6} {weight:5.2f}%  (score: {score:.3f})")
+        sector = pos.get("sector", "?")
+        print(f"  {i:2}. {symbol:6} {weight:5.2f}%  (score: {score:.3f}) [{sector}]")
+    
+    # Répartition sectorielle
+    if metrics.get("sector_weights"):
+        print("\n🏢 RÉPARTITION SECTORIELLE:")
+        for sector, weight in sorted(metrics["sector_weights"].items(), key=lambda x: -x[1]):
+            print(f"   {sector}: {weight}%")
     
     return 0
 
