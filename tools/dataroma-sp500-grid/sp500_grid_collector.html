@@ -30,7 +30,6 @@
         
         .container { max-width: 1400px; margin: 0 auto; }
         
-        /* NAVIGATION */
         .tools-nav {
             display: flex;
             gap: 8px;
@@ -52,15 +51,8 @@
             transition: all 0.2s;
         }
         
-        .tools-nav a:hover {
-            background: var(--border);
-            color: var(--text);
-        }
-        
-        .tools-nav a.active {
-            background: var(--purple);
-            color: white;
-        }
+        .tools-nav a:hover { background: var(--border); color: var(--text); }
+        .tools-nav a.active { background: var(--purple); color: white; }
         
         header {
             display: flex;
@@ -110,13 +102,11 @@
             gap: 20px;
         }
         
-        @media (max-width: 900px) {
-            .card-grid { grid-template-columns: 1fr; }
-        }
+        @media (max-width: 900px) { .card-grid { grid-template-columns: 1fr; } }
         
         textarea {
             width: 100%;
-            min-height: 150px;
+            min-height: 120px;
             background: var(--bg-dark);
             border: 1px solid var(--border);
             border-radius: 6px;
@@ -127,23 +117,10 @@
             resize: vertical;
         }
         
-        textarea:focus {
-            outline: none;
-            border-color: var(--accent);
-        }
+        textarea:focus { outline: none; border-color: var(--accent); }
+        textarea.zero-input { min-height: 80px; border-color: var(--text-muted); background: rgba(139, 148, 158, 0.1); }
         
-        textarea.zero-input {
-            min-height: 80px;
-            border-color: var(--text-muted);
-            background: rgba(139, 148, 158, 0.1);
-        }
-        
-        .btn-group {
-            display: flex;
-            gap: 12px;
-            margin-top: 16px;
-            flex-wrap: wrap;
-        }
+        .btn-group { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
         
         .btn {
             padding: 10px 20px;
@@ -169,6 +146,9 @@
         .btn-muted { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
         .btn-muted:hover { background: var(--border); }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .btn-xs { padding: 4px 8px; font-size: 11px; }
+        .btn-icon { padding: 4px 8px; font-size: 14px; line-height: 1; }
         
         .status {
             padding: 12px 16px;
@@ -198,74 +178,25 @@
             text-align: center;
         }
         
-        .stat-value {
-            font-size: 28px;
-            font-weight: 700;
-            color: var(--accent);
-        }
-        
+        .stat-value { font-size: 28px; font-weight: 700; color: var(--accent); }
         .stat-value.purple { color: var(--purple); }
         .stat-value.green { color: var(--success); }
         .stat-value.muted { color: var(--text-muted); }
+        .stat-label { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
         
-        .stat-label {
-            font-size: 11px;
-            color: var(--text-muted);
-            margin-top: 4px;
-        }
-        
-        .data-state {
-            display: flex;
-            gap: 20px;
-            margin-bottom: 16px;
-            flex-wrap: wrap;
-        }
-        
-        .state-indicator {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 13px;
-        }
-        
-        .state-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: var(--border);
-        }
-        
+        .data-state { display: flex; gap: 20px; margin-bottom: 16px; flex-wrap: wrap; }
+        .state-indicator { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+        .state-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--border); }
         .state-dot.loaded { background: var(--success); }
         .state-dot.zero { background: var(--text-muted); }
         
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 12px;
-        }
-        
-        th, td {
-            padding: 8px 10px;
-            text-align: left;
-            border-bottom: 1px solid var(--border);
-        }
-        
-        th {
-            background: var(--bg-dark);
-            font-weight: 600;
-            color: var(--text-muted);
-            font-size: 11px;
-            text-transform: uppercase;
-            position: sticky;
-            top: 0;
-        }
-        
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); }
+        th { background: var(--bg-dark); font-weight: 600; color: var(--text-muted); font-size: 11px; text-transform: uppercase; position: sticky; top: 0; }
         tr:hover { background: rgba(88, 166, 255, 0.05); }
-        
         .ticker { font-weight: 700; color: var(--accent); }
         .rank-top { color: var(--success); font-weight: 700; }
         .rank-mid { color: var(--warning); }
-        .rank-zero { color: var(--text-muted); font-style: italic; }
         .composite-high { background: rgba(163, 113, 247, 0.2); }
         
         .preview-json {
@@ -281,31 +212,12 @@
             display: none;
         }
         
-        .table-container {
-            max-height: 400px;
-            overflow-y: auto;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-        }
-        
-        .help-text {
-            font-size: 12px;
-            color: var(--text-muted);
-            margin-bottom: 12px;
-            line-height: 1.5;
-        }
-        
-        .metric-badge {
-            font-size: 10px;
-            padding: 2px 6px;
-            border-radius: 4px;
-            margin-left: 8px;
-        }
-        
+        .table-container { max-height: 400px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; }
+        .help-text { font-size: 12px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5; }
+        .metric-badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 8px; }
         .metric-badge.ownership { background: var(--accent); color: white; }
         .metric-badge.buys { background: var(--success); color: white; }
         
-        /* FORMAT HINT BOX */
         .format-hint {
             background: rgba(88, 166, 255, 0.1);
             border: 1px solid var(--accent);
@@ -323,56 +235,86 @@
             color: var(--accent);
         }
         
-        .format-hint .example {
-            color: var(--text-muted);
-            margin-top: 6px;
-            font-style: italic;
-        }
+        .zero-section { margin-top: 16px; border-top: 1px dashed var(--border); padding-top: 12px; }
+        .zero-toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--text-muted); font-size: 13px; padding: 8px 0; }
+        .zero-toggle:hover { color: var(--text); }
+        .zero-toggle .arrow { transition: transform 0.2s; }
+        .zero-toggle.open .arrow { transform: rotate(90deg); }
+        .zero-content { display: none; margin-top: 12px; }
+        .zero-content.open { display: block; }
+        .zero-badge { background: var(--text-muted); color: var(--bg-dark); font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 8px; }
         
-        /* COLLAPSIBLE ZERO SECTION */
-        .zero-section {
-            margin-top: 16px;
-            border-top: 1px dashed var(--border);
-            padding-top: 12px;
-        }
-        
-        .zero-toggle {
+        /* BLOCK TABLE STYLES */
+        .block-table { margin-bottom: 12px; }
+        .block-table-header {
             display: flex;
             align-items: center;
             gap: 8px;
-            cursor: pointer;
-            color: var(--text-muted);
-            font-size: 13px;
             padding: 8px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
         }
+        .block-table-header .col-value { width: 80px; }
+        .block-table-header .col-tickers { flex: 1; }
         
-        .zero-toggle:hover { color: var(--text); }
-        
-        .zero-toggle .arrow {
-            transition: transform 0.2s;
+        .block-rows { margin-top: 8px; }
+        .block-row {
+            display: flex;
+            gap: 8px;
+            align-items: flex-start;
+            margin-bottom: 8px;
         }
-        
-        .zero-toggle.open .arrow {
-            transform: rotate(90deg);
-        }
-        
-        .zero-content {
-            display: none;
-            margin-top: 12px;
-        }
-        
-        .zero-content.open {
-            display: block;
-        }
-        
-        .zero-badge {
-            background: var(--text-muted);
-            color: var(--bg-dark);
-            font-size: 10px;
-            padding: 2px 6px;
+        .block-row .block-value {
+            width: 80px;
+            padding: 8px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
             border-radius: 4px;
-            margin-left: 8px;
+            color: var(--text);
+            font-size: 12px;
+            font-family: 'Monaco', monospace;
         }
+        .block-row .block-tickers {
+            flex: 1;
+            min-height: 36px;
+            padding: 8px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text);
+            font-size: 12px;
+            font-family: 'Monaco', monospace;
+            resize: vertical;
+        }
+        .block-row input:focus, .block-row textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        
+        .input-mode-toggle {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .input-mode-toggle button {
+            padding: 6px 12px;
+            font-size: 12px;
+            border: 1px solid var(--border);
+            background: var(--bg-dark);
+            color: var(--text-muted);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .input-mode-toggle button.active {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
+        
+        .mode-blocks, .mode-textarea { display: none; }
+        .mode-blocks.active, .mode-textarea.active { display: block; }
     </style>
 </head>
 <body>
@@ -390,7 +332,7 @@
         <header>
             <h1>
                 📊 S&P500 Grid Collector
-                <span class="badge">v1.2 Custom Values</span>
+                <span class="badge">v2.0 Secure</span>
             </h1>
             <div class="btn-group">
                 <button class="btn btn-secondary" onclick="clearToken()">🔑 Reset Token</button>
@@ -421,48 +363,58 @@
                 <span>Composite: <strong id="countComposite">0</strong></span>
             </div>
         </div>
-                <!-- INPUT CARDS -->
+        
+        <!-- INPUT CARDS -->
         <div class="card-grid">
             <!-- OWNERSHIP -->
             <div class="card">
                 <h2>📈 % of Total Portfolio <span class="metric-badge ownership">Ownership</span></h2>
                 
-                <!-- FORMAT HINT -->
                 <div class="format-hint">
-                    <p class="hint">
-                        <strong>🎯 Format avancé :</strong>
-                        ajoute un score avec <code>TICKER:valeur</code> ou <code>TICKER=valeur</code><br>
-                        ou utilise des blocs de pourcentage :
-                        <code>VALEUR% TICKER1 TICKER2 ...</code>
-                    </p>
-                    <p class="hint small">
-                        Exemples :<br>
-                        <code>MSFT:0.05 AMZN=0.03 AAPL</code><br>
-                        <code>0,01% YUM BRO BXP</code><br>
-                        <code>0,02% PEG RMD STT</code>
-                    </p>
+                    <p><strong>🎯 Deux modes :</strong> tableau (valeur → tickers) ou texte libre.<br>
+                    ✅ Validation S&P500 active • 💾 Auto-save toutes les 30s</p>
                 </div>
                 
-                <p class="help-text">
-                    Copier les tickers <strong>colorés</strong>. Optionnel : ajouter des valeurs (% du portefeuille) par bloc ou par ticker.
-                </p>
-                <textarea id="inputOwnership" placeholder="Format simple :
-MSFT AMZN GOOGL AAPL META V MA
+                <!-- MODE TOGGLE -->
+                <div class="input-mode-toggle">
+                    <button class="active" onclick="toggleInputMode('ownership', 'blocks')">📊 Tableau</button>
+                    <button onclick="toggleInputMode('ownership', 'textarea')">📝 Texte</button>
+                </div>
+                
+                <!-- MODE BLOCKS -->
+                <div class="mode-blocks active" id="ownershipModeBlocks">
+                    <div class="block-table">
+                        <div class="block-table-header">
+                            <span class="col-value">% / score</span>
+                            <span class="col-tickers">Tickers</span>
+                            <button type="button" class="btn btn-xs" onclick="addBlockRow('ownership')">+ Bloc</button>
+                        </div>
+                        <div id="ownershipBlocks" class="block-rows">
+                            <div class="block-row">
+                                <input class="block-value" type="text" placeholder="0,01">
+                                <textarea class="block-tickers" placeholder="YUM BRO BXP"></textarea>
+                                <button type="button" class="btn btn-xs btn-icon" onclick="removeBlockRow(this)">✕</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- MODE TEXTAREA -->
+                <div class="mode-textarea" id="ownershipModeTextarea">
+                    <textarea id="inputOwnership" placeholder="Format libre :
+0,01% YUM BRO BXP
+0,02% PEG RMD STT
 
-Blocs de pourcentage :
-0,01%
-YUM BRO BXP ...
-0,02%
-PEG RMD STT ...
-
-Par ticker :
+Ou par ticker :
 MSFT:0.05 AMZN=0.03 AAPL"></textarea>
+                </div>
+                
                 <div class="btn-group">
-                    <button class="btn btn-primary" onclick="parseOwnership()">🚀 Parser Ownership</button>
+                    <button class="btn btn-primary" onclick="prepareOwnershipAndParse()">🚀 Parser Ownership</button>
                     <button class="btn btn-secondary" onclick="clearInput('ownership')">Clear</button>
                 </div>
                 
-                <!-- ZERO SECTION (collapsible) -->
+                <!-- ZERO SECTION -->
                 <div class="zero-section">
                     <div class="zero-toggle" onclick="toggleZeroSection('ownership')">
                         <span class="arrow" id="arrowOwnershipZero">▶</span>
@@ -470,8 +422,7 @@ MSFT:0.05 AMZN=0.03 AAPL"></textarea>
                         <span class="zero-badge" id="badgeOwnershipZero">0</span>
                     </div>
                     <div class="zero-content" id="zeroContentOwnership">
-                        <textarea class="zero-input" id="inputOwnershipZero" 
-                            placeholder="Coller les tickers des cases blanches (% = 0)"></textarea>
+                        <textarea class="zero-input" id="inputOwnershipZero" placeholder="Tickers des cases blanches (% = 0)"></textarea>
                         <div class="btn-group">
                             <button class="btn btn-muted" onclick="parseOwnershipZero()">🧊 Marquer 0%</button>
                         </div>
@@ -485,44 +436,52 @@ MSFT:0.05 AMZN=0.03 AAPL"></textarea>
             <div class="card">
                 <h2>🛒 Last 6 Months Buys <span class="metric-badge buys">Buys</span></h2>
                 
-                <!-- FORMAT HINT -->
                 <div class="format-hint">
-                    <p class="hint">
-                        <strong>🎯 Format avancé :</strong>
-                        ajoute un nombre de buys avec <code>TICKER:valeur</code> ou <code>TICKER=valeur</code><br>
-                        ou utilise des blocs :
-                        <code>N_BUYS TICKER1 TICKER2 ...</code>
-                    </p>
-                    <p class="hint small">
-                        Exemples :<br>
-                        <code>NVDA:10 GOOGL:8 AMZN=8</code><br>
-                        <code>10 NVDA GOOGL</code><br>
-                        <code>5 MSFT V</code>
-                    </p>
+                    <p><strong>🎯 Deux modes :</strong> tableau (valeur → tickers) ou texte libre.<br>
+                    ✅ Validation S&P500 active • 💾 Auto-save toutes les 30s</p>
                 </div>
                 
-                <p class="help-text">
-                    Copier les tickers <strong>colorés</strong>. Optionnel : ajouter le nombre de buys par bloc ou par ticker.
-                </p>
-                <textarea id="inputBuys" placeholder="Format simple :
-NVDA GOOGL AMZN TSM META
+                <!-- MODE TOGGLE -->
+                <div class="input-mode-toggle">
+                    <button class="active" onclick="toggleInputMode('buys', 'blocks')">📊 Tableau</button>
+                    <button onclick="toggleInputMode('buys', 'textarea')">📝 Texte</button>
+                </div>
+                
+                <!-- MODE BLOCKS -->
+                <div class="mode-blocks active" id="buysModeBlocks">
+                    <div class="block-table">
+                        <div class="block-table-header">
+                            <span class="col-value">Buys</span>
+                            <span class="col-tickers">Tickers</span>
+                            <button type="button" class="btn btn-xs" onclick="addBlockRow('buys')">+ Bloc</button>
+                        </div>
+                        <div id="buysBlocks" class="block-rows">
+                            <div class="block-row">
+                                <input class="block-value" type="text" placeholder="10">
+                                <textarea class="block-tickers" placeholder="NVDA GOOGL"></textarea>
+                                <button type="button" class="btn btn-xs btn-icon" onclick="removeBlockRow(this)">✕</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- MODE TEXTAREA -->
+                <div class="mode-textarea" id="buysModeTextarea">
+                    <textarea id="inputBuys" placeholder="Format libre :
+10 NVDA GOOGL
+8 AMZN TSM META
+5 MSFT V
 
-Blocs de buys :
-10
-NVDA GOOGL
-8
-AMZN TSM META
-5
-MSFT V
-
-Par ticker :
+Ou par ticker :
 NVDA:10 GOOGL:8"></textarea>
+                </div>
+                
                 <div class="btn-group">
-                    <button class="btn btn-success" onclick="parseBuys()">🚀 Parser 6M Buys</button>
+                    <button class="btn btn-success" onclick="prepareBuysAndParse()">🚀 Parser 6M Buys</button>
                     <button class="btn btn-secondary" onclick="clearInput('buys')">Clear</button>
                 </div>
                 
-                <!-- ZERO SECTION (collapsible) -->
+                <!-- ZERO SECTION -->
                 <div class="zero-section">
                     <div class="zero-toggle" onclick="toggleZeroSection('buys')">
                         <span class="arrow" id="arrowBuysZero">▶</span>
@@ -530,8 +489,7 @@ NVDA:10 GOOGL:8"></textarea>
                         <span class="zero-badge" id="badgeBuysZero">0</span>
                     </div>
                     <div class="zero-content" id="zeroContentBuys">
-                        <textarea class="zero-input" id="inputBuysZero" 
-                            placeholder="Coller les tickers des cases blanches (0 achat)"></textarea>
+                        <textarea class="zero-input" id="inputBuysZero" placeholder="Tickers des cases blanches (0 achat)"></textarea>
                         <div class="btn-group">
                             <button class="btn btn-muted" onclick="parseBuysZero()">🧊 Marquer 0 buy</button>
                         </div>
@@ -605,8 +563,27 @@ NVDA:10 GOOGL:8"></textarea>
         </div>
     </div>
     
+    <script>
+        // Toggle input mode (blocks vs textarea)
+        function toggleInputMode(type, mode) {
+            const prefix = type === 'ownership' ? 'ownership' : 'buys';
+            const blocksDiv = document.getElementById(prefix + 'ModeBlocks');
+            const textareaDiv = document.getElementById(prefix + 'ModeTextarea');
+            const buttons = textareaDiv.parentElement.querySelector('.input-mode-toggle').querySelectorAll('button');
+            
+            if (mode === 'blocks') {
+                blocksDiv.classList.add('active');
+                textareaDiv.classList.remove('active');
+                buttons[0].classList.add('active');
+                buttons[1].classList.remove('active');
+            } else {
+                blocksDiv.classList.remove('active');
+                textareaDiv.classList.add('active');
+                buttons[0].classList.remove('active');
+                buttons[1].classList.add('active');
+            }
+        }
+    </script>
     <script src="sp500_grid_collector.js"></script>
 </body>
 </html>
-
- 
