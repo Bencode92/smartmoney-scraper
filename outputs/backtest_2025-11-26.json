@@ -1,31 +1,14 @@
 {
-  "generated_at": "2025-11-26T20:23:03.365333",
+  "generated_at": "2025-11-26T21:17:39.813238",
   "benchmark_comparison": {
-    "period_days": 90,
-    "benchmark": {
-      "symbol": "SPY",
-      "return_pct": 7.45,
-      "volatility_pct": 11.9,
-      "sharpe": 0.53
-    },
-    "portfolio": {
-      "return_pct": NaN,
-      "volatility_pct": NaN,
-      "sharpe": 0,
-      "positions": 25
-    },
-    "comparison": {
-      "alpha_pct": NaN,
-      "outperformance": "False",
-      "sharpe_diff": -0.53
-    }
+    "error": "Impossible de r\u00e9cup\u00e9rer le benchmark"
   },
   "turnover": null,
   "portfolio_history": [
     {
       "date": "2025-11-26",
       "positions": 25,
-      "perf_3m": -0.4
+      "perf_3m": 2.01
     }
   ]
 }

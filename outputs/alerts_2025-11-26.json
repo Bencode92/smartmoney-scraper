@@ -2,25 +2,25 @@
   {
     "level": "warning",
     "type": "concentration",
-    "symbol": "null",
-    "message": "Concentration excessive dans le portefeuille avec plusieurs positions d\u00e9passant 5.5%."
+    "symbol": null,
+    "message": "Le portefeuille pr\u00e9sente une concentration \u00e9lev\u00e9e avec plusieurs positions sup\u00e9rieures \u00e0 5.5%."
   },
   {
-    "level": "critical",
+    "level": "warning",
     "type": "quality",
-    "symbol": "PG",
-    "message": "Score composite de Procter & Gamble est inf\u00e9rieur \u00e0 0.4."
+    "symbol": "ADBE",
+    "message": "Le score composite de Adobe Inc. est inf\u00e9rieur \u00e0 0.4."
   },
   {
     "level": "warning",
     "type": "momentum",
-    "symbol": "UNP",
-    "message": "RSI de Union Pacific est sup\u00e9rieur \u00e0 70, signalant un momentum extr\u00eame."
+    "symbol": null,
+    "message": "Plusieurs positions pr\u00e9sentent un RSI proche des limites extr\u00eames."
   },
   {
     "level": "warning",
     "type": "sector",
-    "symbol": "null",
-    "message": "Plus de 3 positions dans le secteur technologique."
+    "symbol": null,
+    "message": "Il y a plus de 3 positions dans le secteur technologique."
   }
 ]
