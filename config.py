@@ -33,7 +33,8 @@ CONSTRAINTS = {
 
 # === TWELVE DATA ===
 TWELVE_DATA_BASE = "https://api.twelvedata.com"
-TWELVE_DATA_RATE_LIMIT = 120  # calls per minute (Ultra plan: 2584/min max)
+# Rate limit réduit pour éviter les erreurs de crédits (marge de sécurité)
+TWELVE_DATA_RATE_LIMIT = 80  # calls per minute (conservatif, évite les pauses crédits)
 
 # === OPENAI ===
 OPENAI_MODEL = "gpt-4o"
