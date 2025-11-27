@@ -212,60 +212,66 @@ class SmartMoneyEngine:
         return {}
     
     def _fetch_balance_sheet(self, symbol: str) -> dict:
-        """Récupère le bilan via Twelve Data"""
+        """Récupère le bilan via Twelve Data - ENDPOINT CONSOLIDATED"""
         if not TWELVE_DATA_KEY:
             return {}
         
         self._rate_limit()
         try:
             resp = requests.get(
-                f"{TWELVE_DATA_BASE}/balance_sheet",
+                f"{TWELVE_DATA_BASE}/balance_sheet/consolidated",
                 params={"symbol": symbol, "period": "annual", "apikey": TWELVE_DATA_KEY},
                 timeout=10
             )
             if resp.status_code == 200:
                 data = resp.json()
-                if "balance_sheet" in data and len(data["balance_sheet"]) > 0:
+                if "code" in data:
+                    print(f"    ⚠️ Balance sheet {symbol}: {data.get('message', data.get('code'))}")
+                elif "balance_sheet" in data and data["balance_sheet"]:
                     return data["balance_sheet"][0]
         except Exception as e:
             print(f"⚠️ Balance sheet error {symbol}: {e}")
         return {}
     
     def _fetch_income_statement(self, symbol: str) -> dict:
-        """Récupère le compte de résultat via Twelve Data"""
+        """Récupère le compte de résultat via Twelve Data - ENDPOINT CONSOLIDATED"""
         if not TWELVE_DATA_KEY:
             return {}
         
         self._rate_limit()
         try:
             resp = requests.get(
-                f"{TWELVE_DATA_BASE}/income_statement",
+                f"{TWELVE_DATA_BASE}/income_statement/consolidated",
                 params={"symbol": symbol, "period": "annual", "apikey": TWELVE_DATA_KEY},
                 timeout=10
             )
             if resp.status_code == 200:
                 data = resp.json()
-                if "income_statement" in data and len(data["income_statement"]) > 0:
+                if "code" in data:
+                    print(f"    ⚠️ Income statement {symbol}: {data.get('message', data.get('code'))}")
+                elif "income_statement" in data and data["income_statement"]:
                     return data["income_statement"][0]
         except Exception as e:
             print(f"⚠️ Income statement error {symbol}: {e}")
         return {}
     
     def _fetch_cash_flow(self, symbol: str) -> dict:
-        """Récupère le cash flow via Twelve Data"""
+        """Récupère le cash flow via Twelve Data - ENDPOINT CONSOLIDATED"""
         if not TWELVE_DATA_KEY:
             return {}
         
         self._rate_limit()
         try:
             resp = requests.get(
-                f"{TWELVE_DATA_BASE}/cash_flow",
+                f"{TWELVE_DATA_BASE}/cash_flow/consolidated",
                 params={"symbol": symbol, "period": "annual", "apikey": TWELVE_DATA_KEY},
                 timeout=10
             )
             if resp.status_code == 200:
                 data = resp.json()
-                if "cash_flow" in data and len(data["cash_flow"]) > 0:
+                if "code" in data:
+                    print(f"    ⚠️ Cash flow {symbol}: {data.get('message', data.get('code'))}")
+                elif "cash_flow" in data and data["cash_flow"]:
                     return data["cash_flow"][0]
         except Exception as e:
             print(f"⚠️ Cash flow error {symbol}: {e}")
@@ -308,103 +314,139 @@ class SmartMoneyEngine:
     
     def _extract_fundamentals(self, stats: dict, balance: dict, income: dict, cashflow: dict) -> dict:
         """
-        Extrait les ratios depuis les VRAIES clés Twelve Data.
+        Extrait les ratios depuis Twelve Data - TOLÉRANT AUX VARIANTES DE CLÉS.
         
-        Clés vérifiées:
-        - income_statement: sales, gross_profit, operating_income, net_income
-        - balance_sheet: total_equity, total_debt, total_assets, total_current_assets/liabilities
-        - cash_flow: operating_cash_flow, capital_expenditures, free_cash_flow
+        Gère les variations: sales/revenue, total_equity/total_shareholders_equity, etc.
         """
         result = {
             "roe": None, "roa": None, "debt_equity": None, "current_ratio": None,
             "gross_margin": None, "operating_margin": None, "net_margin": None,
             "capex_ratio": None, "fcf": None, "revenue": None, "net_income": None
         }
-        
+
         try:
             # === INCOME STATEMENT ===
-            # Clé = "sales" (PAS "revenue")
             if income:
-                result["revenue"] = self._safe_float(income.get("sales"))
-                result["net_income"] = self._safe_float(income.get("net_income"))
+                # Revenue: peut être "sales", "revenue", ou "total_revenue"
+                revenue = self._safe_float(
+                    income.get("sales")
+                    or income.get("revenue")
+                    or income.get("total_revenue")
+                )
+                net_income = self._safe_float(
+                    income.get("net_income")
+                    or income.get("net_income_common_stockholders")
+                )
                 gross_profit = self._safe_float(income.get("gross_profit"))
-                operating_income = self._safe_float(income.get("operating_income"))
-                
-                # Calcul des marges
-                if result["revenue"] and result["revenue"] > 0:
+                operating_income = self._safe_float(
+                    income.get("operating_income")
+                    or income.get("operating_income_loss")
+                )
+
+                result["revenue"] = revenue
+                result["net_income"] = net_income
+
+                if revenue and revenue > 0:
                     if gross_profit is not None:
-                        result["gross_margin"] = round(gross_profit / result["revenue"] * 100, 2)
+                        result["gross_margin"] = round(gross_profit / revenue * 100, 2)
                     if operating_income is not None:
-                        result["operating_margin"] = round(operating_income / result["revenue"] * 100, 2)
-                    if result["net_income"] is not None:
-                        result["net_margin"] = round(result["net_income"] / result["revenue"] * 100, 2)
-            
+                        result["operating_margin"] = round(operating_income / revenue * 100, 2)
+                    if net_income is not None:
+                        result["net_margin"] = round(net_income / revenue * 100, 2)
+
             # === BALANCE SHEET ===
-            # Clé = "total_equity" (PAS "total_shareholders_equity")
             if balance:
-                total_equity = self._safe_float(balance.get("total_equity"))
+                # Equity: plusieurs variantes possibles
+                total_equity = self._safe_float(
+                    balance.get("total_equity")
+                    or balance.get("total_shareholders_equity")
+                    or balance.get("total_stockholders_equity")
+                    or balance.get("stockholders_equity")
+                )
                 total_assets = self._safe_float(balance.get("total_assets"))
-                
-                # Debt: essayer total_debt, sinon long_term + short_term
-                total_debt = self._safe_float(balance.get("total_debt"))
+
+                # Debt: total_debt ou somme long_term + short_term
+                total_debt = self._safe_float(
+                    balance.get("total_debt")
+                    or balance.get("total_debt_net")
+                )
                 if total_debt is None:
                     long_term = self._safe_float(balance.get("long_term_debt")) or 0
                     short_term = self._safe_float(balance.get("short_term_debt")) or 0
-                    if long_term > 0 or short_term > 0:
+                    if long_term or short_term:
                         total_debt = long_term + short_term
-                
+
                 # Current Ratio
-                current_assets = self._safe_float(balance.get("total_current_assets"))
-                current_liabilities = self._safe_float(balance.get("total_current_liabilities"))
-                
-                if current_liabilities and current_liabilities > 0 and current_assets:
+                current_assets = self._safe_float(
+                    balance.get("total_current_assets")
+                    or balance.get("current_assets")
+                )
+                current_liabilities = self._safe_float(
+                    balance.get("total_current_liabilities")
+                    or balance.get("current_liabilities")
+                )
+
+                if current_assets and current_liabilities and current_liabilities > 0:
                     result["current_ratio"] = round(current_assets / current_liabilities, 2)
-                
-                # ROE et D/E
-                if total_equity and total_equity > 0:
-                    if result["net_income"] is not None:
-                        result["roe"] = round(result["net_income"] / total_equity * 100, 2)
-                    if total_debt is not None:
-                        result["debt_equity"] = round(total_debt / total_equity, 2)
-                
+
+                # ROE
+                if total_equity and total_equity > 0 and result["net_income"] is not None:
+                    result["roe"] = round(result["net_income"] / total_equity * 100, 2)
+
+                # D/E
+                if total_debt is not None and total_equity and total_equity > 0:
+                    result["debt_equity"] = round(total_debt / total_equity, 2)
+
                 # ROA
                 if total_assets and total_assets > 0 and result["net_income"] is not None:
                     result["roa"] = round(result["net_income"] / total_assets * 100, 2)
-            
+
             # === CASH FLOW ===
             if cashflow:
-                operating_cf = self._safe_float(cashflow.get("operating_cash_flow"))
-                capex = self._safe_float(cashflow.get("capital_expenditures"))
-                fcf_direct = self._safe_float(cashflow.get("free_cash_flow"))
-                
+                operating_cf = self._safe_float(
+                    cashflow.get("operating_cash_flow")
+                    or cashflow.get("net_cash_provided_by_operating_activities")
+                    or cashflow.get("cash_flow_from_operating_activities")
+                )
+                capex = self._safe_float(
+                    cashflow.get("capital_expenditures")
+                    or cashflow.get("capital_expenditure")
+                )
+                fcf_direct = self._safe_float(
+                    cashflow.get("free_cash_flow")
+                    or cashflow.get("free_cash_flow_firm")
+                )
+
                 if capex is not None:
-                    capex = abs(capex)  # CAPEX souvent négatif
-                    
+                    capex = abs(capex)
                     if result["revenue"] and result["revenue"] > 0:
                         result["capex_ratio"] = round(capex / result["revenue"] * 100, 2)
-                    
+
                     if fcf_direct is not None:
                         result["fcf"] = fcf_direct
                     elif operating_cf is not None:
                         result["fcf"] = round(operating_cf - capex, 0)
                 elif fcf_direct is not None:
                     result["fcf"] = fcf_direct
-            
-            # === STATISTICS (fallback) ===
+
+            # === STATISTICS (fallback ROE / current_ratio) ===
             if stats:
                 fin = stats.get("financials", {}) or stats.get("statistics", {}) or {}
                 
                 if result["roe"] is None:
-                    roe_raw = self._safe_float(fin.get("return_on_equity_ttm") or fin.get("return_on_equity"))
+                    roe_raw = self._safe_float(
+                        fin.get("return_on_equity_ttm")
+                        or fin.get("return_on_equity")
+                    )
                     if roe_raw is not None:
                         result["roe"] = roe_raw * 100 if -1 < roe_raw < 1 else roe_raw
-                
+
                 if result["current_ratio"] is None:
                     result["current_ratio"] = self._safe_float(fin.get("current_ratio"))
-        
+
         except Exception as e:
             print(f"⚠️ Fundamentals error: {e}")
-        
+
         return result
     
     def _safe_float(self, value) -> float:
@@ -470,7 +512,7 @@ class SmartMoneyEngine:
             row["vol_30d"] = perf_vol["vol_30d"]
             print(f"    ✓ Perf 3M: {row['perf_3m']}% | Vol: {row['vol_30d']}%")
             
-            # 5-8. Fondamentaux
+            # 5-8. Fondamentaux (CONSOLIDATED endpoints)
             stats = self._fetch_statistics(symbol)
             balance = self._fetch_balance_sheet(symbol)
             income = self._fetch_income_statement(symbol)
@@ -490,6 +532,26 @@ class SmartMoneyEngine:
         self.universe = pd.DataFrame(enriched)
         print(f"\n✅ Enrichissement terminé")
         return self.universe
+    
+    # === NETTOYAGE OPTIONNEL ===
+    
+    def clean_universe(self):
+        """Exclut les tickers sans fondamentaux suffisants"""
+        df = self.universe
+        
+        # Pas de secteur OU pas de revenus → fondamentaux trop faibles
+        mask_bad = (
+            df["sector"].eq("Unknown") |
+            df["revenue"].isna() |
+            df["net_income"].isna()
+        )
+        
+        bad_symbols = df.loc[mask_bad, "symbol"].tolist()
+        if bad_symbols:
+            print(f"⚠️ Exclusion {len(bad_symbols)} tickers sans fondamentaux: {bad_symbols[:10]}{'...' if len(bad_symbols) > 10 else ''}")
+        
+        self.universe = df[~mask_bad].reset_index(drop=True)
+        print(f"✅ Univers nettoyé: {len(self.universe)} tickers restants")
     
     # === SCORING ===
     
@@ -872,6 +934,7 @@ if __name__ == "__main__":
     engine = SmartMoneyEngine()
     engine.load_data()
     engine.enrich(top_n=40)
+    # engine.clean_universe()  # Décommenter pour exclure tickers sans fondamentaux
     engine.calculate_scores()
     engine.apply_filters()
     engine.optimize()
