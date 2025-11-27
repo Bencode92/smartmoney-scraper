@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-11-27T16:12:36.102175",
+  "generated_at": "2025-11-27T16:42:24.433291",
   "benchmark_comparison": {
     "period_days": 90,
     "benchmark": {
@@ -21,26 +21,28 @@
     }
   },
   "turnover": {
-    "turnover_pct": 34.43,
+    "turnover_pct": 39.75,
     "entries": [
-      "CP",
+      "TSM",
       "AVGO",
+      "META",
+      "DIS",
       "CPRT",
-      "XOM",
-      "KD",
-      "QCOM"
+      "AMAT",
+      "CP"
     ],
     "exits": [
-      "TSLA",
-      "ADBE",
-      "ELV",
+      "UNH",
+      "SHW",
+      "ASML",
       "INTU",
-      "MCD",
-      "SHW"
+      "BAX",
+      "TSLA",
+      "ELV"
     ],
-    "entries_count": 6,
-    "exits_count": 6,
-    "unchanged_count": 19
+    "entries_count": 7,
+    "exits_count": 7,
+    "unchanged_count": 18
   },
   "portfolio_history": [
     {
@@ -51,7 +53,7 @@
     {
       "date": "2025-11-27",
       "positions": 25,
-      "perf_3m": -0.74
+      "perf_3m": 0.31
     }
   ]
 }
