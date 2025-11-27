@@ -1,7 +1,11 @@
-"""SmartMoney Engine - Scoring + Optimisation HRP"""
+"""SmartMoney Engine - Scoring + Optimisation HRP
+
+Version 2.1 - Retry intelligent + Validation coverage
+"""
 import json
 import time
 from datetime import datetime, timedelta
+from functools import wraps
 from pathlib import Path
 import requests
 import numpy as np
@@ -17,6 +21,45 @@ from config import (
 )
 
 
+# =============================================================================
+# DÉCORATEUR RETRY INTELLIGENT
+# =============================================================================
+
+def with_credit_retry(max_retries: int = 3, base_wait: int = 65):
+    """
+    Décorateur pour gérer les erreurs de crédits API avec backoff exponentiel.
+    
+    Si l'API renvoie "run out of API credits", attend puis retente.
+    Backoff: 65s → 97s → 146s (facteur 1.5)
+    
+    Args:
+        max_retries: Nombre maximum de tentatives après échec
+        base_wait: Temps d'attente initial en secondes
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(self, symbol: str, *args, **kwargs):
+            for attempt in range(max_retries + 1):
+                result, error_msg = func(self, symbol, *args, **kwargs)
+                
+                # Succès ou dernière tentative
+                if result is not None or attempt == max_retries:
+                    return result if result is not None else {}
+                
+                # Check si erreur de crédits
+                if error_msg and ("API credits" in error_msg or "run out of" in error_msg):
+                    wait_time = base_wait * (1.5 ** attempt)
+                    print(f"    ⏳ Crédits épuisés, pause {wait_time:.0f}s (tentative {attempt+1}/{max_retries})...")
+                    time.sleep(wait_time)
+                else:
+                    # Erreur non liée aux crédits, on abandonne
+                    return {}
+            
+            return {}
+        return wrapper
+    return decorator
+
+
 class SmartMoneyEngine:
     """Moteur principal: charge données → enrichit → score → optimise"""
     
@@ -25,9 +68,17 @@ class SmartMoneyEngine:
         self.portfolio = pd.DataFrame()
         self.portfolio_metrics = {}
         self._last_api_call = 0
-        self._fundamentals_available = True  # Flag pour économiser les crédits API
+        self._last_api_error = None  # Pour tracker le type d'erreur
+        self._api_stats = {
+            "calls": 0,
+            "errors": 0,
+            "retries": 0,
+            "credit_pauses": 0
+        }
     
-    # === DATA LOADING ===
+    # =========================================================================
+    # DATA LOADING
+    # =========================================================================
     
     def load_data(self) -> pd.DataFrame:
         """Charge et fusionne toutes les sources JSON"""
@@ -97,7 +148,9 @@ class SmartMoneyEngine:
         print(f"✅ {len(self.universe)} tickers chargés")
         return self.universe
     
-    # === TWELVE DATA API ===
+    # =========================================================================
+    # TWELVE DATA API - UTILITAIRES
+    # =========================================================================
     
     def _rate_limit(self):
         """Respecte le rate limit Twelve Data"""
@@ -106,23 +159,28 @@ class SmartMoneyEngine:
         if wait > 0:
             time.sleep(wait)
         self._last_api_call = time.time()
+        self._api_stats["calls"] += 1
     
-    def _check_api_error(self, data: dict, endpoint: str, symbol: str) -> bool:
+    def _handle_api_response(self, data: dict, endpoint: str, symbol: str) -> tuple:
         """
-        Vérifie si l'API renvoie une erreur et gère le flag _fundamentals_available.
-        Retourne True si erreur détectée.
+        Gère la réponse API de manière centralisée.
+        
+        Returns:
+            tuple: (data_or_none, error_message_or_none)
         """
         if "code" in data:
-            msg = data.get("message", str(data.get("code", "")))
-            print(f"    ⚠️ {endpoint} {symbol}: {msg}")
-            
-            # Détection erreur de crédits épuisés
-            if "run out of API credits" in msg or "API credits" in msg:
-                print(f"    🛑 Crédits API épuisés - désactivation des fondamentaux pour ce run")
-                self._fundamentals_available = False
-            
-            return True
-        return False
+            error_msg = data.get("message", str(data.get("code", "")))
+            print(f"    ⚠️ {endpoint} {symbol}: {error_msg}")
+            self._last_api_error = error_msg
+            self._api_stats["errors"] += 1
+            return None, error_msg
+        
+        self._last_api_error = None
+        return data, None
+    
+    # =========================================================================
+    # TWELVE DATA API - FETCH METHODS (avec retry intelligent)
+    # =========================================================================
     
     def _fetch_quote(self, symbol: str) -> dict:
         """Récupère prix + stats via Twelve Data"""
@@ -209,10 +267,11 @@ class SmartMoneyEngine:
             print(f"⚠️ Time series error {symbol}: {e}")
         return []
     
-    def _fetch_statistics(self, symbol: str) -> dict:
-        """Récupère les statistiques via Twelve Data"""
-        if not TWELVE_DATA_KEY or not self._fundamentals_available:
-            return {}
+    @with_credit_retry(max_retries=3, base_wait=65)
+    def _fetch_statistics(self, symbol: str) -> tuple:
+        """Récupère les statistiques via Twelve Data (avec retry)"""
+        if not TWELVE_DATA_KEY:
+            return {}, None
         
         self._rate_limit()
         try:
@@ -223,19 +282,16 @@ class SmartMoneyEngine:
             )
             if resp.status_code == 200:
                 data = resp.json()
-                if not self._check_api_error(data, "Statistics", symbol):
-                    return data
+                return self._handle_api_response(data, "Statistics", symbol)
         except Exception as e:
             print(f"⚠️ Statistics error {symbol}: {e}")
-        return {}
+        return None, "Exception"
     
-    def _fetch_balance_sheet(self, symbol: str) -> dict:
-        """
-        Récupère le bilan via Twelve Data.
-        Endpoint: /balance_sheet (sans /consolidated)
-        """
-        if not TWELVE_DATA_KEY or not self._fundamentals_available:
-            return {}
+    @with_credit_retry(max_retries=3, base_wait=65)
+    def _fetch_balance_sheet(self, symbol: str) -> tuple:
+        """Récupère le bilan via Twelve Data (avec retry)"""
+        if not TWELVE_DATA_KEY:
+            return {}, None
         
         self._rate_limit()
         try:
@@ -246,21 +302,19 @@ class SmartMoneyEngine:
             )
             if resp.status_code == 200:
                 data = resp.json()
-                if self._check_api_error(data, "Balance sheet", symbol):
-                    return {}
-                elif "balance_sheet" in data and data["balance_sheet"]:
-                    return data["balance_sheet"][0]
+                result, error = self._handle_api_response(data, "Balance sheet", symbol)
+                if result and "balance_sheet" in result and result["balance_sheet"]:
+                    return result["balance_sheet"][0], None
+                return result, error
         except Exception as e:
             print(f"⚠️ Balance sheet error {symbol}: {e}")
-        return {}
+        return None, "Exception"
     
-    def _fetch_income_statement(self, symbol: str) -> dict:
-        """
-        Récupère le compte de résultat via Twelve Data.
-        Endpoint: /income_statement (sans /consolidated)
-        """
-        if not TWELVE_DATA_KEY or not self._fundamentals_available:
-            return {}
+    @with_credit_retry(max_retries=3, base_wait=65)
+    def _fetch_income_statement(self, symbol: str) -> tuple:
+        """Récupère le compte de résultat via Twelve Data (avec retry)"""
+        if not TWELVE_DATA_KEY:
+            return {}, None
         
         self._rate_limit()
         try:
@@ -271,21 +325,19 @@ class SmartMoneyEngine:
             )
             if resp.status_code == 200:
                 data = resp.json()
-                if self._check_api_error(data, "Income statement", symbol):
-                    return {}
-                elif "income_statement" in data and data["income_statement"]:
-                    return data["income_statement"][0]
+                result, error = self._handle_api_response(data, "Income statement", symbol)
+                if result and "income_statement" in result and result["income_statement"]:
+                    return result["income_statement"][0], None
+                return result, error
         except Exception as e:
             print(f"⚠️ Income statement error {symbol}: {e}")
-        return {}
+        return None, "Exception"
     
-    def _fetch_cash_flow(self, symbol: str) -> dict:
-        """
-        Récupère le cash flow via Twelve Data.
-        Endpoint: /cash_flow (sans /consolidated)
-        """
-        if not TWELVE_DATA_KEY or not self._fundamentals_available:
-            return {}
+    @with_credit_retry(max_retries=3, base_wait=65)
+    def _fetch_cash_flow(self, symbol: str) -> tuple:
+        """Récupère le cash flow via Twelve Data (avec retry)"""
+        if not TWELVE_DATA_KEY:
+            return {}, None
         
         self._rate_limit()
         try:
@@ -296,13 +348,17 @@ class SmartMoneyEngine:
             )
             if resp.status_code == 200:
                 data = resp.json()
-                if self._check_api_error(data, "Cash flow", symbol):
-                    return {}
-                elif "cash_flow" in data and data["cash_flow"]:
-                    return data["cash_flow"][0]
+                result, error = self._handle_api_response(data, "Cash flow", symbol)
+                if result and "cash_flow" in result and result["cash_flow"]:
+                    return result["cash_flow"][0], None
+                return result, error
         except Exception as e:
             print(f"⚠️ Cash flow error {symbol}: {e}")
-        return {}
+        return None, "Exception"
+    
+    # =========================================================================
+    # CALCULS
+    # =========================================================================
     
     def _calculate_perf_vol(self, prices: list) -> dict:
         """Calcule perf 3M, YTD, vol 30j depuis l'historique"""
@@ -503,21 +559,32 @@ class SmartMoneyEngine:
         except (ValueError, TypeError):
             return None
     
-    # === ENRICHISSEMENT ===
+    # =========================================================================
+    # ENRICHISSEMENT (Version 2.1 - tous les tickers, retry intelligent)
+    # =========================================================================
     
-    def enrich(self, top_n: int = 50, max_fundamentals: int = 15) -> pd.DataFrame:
+    def enrich(self, top_n: int = 50, min_coverage: float = 0.5) -> pd.DataFrame:
         """
         Enrichit les top N candidats avec Twelve Data.
         
+        Tous les tickers sont enrichis avec fondamentaux (plus de limite).
+        En cas d'épuisement des crédits API, le système attend et retente.
+        
         Args:
             top_n: Nombre de tickers à enrichir
-            max_fundamentals: Limite de tickers avec fondamentaux complets (économie crédits)
+            min_coverage: Coverage minimum fondamentaux requis (0.5 = 50%)
+        
+        Returns:
+            DataFrame enrichi
+            
+        Raises:
+            ValueError: Si coverage fondamentaux < min_coverage après enrichissement
         """
         if self.universe.empty:
             self.load_data()
         
-        # Reset flag au début de chaque run
-        self._fundamentals_available = True
+        # Reset stats API
+        self._api_stats = {"calls": 0, "errors": 0, "retries": 0, "credit_pauses": 0}
         
         candidates = self.universe[
             (self.universe["gp_buys"] >= CONSTRAINTS["min_buys"]) |
@@ -525,10 +592,10 @@ class SmartMoneyEngine:
         ].head(top_n)
         
         print(f"📊 Enrichissement de {len(candidates)} tickers via Twelve Data...")
-        print(f"   (Quote + Profile + RSI + TimeSeries)")
-        print(f"   (Fondamentaux: limité aux {max_fundamentals} premiers tickers)")
-        estimated_time = len(candidates) * 4 / TWELVE_DATA_RATE_LIMIT
-        print(f"   ⏱️  Temps estimé: ~{estimated_time:.1f} minutes (rate limit {TWELVE_DATA_RATE_LIMIT}/min)")
+        print(f"   (Quote + Profile + RSI + TimeSeries + Statistics + Balance + Income + CashFlow)")
+        estimated_time = len(candidates) * 8 / TWELVE_DATA_RATE_LIMIT
+        print(f"   ⏱️  Temps estimé: ~{estimated_time:.1f} minutes (hors pauses crédits)")
+        print(f"   📋 Coverage minimum requis: {min_coverage:.0%}")
         
         enriched = []
         for idx, (_, row) in enumerate(candidates.iterrows(), 1):
@@ -565,52 +632,69 @@ class SmartMoneyEngine:
             row["vol_30d"] = perf_vol["vol_30d"]
             print(f"    ✓ Perf 3M: {row['perf_3m']}% | Vol: {row['vol_30d']}%")
             
-            # 5-8. Fondamentaux (limité aux premiers tickers pour économiser crédits)
-            fundamentals_enabled = (idx <= max_fundamentals) and self._fundamentals_available
+            # 5-8. Fondamentaux (TOUS les tickers, avec retry automatique)
+            stats = self._fetch_statistics(symbol)
+            balance = self._fetch_balance_sheet(symbol)
+            income = self._fetch_income_statement(symbol)
+            cashflow = self._fetch_cash_flow(symbol)
             
-            if not fundamentals_enabled:
-                if idx == max_fundamentals + 1:
-                    print(f"    ⏭️ Fondamentaux désactivés (limite {max_fundamentals} atteinte)")
-                elif not self._fundamentals_available:
-                    print(f"    ⏭️ Fondamentaux ignorés (crédits épuisés)")
-                
-                for k in ["roe", "roa", "debt_equity", "current_ratio", 
-                         "gross_margin", "operating_margin", "net_margin",
-                         "capex_ratio", "fcf", "revenue", "net_income"]:
-                    row[k] = None
-            else:
-                stats = self._fetch_statistics(symbol)
-                balance = self._fetch_balance_sheet(symbol)
-                income = self._fetch_income_statement(symbol)
-                cashflow = self._fetch_cash_flow(symbol)
-                
-                # Debug: afficher les clés reçues
-                if balance:
-                    print(f"    📋 Balance keys: {list(balance.keys())[:5]}...")
-                if income:
-                    print(f"    📋 Income keys: {list(income.keys())[:5]}...")
-                
-                fundamentals = self._extract_fundamentals(stats, balance, income, cashflow)
-                for k, v in fundamentals.items():
-                    row[k] = v
-                
-                roe_str = f"{row['roe']:.1f}%" if row['roe'] is not None else "N/A"
-                de_str = f"{row['debt_equity']:.2f}" if row['debt_equity'] is not None else "N/A"
-                margin_str = f"{row['net_margin']:.1f}%" if row['net_margin'] is not None else "N/A"
-                cr_str = f"{row['current_ratio']:.2f}" if row['current_ratio'] is not None else "N/A"
-                print(f"    ✓ Fundamentals: ROE={roe_str} | D/E={de_str} | Margin={margin_str} | CR={cr_str}")
+            fundamentals = self._extract_fundamentals(stats, balance, income, cashflow)
+            for k, v in fundamentals.items():
+                row[k] = v
+            
+            # Log fondamentaux
+            roe_str = f"{row['roe']:.1f}%" if row['roe'] is not None else "N/A"
+            de_str = f"{row['debt_equity']:.2f}" if row['debt_equity'] is not None else "N/A"
+            margin_str = f"{row['net_margin']:.1f}%" if row['net_margin'] is not None else "N/A"
+            cr_str = f"{row['current_ratio']:.2f}" if row['current_ratio'] is not None else "N/A"
+            print(f"    ✓ Fundamentals: ROE={roe_str} | D/E={de_str} | Margin={margin_str} | CR={cr_str}")
             
             enriched.append(row)
         
         self.universe = pd.DataFrame(enriched)
         
-        # Résumé final
-        if not self._fundamentals_available:
-            print(f"\n⚠️ Attention: crédits API épuisés en cours de run")
-        print(f"\n✅ Enrichissement terminé")
+        # === VALIDATION COVERAGE ===
+        fundamentals_cols = ["roe", "debt_equity", "net_margin", "current_ratio"]
+        has_any_fundamental = self.universe[fundamentals_cols].notna().any(axis=1)
+        coverage = has_any_fundamental.mean()
+        
+        # Stats détaillées
+        coverage_details = {col: self.universe[col].notna().mean() for col in fundamentals_cols}
+        
+        print(f"\n{'='*60}")
+        print(f"📊 RÉSUMÉ ENRICHISSEMENT")
+        print(f"{'='*60}")
+        print(f"   Tickers traités: {len(self.universe)}")
+        print(f"   Coverage global: {coverage:.0%}")
+        print(f"   Détail:")
+        for col, cov in coverage_details.items():
+            status = "✅" if cov >= min_coverage else "⚠️"
+            print(f"      {status} {col}: {cov:.0%}")
+        print(f"   Appels API: {self._api_stats['calls']}")
+        print(f"   Erreurs: {self._api_stats['errors']}")
+        
+        # Tickers sans fondamentaux
+        missing_symbols = self.universe[~has_any_fundamental]["symbol"].tolist()
+        if missing_symbols:
+            print(f"   ⚠️ Sans fondamentaux: {missing_symbols[:10]}{'...' if len(missing_symbols) > 10 else ''}")
+        
+        # Validation seuil
+        if coverage < min_coverage:
+            print(f"\n❌ ERREUR: Coverage insuffisant ({coverage:.0%} < {min_coverage:.0%})")
+            print(f"   Solutions possibles:")
+            print(f"   1. Relancer le script (les pauses permettent de récupérer les crédits)")
+            print(f"   2. Réduire top_n pour moins de tickers")
+            print(f"   3. Baisser min_coverage dans config.py")
+            raise ValueError(
+                f"Coverage fondamentaux insuffisant: {coverage:.0%} < {min_coverage:.0%}"
+            )
+        
+        print(f"\n✅ Enrichissement terminé avec succès")
         return self.universe
     
-    # === NETTOYAGE OPTIONNEL ===
+    # =========================================================================
+    # NETTOYAGE
+    # =========================================================================
     
     def clean_universe(self, strict: bool = False):
         """
@@ -618,7 +702,7 @@ class SmartMoneyEngine:
         
         Args:
             strict: Si True, exclut les tickers sans revenue/net_income.
-                   Si False, garde tous les tickers (recommandé si crédits limités).
+                   Si False, garde tous les tickers.
         """
         df = self.universe
         
@@ -640,7 +724,9 @@ class SmartMoneyEngine:
         self.universe = df[~mask_bad].reset_index(drop=True)
         print(f"✅ Univers nettoyé: {len(self.universe)} tickers restants")
     
-    # === SCORING ===
+    # =========================================================================
+    # SCORING
+    # =========================================================================
     
     def score_smart_money(self, row) -> float:
         score = 0
@@ -780,6 +866,7 @@ class SmartMoneyEngine:
             else:
                 score -= 0.05
         
+        # Fallback si pas de fondamentaux
         if not has_fundamentals:
             price = row.get("td_price", row.get("current_price", 0))
             if price >= 50:
@@ -833,24 +920,44 @@ class SmartMoneyEngine:
         print(f"✅ Scores calculés pour {len(self.universe)} tickers")
         return self.universe
     
-    # === FILTRES ===
+    # =========================================================================
+    # FILTRES
+    # =========================================================================
     
     def apply_filters(self) -> pd.DataFrame:
         before = len(self.universe)
         df = self.universe.copy()
         
+        # Filtre prix minimum
         price_col = "td_price" if "td_price" in df.columns else "current_price"
         df = df[df[price_col] >= CONSTRAINTS["min_price"]]
+        
+        # Filtre score minimum
         df = df[df["score_composite"] >= CONSTRAINTS["min_score"]]
+        
+        # Filtre volume minimum (si configuré)
+        min_vol = CONSTRAINTS.get("min_avg_volume", 0)
+        if min_vol > 0 and "td_avg_volume" in df.columns:
+            df = df[df["td_avg_volume"] >= min_vol]
+        
+        # Limite nombre de candidats
         df = df.head(CONSTRAINTS["max_positions"] * 2)
         
         self.universe = df
         print(f"🔍 Filtres: {before} → {len(df)} tickers")
         return self.universe
     
-    # === HRP ===
+    # =========================================================================
+    # HRP (Hierarchical Risk Parity)
+    # =========================================================================
     
     def _get_correlation_matrix(self) -> pd.DataFrame:
+        """
+        Génère une matrice de corrélation basée sur les secteurs.
+        
+        Note: Version simplifiée. Pour une vraie matrice, utiliser
+        les corrélations historiques des rendements.
+        """
         n = len(self.universe)
         symbols = self.universe["symbol"].tolist()
         sectors = self.universe["sector"].tolist() if "sector" in self.universe.columns else ["Unknown"] * n
@@ -859,15 +966,16 @@ class SmartMoneyEngine:
         for i in range(n):
             for j in range(i+1, n):
                 if sectors[i] == sectors[j] and sectors[i] != "Unknown":
-                    corr[i, j] = 0.7
+                    corr[i, j] = 0.7  # Même secteur = corrélation élevée
                     corr[j, i] = 0.7
                 else:
-                    corr[i, j] = 0.4
+                    corr[i, j] = 0.4  # Secteurs différents = corrélation modérée
                     corr[j, i] = 0.4
         
         return pd.DataFrame(corr, index=symbols, columns=symbols)
     
     def _hrp_weights(self, cov: np.ndarray, corr: np.ndarray) -> np.ndarray:
+        """Calcule les poids HRP (Hierarchical Risk Parity)"""
         n = cov.shape[0]
         dist = np.sqrt((1 - corr) / 2)
         np.fill_diagonal(dist, 0)
@@ -907,6 +1015,7 @@ class SmartMoneyEngine:
         return weights / weights.sum()
     
     def optimize(self) -> pd.DataFrame:
+        """Optimise le portefeuille avec HRP + tilt score"""
         if "score_composite" not in self.universe.columns:
             self.calculate_scores()
             self.apply_filters()
@@ -917,21 +1026,26 @@ class SmartMoneyEngine:
         if n < CONSTRAINTS["min_positions"]:
             print(f"⚠️ Seulement {n} tickers, minimum {CONSTRAINTS['min_positions']} requis")
         
+        # Volatilités
         if "vol_30d" in self.universe.columns:
             vols = self.universe["vol_30d"].fillna(25).values / 100
         else:
             vols = np.full(n, 0.25)
         
+        # Matrice covariance (simplifiée)
         corr = self._get_correlation_matrix().values
         cov = np.outer(vols, vols) * corr
         
+        # Poids HRP de base
         weights = self._hrp_weights(cov, corr)
         
+        # Tilt par score composite
         scores = self.universe["score_composite"].values
         score_tilt = scores / scores.mean()
         weights = weights * score_tilt
         weights = weights / weights.sum()
         
+        # Cap par position
         weights = np.minimum(weights, CONSTRAINTS["max_weight"])
         weights = weights / weights.sum()
         
@@ -946,16 +1060,20 @@ class SmartMoneyEngine:
         return self.portfolio
     
     def _calculate_portfolio_metrics(self):
+        """Calcule les métriques agrégées du portefeuille"""
         df = self.portfolio
         
+        # Performance pondérée
         perf_3m = (df["weight"] * df["perf_3m"].fillna(0)).sum() if "perf_3m" in df.columns else None
         perf_ytd = (df["weight"] * df["perf_ytd"].fillna(0)).sum() if "perf_ytd" in df.columns else None
         
+        # Volatilité du portefeuille (simplifiée, sans corrélations)
         if "vol_30d" in df.columns:
             vol = np.sqrt((df["weight"]**2 * (df["vol_30d"].fillna(25)/100)**2).sum()) * 100
         else:
             vol = None
         
+        # Répartition sectorielle
         sector_weights = {}
         if "sector" in df.columns:
             for _, row in df.iterrows():
@@ -963,9 +1081,14 @@ class SmartMoneyEngine:
                 sector_weights[sector] = sector_weights.get(sector, 0) + row["weight"]
             sector_weights = {k: round(v * 100, 1) for k, v in sector_weights.items()}
         
+        # Moyennes fondamentaux
         avg_roe = df["roe"].dropna().mean() if "roe" in df.columns and df["roe"].notna().any() else None
         avg_de = df["debt_equity"].dropna().mean() if "debt_equity" in df.columns and df["debt_equity"].notna().any() else None
         avg_margin = df["net_margin"].dropna().mean() if "net_margin" in df.columns and df["net_margin"].notna().any() else None
+        
+        # Coverage fondamentaux dans le portefeuille
+        fundamentals_cols = ["roe", "debt_equity", "net_margin", "current_ratio"]
+        coverage = df[fundamentals_cols].notna().any(axis=1).mean() if all(c in df.columns for c in fundamentals_cols) else None
         
         self.portfolio_metrics = {
             "positions": len(df),
@@ -975,12 +1098,16 @@ class SmartMoneyEngine:
             "sector_weights": sector_weights,
             "avg_roe": round(avg_roe, 1) if avg_roe is not None else None,
             "avg_debt_equity": round(avg_de, 2) if avg_de is not None else None,
-            "avg_net_margin": round(avg_margin, 1) if avg_margin is not None else None
+            "avg_net_margin": round(avg_margin, 1) if avg_margin is not None else None,
+            "fundamentals_coverage": round(coverage * 100, 1) if coverage is not None else None
         }
     
-    # === EXPORT ===
+    # =========================================================================
+    # EXPORT
+    # =========================================================================
     
     def export(self, output_dir: Path) -> dict:
+        """Exporte le portefeuille en JSON et CSV"""
         output_dir.mkdir(exist_ok=True)
         today = datetime.now().strftime("%Y-%m-%d")
         
@@ -997,12 +1124,14 @@ class SmartMoneyEngine:
         cols = [c for c in export_cols if c in self.portfolio.columns]
         df = self.portfolio[cols].copy()
         
+        # JSON
         json_path = output_dir / f"portfolio_{today}.json"
         result = {
             "metadata": {
                 "generated_at": datetime.now().isoformat(),
                 "positions": len(df),
-                "total_weight": round(df["weight"].sum(), 4)
+                "total_weight": round(df["weight"].sum(), 4),
+                "engine_version": "2.1"
             },
             "metrics": self.portfolio_metrics,
             "portfolio": df.to_dict(orient="records")
@@ -1010,6 +1139,7 @@ class SmartMoneyEngine:
         with open(json_path, "w") as f:
             json.dump(result, f, indent=2, default=str)
         
+        # CSV
         csv_path = output_dir / f"portfolio_{today}.csv"
         df.to_csv(csv_path, index=False)
         
@@ -1017,14 +1147,25 @@ class SmartMoneyEngine:
         return result
 
 
+# =============================================================================
+# MAIN
+# =============================================================================
+
 if __name__ == "__main__":
     engine = SmartMoneyEngine()
     engine.load_data()
-    engine.enrich(top_n=40, max_fundamentals=15)
-    engine.clean_universe(strict=False)  # Mode souple pour garder les tickers sans fondamentaux
+    
+    # Enrichissement complet avec validation coverage 50%
+    engine.enrich(top_n=40, min_coverage=0.5)
+    
+    # Nettoyage (mode souple par défaut)
+    engine.clean_universe(strict=False)
+    
+    # Scoring et optimisation
     engine.calculate_scores()
     engine.apply_filters()
     engine.optimize()
     
+    # Export
     from config import OUTPUTS
     engine.export(OUTPUTS)
