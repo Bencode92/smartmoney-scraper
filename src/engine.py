@@ -25,7 +25,7 @@ class SmartMoneyEngine:
         self.portfolio = pd.DataFrame()
         self.portfolio_metrics = {}
         self._last_api_call = 0
-        self._no_more_fundamentals = False  # Flag pour économiser les crédits API
+        self._fundamentals_available = True  # Flag pour économiser les crédits API
     
     # === DATA LOADING ===
     
@@ -109,7 +109,7 @@ class SmartMoneyEngine:
     
     def _check_api_error(self, data: dict, endpoint: str, symbol: str) -> bool:
         """
-        Vérifie si l'API renvoie une erreur et gère le flag _no_more_fundamentals.
+        Vérifie si l'API renvoie une erreur et gère le flag _fundamentals_available.
         Retourne True si erreur détectée.
         """
         if "code" in data:
@@ -119,7 +119,7 @@ class SmartMoneyEngine:
             # Détection erreur de crédits épuisés
             if "run out of API credits" in msg or "API credits" in msg:
                 print(f"    🛑 Crédits API épuisés - désactivation des fondamentaux pour ce run")
-                self._no_more_fundamentals = True
+                self._fundamentals_available = False
             
             return True
         return False
@@ -173,7 +173,7 @@ class SmartMoneyEngine:
         try:
             resp = requests.get(
                 f"{TWELVE_DATA_BASE}/rsi",
-                params={"symbol": symbol, "interval": "1day", "apikey": TWELVE_DATA_KEY},
+                params={"symbol": symbol, "interval": "1day", "time_period": 14, "apikey": TWELVE_DATA_KEY},
                 timeout=10
             )
             if resp.status_code == 200:
@@ -211,7 +211,7 @@ class SmartMoneyEngine:
     
     def _fetch_statistics(self, symbol: str) -> dict:
         """Récupère les statistiques via Twelve Data"""
-        if not TWELVE_DATA_KEY or self._no_more_fundamentals:
+        if not TWELVE_DATA_KEY or not self._fundamentals_available:
             return {}
         
         self._rate_limit()
@@ -230,14 +230,17 @@ class SmartMoneyEngine:
         return {}
     
     def _fetch_balance_sheet(self, symbol: str) -> dict:
-        """Récupère le bilan via Twelve Data - ENDPOINT CONSOLIDATED"""
-        if not TWELVE_DATA_KEY or self._no_more_fundamentals:
+        """
+        Récupère le bilan via Twelve Data.
+        Endpoint: /balance_sheet (sans /consolidated)
+        """
+        if not TWELVE_DATA_KEY or not self._fundamentals_available:
             return {}
         
         self._rate_limit()
         try:
             resp = requests.get(
-                f"{TWELVE_DATA_BASE}/balance_sheet/consolidated",
+                f"{TWELVE_DATA_BASE}/balance_sheet",
                 params={"symbol": symbol, "period": "annual", "apikey": TWELVE_DATA_KEY},
                 timeout=10
             )
@@ -252,14 +255,17 @@ class SmartMoneyEngine:
         return {}
     
     def _fetch_income_statement(self, symbol: str) -> dict:
-        """Récupère le compte de résultat via Twelve Data - ENDPOINT CONSOLIDATED"""
-        if not TWELVE_DATA_KEY or self._no_more_fundamentals:
+        """
+        Récupère le compte de résultat via Twelve Data.
+        Endpoint: /income_statement (sans /consolidated)
+        """
+        if not TWELVE_DATA_KEY or not self._fundamentals_available:
             return {}
         
         self._rate_limit()
         try:
             resp = requests.get(
-                f"{TWELVE_DATA_BASE}/income_statement/consolidated",
+                f"{TWELVE_DATA_BASE}/income_statement",
                 params={"symbol": symbol, "period": "annual", "apikey": TWELVE_DATA_KEY},
                 timeout=10
             )
@@ -274,14 +280,17 @@ class SmartMoneyEngine:
         return {}
     
     def _fetch_cash_flow(self, symbol: str) -> dict:
-        """Récupère le cash flow via Twelve Data - ENDPOINT CONSOLIDATED"""
-        if not TWELVE_DATA_KEY or self._no_more_fundamentals:
+        """
+        Récupère le cash flow via Twelve Data.
+        Endpoint: /cash_flow (sans /consolidated)
+        """
+        if not TWELVE_DATA_KEY or not self._fundamentals_available:
             return {}
         
         self._rate_limit()
         try:
             resp = requests.get(
-                f"{TWELVE_DATA_BASE}/cash_flow/consolidated",
+                f"{TWELVE_DATA_BASE}/cash_flow",
                 params={"symbol": symbol, "period": "annual", "apikey": TWELVE_DATA_KEY},
                 timeout=10
             )
@@ -332,12 +341,12 @@ class SmartMoneyEngine:
     
     def _extract_fundamentals(self, stats: dict, balance: dict, income: dict, cashflow: dict) -> dict:
         """
-        Extrait les ratios depuis les VRAIES réponses Twelve Data.
+        Extrait les ratios fondamentaux à partir des réponses réelles Twelve Data.
         
-        IMPORTANT: Les données balance_sheet et cash_flow sont IMBRIQUÉES (nested):
-        - balance.assets.total_assets
-        - balance.shareholders_equity.total_shareholders_equity
-        - cashflow.operating_activities.operating_cash_flow
+        Structure Twelve Data:
+        - income_statement[0] -> champs au premier niveau (sales, net_income, etc.)
+        - balance_sheet[0] -> structure IMBRIQUÉE (assets.total_assets, etc.)
+        - cash_flow[0] -> structure IMBRIQUÉE (operating_activities.operating_cash_flow, etc.)
         """
         result = {
             "roe": None, "roa": None, "debt_equity": None, "current_ratio": None,
@@ -345,156 +354,140 @@ class SmartMoneyEngine:
             "capex_ratio": None, "fcf": None, "revenue": None, "net_income": None
         }
 
-        try:
-            # === 1) INCOME STATEMENT (flat structure) ===
-            if income:
-                # Revenue: peut être "sales", "revenue", ou "total_revenue"
-                revenue = self._safe_float(
-                    income.get("sales")
-                    or income.get("revenue")
-                    or income.get("total_revenue")
-                )
-                net_income = self._safe_float(
-                    income.get("net_income")
-                    or income.get("net_income_common_stockholders")
-                )
-                gross_profit = self._safe_float(income.get("gross_profit"))
-                op_income = self._safe_float(
-                    income.get("operating_income")
-                    or income.get("operating_income_loss")
-                )
+        # === INCOME STATEMENT (structure plate) ===
+        if income:
+            revenue = self._safe_float(
+                income.get("sales")
+                or income.get("revenue")
+                or income.get("total_revenue")
+            )
+            net_inc = self._safe_float(
+                income.get("net_income")
+                or income.get("net_income_common_stockholders")
+            )
+            gross_profit = self._safe_float(income.get("gross_profit"))
+            op_income = self._safe_float(
+                income.get("operating_income")
+                or income.get("operating_income_loss")
+            )
 
-                result["revenue"] = revenue
-                result["net_income"] = net_income
+            result["revenue"] = revenue
+            result["net_income"] = net_inc
 
-                if revenue and revenue > 0:
-                    if gross_profit is not None:
-                        result["gross_margin"] = round(gross_profit / revenue * 100, 2)
-                    if op_income is not None:
-                        result["operating_margin"] = round(op_income / revenue * 100, 2)
-                    if net_income is not None:
-                        result["net_margin"] = round(net_income / revenue * 100, 2)
+            if revenue and revenue > 0:
+                if gross_profit is not None:
+                    result["gross_margin"] = round(gross_profit / revenue * 100, 2)
+                if op_income is not None:
+                    result["operating_margin"] = round(op_income / revenue * 100, 2)
+                if net_inc is not None:
+                    result["net_margin"] = round(net_inc / revenue * 100, 2)
 
-            # === 2) BALANCE SHEET (NESTED structure) ===
-            if balance:
-                # Navigation dans la structure imbriquée
-                assets_block = balance.get("assets", {}) or {}
-                liab_block = balance.get("liabilities", {}) or {}
-                equity_block = balance.get("shareholders_equity", {}) or {}
+        # === BALANCE SHEET (structure IMBRIQUÉE) ===
+        if balance:
+            assets = balance.get("assets", {}) or {}
+            liabilities = balance.get("liabilities", {}) or {}
+            equity = balance.get("shareholders_equity", {}) or {}
 
-                # Total Assets (nested ou flat selon le ticker)
-                total_assets = self._safe_float(
-                    assets_block.get("total_assets")
-                    or balance.get("total_assets")
-                )
+            # Total Assets
+            total_assets = self._safe_float(
+                assets.get("total_assets")
+                or balance.get("total_assets")
+            )
 
-                # Current Assets (nested dans assets.current_assets)
-                current_assets_block = assets_block.get("current_assets", {}) or {}
-                current_assets = self._safe_float(
-                    current_assets_block.get("total_current_assets")
-                    or balance.get("total_current_assets")
-                )
+            # Total Equity (plusieurs variantes possibles)
+            total_equity = self._safe_float(
+                equity.get("total_shareholders_equity")
+                or equity.get("total_stockholders_equity")
+                or equity.get("stockholders_equity")
+                or equity.get("total_equity")
+                or balance.get("total_equity")
+            )
 
-                # Current Liabilities (nested dans liabilities.current_liabilities)
-                current_liab_block = liab_block.get("current_liabilities", {}) or {}
-                current_liab = self._safe_float(
-                    current_liab_block.get("total_current_liabilities")
-                    or balance.get("total_current_liabilities")
-                )
+            # Current Assets
+            current_assets_block = assets.get("current_assets", {}) or {}
+            current_assets = self._safe_float(
+                current_assets_block.get("total_current_assets")
+                or current_assets_block.get("current_assets")
+                or balance.get("total_current_assets")
+            )
 
-                # Debt: long_term (non_current) + short_term (current)
-                noncurrent_liab_block = liab_block.get("non_current_liabilities", {}) or {}
-                long_term_debt = self._safe_float(
-                    noncurrent_liab_block.get("long_term_debt")
-                    or noncurrent_liab_block.get("long_term_borrowings")
-                )
-                short_term_debt = self._safe_float(
-                    current_liab_block.get("short_term_debt")
-                    or current_liab_block.get("short_term_borrowings")
-                )
+            # Current Liabilities
+            current_liab_block = liabilities.get("current_liabilities", {}) or {}
+            current_liabilities = self._safe_float(
+                current_liab_block.get("total_current_liabilities")
+                or current_liab_block.get("current_liabilities")
+                or balance.get("total_current_liabilities")
+            )
 
-                # Fallback: total_debt direct si disponible
-                total_debt = self._safe_float(
-                    liab_block.get("total_debt")
-                    or balance.get("total_debt")
-                )
-                if total_debt is None and (long_term_debt is not None or short_term_debt is not None):
-                    total_debt = (long_term_debt or 0) + (short_term_debt or 0)
+            # Dette = short_term_debt + long_term_debt
+            non_current_liab_block = liabilities.get("non_current_liabilities", {}) or {}
+            short_term_debt = self._safe_float(current_liab_block.get("short_term_debt"))
+            long_term_debt = self._safe_float(non_current_liab_block.get("long_term_debt"))
+            
+            total_debt = None
+            if short_term_debt is not None or long_term_debt is not None:
+                total_debt = (short_term_debt or 0) + (long_term_debt or 0)
 
-                # Total Equity (nested dans shareholders_equity)
-                total_equity = self._safe_float(
-                    equity_block.get("total_shareholders_equity")
-                    or equity_block.get("total_equity")
-                    or equity_block.get("total_stockholders_equity")
-                    or equity_block.get("stockholders_equity")
-                    or balance.get("total_equity")
-                )
+            # Calcul des ratios
+            if current_assets is not None and current_liabilities and current_liabilities > 0:
+                result["current_ratio"] = round(current_assets / current_liabilities, 2)
 
-                # Current Ratio
-                if current_assets is not None and current_liab and current_liab > 0:
-                    result["current_ratio"] = round(current_assets / current_liab, 2)
+            if total_equity and total_equity > 0 and result["net_income"] is not None:
+                result["roe"] = round(result["net_income"] / total_equity * 100, 2)
 
-                # ROE
-                if total_equity and total_equity > 0 and result["net_income"] is not None:
-                    result["roe"] = round(result["net_income"] / total_equity * 100, 2)
+            if total_debt is not None and total_equity and total_equity > 0:
+                result["debt_equity"] = round(total_debt / total_equity, 2)
 
-                # D/E
-                if total_equity and total_equity > 0 and total_debt is not None:
-                    result["debt_equity"] = round(total_debt / total_equity, 2)
+            if total_assets and total_assets > 0 and result["net_income"] is not None:
+                result["roa"] = round(result["net_income"] / total_assets * 100, 2)
 
-                # ROA
-                if total_assets and total_assets > 0 and result["net_income"] is not None:
-                    result["roa"] = round(result["net_income"] / total_assets * 100, 2)
+        # === CASH FLOW (structure IMBRIQUÉE) ===
+        if cashflow:
+            op = cashflow.get("operating_activities", {}) or {}
+            inv = cashflow.get("investing_activities", {}) or {}
 
-            # === 3) CASH FLOW (NESTED structure) ===
-            if cashflow:
-                # Navigation dans la structure imbriquée
-                op_block = cashflow.get("operating_activities", {}) or {}
-                inv_block = cashflow.get("investing_activities", {}) or {}
+            operating_cf = self._safe_float(
+                op.get("operating_cash_flow")
+                or op.get("net_cash_provided_by_operating_activities")
+                or op.get("cash_flow_from_operating_activities")
+            )
+            capex = self._safe_float(
+                inv.get("capital_expenditures")
+                or inv.get("capital_expenditure")
+            )
+            fcf_direct = self._safe_float(
+                cashflow.get("free_cash_flow")
+                or op.get("free_cash_flow")
+                or inv.get("free_cash_flow")
+            )
 
-                operating_cf = self._safe_float(
-                    op_block.get("operating_cash_flow")
-                    or op_block.get("net_cash_provided_by_operating_activities")
-                    or cashflow.get("operating_cash_flow")
-                )
-                capex = self._safe_float(
-                    inv_block.get("capital_expenditures")
-                    or inv_block.get("capital_expenditure")
-                )
-                fcf_direct = self._safe_float(
-                    cashflow.get("free_cash_flow")
-                    or op_block.get("free_cash_flow")
-                )
+            if capex is not None:
+                capex_abs = abs(capex)
+                if result["revenue"] and result["revenue"] > 0:
+                    result["capex_ratio"] = round(capex_abs / result["revenue"] * 100, 2)
 
-                if capex is not None:
-                    capex_abs = abs(capex)
-                    if result["revenue"] and result["revenue"] > 0:
-                        result["capex_ratio"] = round(capex_abs / result["revenue"] * 100, 2)
-
-                    if fcf_direct is not None:
-                        result["fcf"] = fcf_direct
-                    elif operating_cf is not None:
-                        result["fcf"] = round(operating_cf - capex_abs, 0)
-                elif fcf_direct is not None:
+                if fcf_direct is not None:
                     result["fcf"] = fcf_direct
+                elif operating_cf is not None:
+                    result["fcf"] = round(operating_cf - capex_abs, 0)
 
-            # === 4) STATISTICS (fallback si FS incomplets) ===
-            if stats:
-                fin = stats.get("financials", {}) or stats.get("statistics", {}) or {}
-                
-                if result["roe"] is None:
-                    roe_raw = self._safe_float(
-                        fin.get("return_on_equity_ttm") or fin.get("return_on_equity")
-                    )
-                    if roe_raw is not None:
-                        # Certains API renvoient 0.52 au lieu de 52%
-                        result["roe"] = roe_raw * 100 if -1 < roe_raw < 1 else roe_raw
+            elif fcf_direct is not None:
+                result["fcf"] = fcf_direct
 
-                if result["current_ratio"] is None:
-                    result["current_ratio"] = self._safe_float(fin.get("current_ratio"))
+        # === STATISTICS (fallback si certains ratios manquent) ===
+        if stats:
+            fin = stats.get("financials", {}) or stats.get("statistics", {}) or {}
 
-        except Exception as e:
-            print(f"⚠️ Fundamentals error: {e}")
+            if result["roe"] is None:
+                roe_raw = self._safe_float(
+                    fin.get("return_on_equity_ttm")
+                    or fin.get("return_on_equity")
+                )
+                if roe_raw is not None:
+                    result["roe"] = roe_raw * 100 if -1 < roe_raw < 1 else roe_raw
+
+            if result["current_ratio"] is None:
+                result["current_ratio"] = self._safe_float(fin.get("current_ratio"))
 
         return result
     
@@ -512,13 +505,19 @@ class SmartMoneyEngine:
     
     # === ENRICHISSEMENT ===
     
-    def enrich(self, top_n: int = 50) -> pd.DataFrame:
-        """Enrichit les top N candidats avec Twelve Data"""
+    def enrich(self, top_n: int = 50, max_fundamentals: int = 15) -> pd.DataFrame:
+        """
+        Enrichit les top N candidats avec Twelve Data.
+        
+        Args:
+            top_n: Nombre de tickers à enrichir
+            max_fundamentals: Limite de tickers avec fondamentaux complets (économie crédits)
+        """
         if self.universe.empty:
             self.load_data()
         
         # Reset flag au début de chaque run
-        self._no_more_fundamentals = False
+        self._fundamentals_available = True
         
         candidates = self.universe[
             (self.universe["gp_buys"] >= CONSTRAINTS["min_buys"]) |
@@ -526,8 +525,9 @@ class SmartMoneyEngine:
         ].head(top_n)
         
         print(f"📊 Enrichissement de {len(candidates)} tickers via Twelve Data...")
-        print(f"   (Quote + Profile + RSI + TimeSeries + Statistics + Balance + Income + CashFlow)")
-        estimated_time = len(candidates) * 8 / TWELVE_DATA_RATE_LIMIT
+        print(f"   (Quote + Profile + RSI + TimeSeries)")
+        print(f"   (Fondamentaux: limité aux {max_fundamentals} premiers tickers)")
+        estimated_time = len(candidates) * 4 / TWELVE_DATA_RATE_LIMIT
         print(f"   ⏱️  Temps estimé: ~{estimated_time:.1f} minutes (rate limit {TWELVE_DATA_RATE_LIMIT}/min)")
         
         enriched = []
@@ -565,9 +565,15 @@ class SmartMoneyEngine:
             row["vol_30d"] = perf_vol["vol_30d"]
             print(f"    ✓ Perf 3M: {row['perf_3m']}% | Vol: {row['vol_30d']}%")
             
-            # 5-8. Fondamentaux (CONSOLIDATED + NESTED) - Skip si crédits épuisés
-            if self._no_more_fundamentals:
-                print(f"    ⏭️ Fondamentaux ignorés (crédits épuisés)")
+            # 5-8. Fondamentaux (limité aux premiers tickers pour économiser crédits)
+            fundamentals_enabled = (idx <= max_fundamentals) and self._fundamentals_available
+            
+            if not fundamentals_enabled:
+                if idx == max_fundamentals + 1:
+                    print(f"    ⏭️ Fondamentaux désactivés (limite {max_fundamentals} atteinte)")
+                elif not self._fundamentals_available:
+                    print(f"    ⏭️ Fondamentaux ignorés (crédits épuisés)")
+                
                 for k in ["roe", "roa", "debt_equity", "current_ratio", 
                          "gross_margin", "operating_margin", "net_margin",
                          "capex_ratio", "fcf", "revenue", "net_income"]:
@@ -577,6 +583,12 @@ class SmartMoneyEngine:
                 balance = self._fetch_balance_sheet(symbol)
                 income = self._fetch_income_statement(symbol)
                 cashflow = self._fetch_cash_flow(symbol)
+                
+                # Debug: afficher les clés reçues
+                if balance:
+                    print(f"    📋 Balance keys: {list(balance.keys())[:5]}...")
+                if income:
+                    print(f"    📋 Income keys: {list(income.keys())[:5]}...")
                 
                 fundamentals = self._extract_fundamentals(stats, balance, income, cashflow)
                 for k, v in fundamentals.items():
@@ -593,26 +605,37 @@ class SmartMoneyEngine:
         self.universe = pd.DataFrame(enriched)
         
         # Résumé final
-        if self._no_more_fundamentals:
+        if not self._fundamentals_available:
             print(f"\n⚠️ Attention: crédits API épuisés en cours de run")
         print(f"\n✅ Enrichissement terminé")
         return self.universe
     
     # === NETTOYAGE OPTIONNEL ===
     
-    def clean_universe(self):
-        """Exclut les tickers sans fondamentaux suffisants"""
+    def clean_universe(self, strict: bool = False):
+        """
+        Exclut les tickers sans fondamentaux suffisants.
+        
+        Args:
+            strict: Si True, exclut les tickers sans revenue/net_income.
+                   Si False, garde tous les tickers (recommandé si crédits limités).
+        """
         df = self.universe
         
-        mask_bad = (
-            df["sector"].eq("Unknown") |
-            df["revenue"].isna() |
-            df["net_income"].isna()
-        )
+        if not strict:
+            # Mode souple: exclure seulement les secteurs Unknown
+            mask_bad = df["sector"].eq("Unknown")
+        else:
+            # Mode strict: exclure aussi les tickers sans fondamentaux
+            mask_bad = (
+                df["sector"].eq("Unknown") |
+                df["revenue"].isna() |
+                df["net_income"].isna()
+            )
         
         bad_symbols = df.loc[mask_bad, "symbol"].tolist()
         if bad_symbols:
-            print(f"⚠️ Exclusion {len(bad_symbols)} tickers sans fondamentaux: {bad_symbols[:10]}{'...' if len(bad_symbols) > 10 else ''}")
+            print(f"⚠️ Exclusion {len(bad_symbols)} tickers: {bad_symbols[:10]}{'...' if len(bad_symbols) > 10 else ''}")
         
         self.universe = df[~mask_bad].reset_index(drop=True)
         print(f"✅ Univers nettoyé: {len(self.universe)} tickers restants")
@@ -997,8 +1020,8 @@ class SmartMoneyEngine:
 if __name__ == "__main__":
     engine = SmartMoneyEngine()
     engine.load_data()
-    engine.enrich(top_n=40)
-    # engine.clean_universe()  # Décommenter pour exclure tickers sans fondamentaux
+    engine.enrich(top_n=40, max_fundamentals=15)
+    engine.clean_universe(strict=False)  # Mode souple pour garder les tickers sans fondamentaux
     engine.calculate_scores()
     engine.apply_filters()
     engine.optimize()
