@@ -1,0 +1,26 @@
+[
+  {
+    "level": "warning",
+    "type": "concentration",
+    "symbol": null,
+    "message": "Plus de 5.5% du portefeuille en positions individuelles."
+  },
+  {
+    "level": "warning",
+    "type": "quality",
+    "symbol": "PBH",
+    "message": "Score composite < 0.4 pour Prestige Consumer Healthcare."
+  },
+  {
+    "level": "warning",
+    "type": "momentum",
+    "symbol": "MSFT",
+    "message": "RSI < 30 pour Microsoft Corp."
+  },
+  {
+    "level": "warning",
+    "type": "sector",
+    "symbol": null,
+    "message": "Plus de 3 positions dans le secteur technologique."
+  }
+]

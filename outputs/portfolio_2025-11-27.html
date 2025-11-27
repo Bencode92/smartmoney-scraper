@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartMoney Portfolio - 2025-11-27</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container { max-width: 1600px; margin: 0 auto; }
+        h1 { font-size: 1.8rem; margin-bottom: 20px; color: #38bdf8; }
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        .metric-card {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #38bdf8;
+        }
+        .metric-value.positive { color: #10b981; }
+        .metric-value.negative { color: #ef4444; }
+        .metric-label {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            margin-top: 5px;
+        }
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        @media (max-width: 1000px) { .grid-2 { grid-template-columns: 1fr; } }
+        .card {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 20px;
+        }
+        .card h2 {
+            font-size: 1rem;
+            margin-bottom: 15px;
+            color: #94a3b8;
+        }
+        table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+        th, td { padding: 10px 6px; text-align: left; border-bottom: 1px solid #334155; }
+        th { color: #94a3b8; font-weight: 500; font-size: 0.7rem; text-transform: uppercase; }
+        tr:hover { background: #334155; }
+        .ticker { font-weight: 600; color: #38bdf8; }
+        .weight { color: #fbbf24; }
+        .positive { color: #10b981; }
+        .negative { color: #ef4444; }
+        .neutral { color: #94a3b8; }
+        .sector-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.65rem;
+            background: #334155;
+        }
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+        .input-group label { color: #94a3b8; }
+        .input-group input {
+            background: #334155;
+            border: 1px solid #475569;
+            border-radius: 8px;
+            padding: 10px 15px;
+            color: #e2e8f0;
+            font-size: 1rem;
+            width: 150px;
+        }
+        .input-group input:focus { outline: none; border-color: #38bdf8; }
+        #allocation-result {
+            margin-top: 15px;
+            padding: 15px;
+            background: #0f172a;
+            border-radius: 8px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .alloc-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            border-bottom: 1px solid #1e293b;
+            font-size: 0.85rem;
+        }
+        .chart-container { position: relative; height: 280px; }
+        .fundamentals-summary {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #334155;
+        }
+        .fund-item { text-align: center; }
+        .fund-value { font-size: 1.2rem; font-weight: 600; color: #38bdf8; }
+        .fund-label { font-size: 0.7rem; color: #64748b; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 SmartMoney Portfolio — 2025-11-27</h1>
+        
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-value">25</div>
+                <div class="metric-label">Positions</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value negative">
+                    -0.74%
+                </div>
+                <div class="metric-label">Perf 3M</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value positive">
+                    +None%
+                </div>
+                <div class="metric-label">Perf YTD</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">5.12%</div>
+                <div class="metric-label">Vol 30j</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">None%</div>
+                <div class="metric-label">ROE Moy.</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">None</div>
+                <div class="metric-label">D/E Moy.</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">None%</div>
+                <div class="metric-label">Marge Moy.</div>
+            </div>
+        </div>
+        
+        <div class="grid-2">
+            <div class="card">
+                <h2>Répartition Sectorielle</h2>
+                <div class="chart-container">
+                    <canvas id="sectorChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2>Calculateur d'Allocation</h2>
+                <div class="input-group">
+                    <label for="amount">Montant:</label>
+                    <input type="number" id="amount" value="10000" step="1000">
+                    <span>€</span>
+                </div>
+                <div id="allocation-result"></div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>Positions (25)</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Ticker</th>
+                        <th>Secteur</th>
+                        <th>Poids</th>
+                        <th>Score</th>
+                        <th>3M</th>
+                        <th>YTD</th>
+                        <th>Vol</th>
+                        <th>RSI</th>
+                        <th>ROE</th>
+                        <th>D/E</th>
+                        <th>Marge</th>
+                        <th>CAPEX</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="ticker">V</td>
+                        <td><span class="sector-badge">Financial Se</span></td>
+                        <td class="weight">7.06%</td>
+                        <td>0.742</td>
+                        <td class="negative">-5.1%</td>
+                        <td class="neutral">-</td>
+                        <td>16%</td>
+                        <td>48</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td class="ticker">BRK.B</td>
+                        <td><span class="sector-badge">Financial Se</span></td>
+                        <td class="weight">7.06%</td>
+                        <td>0.616</td>
+                        <td class="positive">+1.6%</td>
+                        <td class="neutral">-</td>
+                        <td>14%</td>
+                        <td>64</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td class="ticker">PBH</td>
+                        <td><span class="sector-badge">Healthcare</span></td>
+                        <td class="weight">7.06%</td>
+                        <td>0.457</td>
+                        <td class="negative">-12.4%</td>
+                        <td class="neutral">-</td>
+                        <td>21%</td>
+                        <td>46</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td class="ticker">CP</td>
+                        <td><span class="sector-badge">Industrials</span></td>
+                        <td class="weight">6.60%</td>
+                        <td>0.506</td>
+                        <td class="negative">-5.4%</td>
+                        <td class="neutral">-</td>
+                        <td>19%</td>
+                        <td>52</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td class="ticker">UNH</td>
+                        <td><span class="sector-badge">Healthcare</span></td>
+                        <td class="weight">6.57%</td>
+                        <td>0.741</td>
+                        <td class="positive">+6.4%</td>
+                        <td class="neutral">-</td>
+                        <td>28%</td>
+                        <td>49</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td class="ticker">PG</td>
+                        <td><span class="sector-badge">Consumer Def</span></td>
+                        <td class="weight">5.11%</td>
+                        <td>0.470</td>
+                        <td class="negative">-5.6%</td>
+                        <td class="neutral">-</td>
+                        <td>16%</td>
+                        <td>49</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td class="ticker">MSFT</td>
+                        <td><span class="sector-badge">Technology</span></td>
+                        <td class="weight">4.93%</td>
+                        <td>0.661</td>
+                        <td class="negative">-4.2%</td>
+                        <td class="neutral">-</td>
+                        <td>21%</td>
+                        <td>40</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td class="ticker">IFF</td>
+                        <td><span class="sector-badge">Unknown</span></td>
+                        <td class="weight">4.30%</td>
+                        <td>0.494</td>
+                        <td class="neutral">+nan%</td>
+                        <td class="neutral">-</td>
+                        <td>nan%</td>
+                        <td>50</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td class="ticker">AVGO</td>
+                        <td><span class="sector-badge">Unknown</span></td>
+                        <td class="weight">4.19%</td>
+                        <td>0.481</td>
+                        <td class="neutral">+nan%</td>
+                        <td class="neutral">-</td>
+                        <td>nan%</td>
+                        <td>50</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td class="ticker">SCHW</td>
+                        <td><span class="sector-badge">Unknown</span></td>
+                        <td class="weight">4.12%</td>
+                        <td>0.473</td>
+                        <td class="neutral">+nan%</td>
+                        <td class="neutral">-</td>
+                        <td>nan%</td>
+                        <td>50</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td class="ticker">MDB</td>
+                        <td><span class="sector-badge">Technology</span></td>
+                        <td class="weight">3.72%</td>
+                        <td>0.524</td>
+                        <td class="positive">+3.4%</td>
+                        <td class="neutral">-</td>
+                        <td>34%</td>
+                        <td>43</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td class="ticker">CPRT</td>
+                        <td><span class="sector-badge">Unknown</span></td>
+                        <td class="weight">3.66%</td>
+                        <td>0.430</td>
+                        <td class="neutral">+nan%</td>
+                        <td class="neutral">-</td>
+                        <td>nan%</td>
+                        <td>50</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td class="ticker">RPRX</td>
+                        <td><span class="sector-badge">Healthcare</span></td>
+                        <td class="weight">3.65%</td>
+                        <td>0.489</td>
+                        <td class="positive">+10.7%</td>
+                        <td class="neutral">-</td>
+                        <td>32%</td>
+                        <td>60</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td class="ticker">SPGI</td>
+                        <td><span class="sector-badge">Financial Se</span></td>
+                        <td class="weight">3.56%</td>
+                        <td>0.522</td>
+                        <td class="negative">-9.6%</td>
+                        <td class="neutral">-</td>
+                        <td>23%</td>
+                        <td>52</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td class="ticker">FERG</td>
+                        <td><span class="sector-badge">Industrials</span></td>
+                        <td class="weight">3.32%</td>
+                        <td>0.471</td>
+                        <td class="positive">+9.2%</td>
+                        <td class="neutral">-</td>
+                        <td>26%</td>
+                        <td>60</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td class="ticker">XOM</td>
+                        <td><span class="sector-badge">Energy</span></td>
+                        <td class="weight">3.32%</td>
+                        <td>0.516</td>
+                        <td class="positive">+0.4%</td>
+                        <td class="neutral">-</td>
+                        <td>16%</td>
+                        <td>45</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td class="ticker">NVDA</td>
+                        <td><span class="sector-badge">Technology</span></td>
+                        <td class="weight">3.17%</td>
+                        <td>0.707</td>
+                        <td class="positive">+3.5%</td>
+                        <td class="neutral">-</td>
+                        <td>41%</td>
+                        <td>44</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td class="ticker">FICO</td>
+                        <td><span class="sector-badge">Technology</span></td>
+                        <td class="weight">2.90%</td>
+                        <td>0.573</td>
+                        <td class="positive">+18.1%</td>
+                        <td class="neutral">-</td>
+                        <td>39%</td>
+                        <td>59</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td class="ticker">KD</td>
+                        <td><span class="sector-badge">Technology</span></td>
+                        <td class="weight">2.76%</td>
+                        <td>0.435</td>
+                        <td class="negative">-20.0%</td>
+                        <td class="neutral">-</td>
+                        <td>36%</td>
+                        <td>44</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td class="ticker">BN</td>
+                        <td><span class="sector-badge">Financial Se</span></td>
+                        <td class="weight">2.69%</td>
+                        <td>0.568</td>
+                        <td class="positive">+6.3%</td>
+                        <td class="neutral">-</td>
+                        <td>27%</td>
+                        <td>59</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td class="ticker">ASML</td>
+                        <td><span class="sector-badge">Unknown</span></td>
+                        <td class="weight">2.21%</td>
+                        <td>0.507</td>
+                        <td class="neutral">+nan%</td>
+                        <td class="neutral">-</td>
+                        <td>nan%</td>
+                        <td>50</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td class="ticker">UPS</td>
+                        <td><span class="sector-badge">Unknown</span></td>
+                        <td class="weight">2.16%</td>
+                        <td>0.497</td>
+                        <td class="neutral">+nan%</td>
+                        <td class="neutral">-</td>
+                        <td>nan%</td>
+                        <td>50</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td class="ticker">GOOGL</td>
+                        <td><span class="sector-badge">Unknown</span></td>
+                        <td class="weight">1.97%</td>
+                        <td>0.463</td>
+                        <td class="neutral">+nan%</td>
+                        <td class="neutral">-</td>
+                        <td>nan%</td>
+                        <td>50</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td class="ticker">QCOM</td>
+                        <td><span class="sector-badge">Technology</span></td>
+                        <td class="weight">1.96%</td>
+                        <td>0.560</td>
+                        <td class="positive">+2.7%</td>
+                        <td class="neutral">-</td>
+                        <td>46%</td>
+                        <td>45</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td class="ticker">BAX</td>
+                        <td><span class="sector-badge">Unknown</span></td>
+                        <td class="weight">1.95%</td>
+                        <td>0.459</td>
+                        <td class="neutral">+nan%</td>
+                        <td class="neutral">-</td>
+                        <td>nan%</td>
+                        <td>50</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td class="neutral">-</td>
+                        <td>-</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <script>
+        const portfolio = [{"symbol": "V", "company": "Visa Inc.", "sector": "Financial Services", "industry": "Credit Services", "weight": 0.0706, "score_composite": 0.742, "score_sm": 0.853, "score_insider": 0.5, "score_momentum": 0.773, "score_quality": 0.6, "perf_3m": -5.11, "perf_ytd": null, "vol_30d": 15.75, "gp_buys": 8, "gp_tier": "A", "insider_buys": 0, "rsi": 48.44926, "td_price": 333.79001, "roe": null, "roa": null, "debt_equity": null, "current_ratio": null, "gross_margin": null, "operating_margin": null, "net_margin": null, "capex_ratio": null, "fcf": null, "revenue": null, "net_income": null}, {"symbol": "BRK.B", "company": "Berkshire Hathaway CL B", "sector": "Financial Services", "industry": "Insurance - Diversified", "weight": 0.0706, "score_composite": 0.616, "score_sm": 0.636, "score_insider": 0.5, "score_momentum": 0.661, "score_quality": 0.6, "perf_3m": 1.64, "perf_ytd": null, "vol_30d": 14.14, "gp_buys": 6, "gp_tier": "B", "insider_buys": 0, "rsi": 63.87172, "td_price": 511.23001, "roe": null, "roa": null, "debt_equity": null, "current_ratio": null, "gross_margin": null, "operating_margin": null, "net_margin": null, "capex_ratio": null, "fcf": null, "revenue": null, "net_income": null}, {"symbol": "PBH", "company": "Prestige Consumer Healthcare", "sector": "Healthcare", "industry": "Drug Manufacturers - Specialty & Generic", "weight": 0.0706, "score_composite": 0.457, "score_sm": 0.402, "score_insider": 0.5, "score_momentum": 0.443, "score_quality": 0.6, "perf_3m": -12.43, "perf_ytd": null, "vol_30d": 20.66, "gp_buys": 3, "gp_tier": "C", "insider_buys": 0, "rsi": 46.23963, "td_price": 59.58, "roe": null, "roa": null, "debt_equity": null, "current_ratio": null, "gross_margin": null, "operating_margin": null, "net_margin": null, "capex_ratio": null, "fcf": null, "revenue": null, "net_income": null}, {"symbol": "CP", "company": "Canadian Pacific Kansas City", "sector": "Industrials", "industry": "Railroads", "weight": 0.066, "score_composite": 0.506, "score_sm": 0.371, "score_insider": 0.5, "score_momentum": 0.696, "score_quality": 0.6, "perf_3m": -5.38, "perf_ytd": null, "vol_30d": 19.26, "gp_buys": 4, "gp_tier": "C", "insider_buys": 0, "rsi": 51.87753, "td_price": 72.089996, "roe": null, "roa": null, "debt_equity": null, "current_ratio": null, "gross_margin": null, "operating_margin": null, "net_margin": null, "capex_ratio": null, "fcf": null, "revenue": null, "net_income": null}, {"symbol": "UNH", "company": "United Health Group Inc.", "sector": "Healthcare", "industry": "Healthcare Plans", "weight": 0.0657, "score_composite": 0.741, "score_sm": 0.837, "score_insider": 0.5, "score_momentum": 0.797, "score_quality": 0.6, "perf_3m": 6.4, "perf_ytd": null, "vol_30d": 27.95, "gp_buys": 9, "gp_tier": "A", "insider_buys": 0, "rsi": 49.14232, "td_price": 329.70999, "roe": null, "roa": null, "debt_equity": null, "current_ratio": null, "gross_margin": null, "operating_margin": null, "net_margin": null, "capex_ratio": null, "fcf": null, "revenue": null, "net_income": null}, {"symbol": "PG", "company": "Procter & Gamble", "sector": "Consumer Defensive", "industry": "Household & Personal Products", "weight": 0.0511, "score_composite": 0.47, "score_sm": 0.361, "score_insider": 0.5, "score_momentum": 0.569, "score_quality": 0.6, "perf_3m": -5.6, "perf_ytd": null, "vol_30d": 15.98, "gp_buys": 4, "gp_tier": "C", "insider_buys": 0, "rsi": 48.60699, "td_price": 148.25, "roe": null, "roa": null, "debt_equity": null, "current_ratio": null, "gross_margin": null, "operating_margin": null, "net_margin": null, "capex_ratio": null, "fcf": null, "revenue": null, "net_income": null}, {"symbol": "MSFT", "company": "Microsoft Corp.", "sector": "Technology", "industry": "Software - Infrastructure", "weight": 0.0493, "score_composite": 0.661, "score_sm": 0.714, "score_insider": 0.5, "score_momentum": 0.699, "score_quality": 0.6, "perf_3m": -4.18, "perf_ytd": null, "vol_30d": 20.8, "gp_buys": 7, "gp_tier": "B", "insider_buys": 0, "rsi": 40.010672, "td_price": 485.5, "roe": null, "roa": null, "debt_equity": null, "current_ratio": null, "gross_margin": null, "operating_margin": null, "net_margin": null, "capex_ratio": null, "fcf": null, "revenue": null, "net_income": null}, {"symbol": "IFF", "company": "International Flavors & Fragrances Inc.", "sector": "Unknown", "industry": "Unknown", "weight": 0.043, "score_composite": 0.494, "score_sm": 0.419, "score_insider": 0.5, "score_momentum": 0.563, "score_quality": 0.6, "perf_3m": NaN, "perf_ytd": null, "vol_30d": NaN, "gp_buys": 5, "gp_tier": "C", "insider_buys": 0, "rsi": 50.0, "td_price": 67.45, "roe": null, "roa": null, "debt_equity": null, "current_ratio": null, "gross_margin": null, "operating_margin": null, "net_margin": null, "capex_ratio": null, "fcf": null, "revenue": null, "net_income": null}, {"symbol": "AVGO", "company": "Broadcom Inc.", "sector": "Unknown", "industry": "Unknown", "weight": 0.0419, "score_composite": 0.481, "score_sm": 0.468, "score_insider": 0.5, "score_momentum": 0.421, "score_quality": 0.6, "perf_3m": NaN, "perf_ytd": null, "vol_30d": NaN, "gp_buys": 4, "gp_tier": "C", "insider_buys": 0, "rsi": 50.0, "td_price": 377.96, "roe": null, "roa": null, "debt_equity": null, "current_ratio": null, "gross_margin": null, "operating_margin": null, "net_margin": null, "capex_ratio": null, "fcf": null, "revenue": null, "net_income": null}, {"symbol": "SCHW", "company": "Charles Schwab Corp.", "sector": "Unknown", "industry": "Unknown", "weight": 0.0412, "score_composite": 0.473, "score_sm": 0.377, "score_insider": 0.5, "score_momentum": 0.553, "score_quality": 0.6, "perf_3m": NaN, "perf_ytd": null, "vol_30d": NaN, "gp_buys": 4, "gp_tier": "C", "insider_buys": 0, "rsi": 50.0, "td_price": 90.52, "roe": null, "roa": null, "debt_equity": null, "current_ratio": null, "gross_margin": null, "operating_margin": null, "net_margin": null, "capex_ratio": null, "fcf": null, "revenue": null, "net_income": null}, {"symbol": "MDB", "company": "MongoDB Inc.", "sector": "Technology", "industry": "Software - Infrastructure", "weight": 0.0372, "score_composite": 0.524, "score_sm": 0.383, "score_insider": 0.5, "score_momentum": 0.745, "score_quality": 0.6, "perf_3m": 3.38, "perf_ytd": null, "vol_30d": 33.67, "gp_buys": 3, "gp_tier": "C", "insider_buys": 0, "rsi": 42.52522, "td_price": 326.26999, "roe": null, "roa": null, "debt_equity": null, "current_ratio": null, "gross_margin": null, "operating_margin": null, "net_margin": null, "capex_ratio": null, "fcf": null, "revenue": null, "net_income": null}, {"symbol": "CPRT", "company": "Copart Inc.", "sector": "Unknown", "industry": "Unknown", "weight": 0.0366, "score_composite": 0.43, "score_sm": 0.381, "score_insider": 0.5, "score_momentum": 0.406, "score_quality": 0.55, "perf_3m": NaN, "perf_ytd": null, "vol_30d": NaN, "gp_buys": 4, "gp_tier": "C", "insider_buys": 0, "rsi": 50.0, "td_price": 38.91, "roe": null, "roa": null, "debt_equity": null, "current_ratio": null, "gross_margin": null, "operating_margin": null, "net_margin": null, "capex_ratio": null, "fcf": null, "revenue": null, "net_income": null}, {"symbol": "RPRX", "company": "Royalty Pharma plc", "sector": "Healthcare", "industry": "Biotechnology", "weight": 0.0365, "score_composite": 0.489, "score_sm": 0.415, "score_insider": 0.5, "score_momentum": 0.579, "score_quality": 0.55, "perf_3m": 10.73, "perf_ytd": null, "vol_30d": 31.96, "gp_buys": 3, "gp_tier": "C", "insider_buys": 0, "rsi": 60.28275, "td_price": 39.84, "roe": null, "roa": null, "debt_equity": null, "current_ratio": null, "gross_margin": null, "operating_margin": null, "net_margin": null, "capex_ratio": null, "fcf": null, "revenue": null, "net_income": null}, {"symbol": "SPGI", "company": "S&P Global Inc.", "sector": "Financial Services", "industry": "Financial Data & Stock Exchanges", "weight": 0.0356, "score_composite": 0.522, "score_sm": 0.365, "score_insider": 0.5, "score_momentum": 0.77, "score_quality": 0.6, "perf_3m": -9.63, "perf_ytd": null, "vol_30d": 22.57, "gp_buys": 4, "gp_tier": "C", "insider_buys": 0, "rsi": 52.32401, "td_price": 495.60999, "roe": null, "roa": null, "debt_equity": null, "current_ratio": null, "gross_margin": null, "operating_margin": null, "net_margin": null, "capex_ratio": null, "fcf": null, "revenue": null, "net_income": null}, {"symbol": "FERG", "company": "Ferguson Enterprises Inc.", "sector": "Industrials", "industry": "Industrial Distribution", "weight": 0.0332, "score_composite": 0.471, "score_sm": 0.373, "score_insider": 0.5, "score_momentum": 0.554, "score_quality": 0.6, "perf_3m": 9.25, "perf_ytd": null, "vol_30d": 26.19, "gp_buys": 4, "gp_tier": "C", "insider_buys": 0, "rsi": 60.30322, "td_price": 252.53999, "roe": null, "roa": null, "debt_equity": null, "current_ratio": null, "gross_margin": null, "operating_margin": null, "net_margin": null, "capex_ratio": null, "fcf": null, "revenue": null, "net_income": null}, {"symbol": "XOM", "company": "Exxon Mobil Corp.", "sector": "Energy", "industry": "Oil & Gas Integrated", "weight": 0.0332, "score_composite": 0.516, "score_sm": 0.36, "score_insider": 0.5, "score_momentum": 0.757, "score_quality": 0.6, "perf_3m": 0.42, "perf_ytd": null, "vol_30d": 16.27, "gp_buys": 4, "gp_tier": "C", "insider_buys": 0, "rsi": 45.39927, "td_price": 114.77, "roe": null, "roa": null, "debt_equity": null, "current_ratio": null, "gross_margin": null, "operating_margin": null, "net_margin": null, "capex_ratio": null, "fcf": null, "revenue": null, "net_income": null}, {"symbol": "NVDA", "company": "NVIDIA Corp.", "sector": "Technology", "industry": "Semiconductors", "weight": 0.0317, "score_composite": 0.707, "score_sm": 0.786, "score_insider": 0.5, "score_momentum": 0.753, "score_quality": 0.6, "perf_3m": 3.49, "perf_ytd": null, "vol_30d": 40.83, "gp_buys": 8, "gp_tier": "A", "insider_buys": 0, "rsi": 44.019376, "td_price": 180.25999, "roe": null, "roa": null, "debt_equity": null, "current_ratio": null, "gross_margin": null, "operating_margin": null, "net_margin": null, "capex_ratio": null, "fcf": null, "revenue": null, "net_income": null}, {"symbol": "FICO", "company": "Fair Isaac Corp.", "sector": "Technology", "industry": "Software - Application", "weight": 0.029, "score_composite": 0.573, "score_sm": 0.367, "score_insider": 0.5, "score_momentum": 0.971, "score_quality": 0.6, "perf_3m": 18.11, "perf_ytd": null, "vol_30d": 38.59, "gp_buys": 3, "gp_tier": "C", "insider_buys": 0, "rsi": 59.38724, "td_price": 1797.27002, "roe": null, "roa": null, "debt_equity": null, "current_ratio": null, "gross_margin": null, "operating_margin": null, "net_margin": null, "capex_ratio": null, "fcf": null, "revenue": null, "net_income": null}, {"symbol": "KD", "company": "Kyndryl Holdings Inc", "sector": "Technology", "industry": "Information Technology Services", "weight": 0.0276, "score_composite": 0.435, "score_sm": 0.36, "score_insider": 0.5, "score_momentum": 0.462, "score_quality": 0.55, "perf_3m": -19.97, "perf_ytd": null, "vol_30d": 35.6, "gp_buys": 3, "gp_tier": "C", "insider_buys": 0, "rsi": 43.73103, "td_price": 25.44, "roe": null, "roa": null, "debt_equity": null, "current_ratio": null, "gross_margin": null, "operating_margin": null, "net_margin": null, "capex_ratio": null, "fcf": null, "revenue": null, "net_income": null}, {"symbol": "BN", "company": "Brookfield Corp.", "sector": "Financial Services", "industry": "Asset Management", "weight": 0.0269, "score_composite": 0.568, "score_sm": 0.52, "score_insider": 0.5, "score_momentum": 0.735, "score_quality": 0.5, "perf_3m": 6.34, "perf_ytd": null, "vol_30d": 27.08, "gp_buys": 3, "gp_tier": "C", "insider_buys": 0, "rsi": 58.86281, "td_price": 46.59, "roe": null, "roa": null, "debt_equity": null, "current_ratio": null, "gross_margin": null, "operating_margin": null, "net_margin": null, "capex_ratio": null, "fcf": null, "revenue": null, "net_income": null}, {"symbol": "ASML", "company": "ASML Holding NV", "sector": "Unknown", "industry": "Unknown", "weight": 0.0221, "score_composite": 0.507, "score_sm": 0.475, "score_insider": 0.5, "score_momentum": 0.515, "score_quality": 0.6, "perf_3m": NaN, "perf_ytd": null, "vol_30d": NaN, "gp_buys": 4, "gp_tier": "C", "insider_buys": 0, "rsi": 50.0, "td_price": 987.82, "roe": null, "roa": null, "debt_equity": null, "current_ratio": null, "gross_margin": null, "operating_margin": null, "net_margin": null, "capex_ratio": null, "fcf": null, "revenue": null, "net_income": null}, {"symbol": "UPS", "company": "United Parcel Service", "sector": "Unknown", "industry": "Unknown", "weight": 0.0216, "score_composite": 0.497, "score_sm": 0.428, "score_insider": 0.5, "score_momentum": 0.558, "score_quality": 0.6, "perf_3m": NaN, "perf_ytd": null, "vol_30d": NaN, "gp_buys": 4, "gp_tier": "C", "insider_buys": 0, "rsi": 50.0, "td_price": 93.56, "roe": null, "roa": null, "debt_equity": null, "current_ratio": null, "gross_margin": null, "operating_margin": null, "net_margin": null, "capex_ratio": null, "fcf": null, "revenue": null, "net_income": null}, {"symbol": "GOOGL", "company": "Alphabet Inc.", "sector": "Unknown", "industry": "Unknown", "weight": 0.0197, "score_composite": 0.463, "score_sm": 0.438, "score_insider": 0.5, "score_momentum": 0.403, "score_quality": 0.6, "perf_3m": NaN, "perf_ytd": null, "vol_30d": NaN, "gp_buys": 5, "gp_tier": "C", "insider_buys": 0, "rsi": 50.0, "td_price": 318.58, "roe": null, "roa": null, "debt_equity": null, "current_ratio": null, "gross_margin": null, "operating_margin": null, "net_margin": null, "capex_ratio": null, "fcf": null, "revenue": null, "net_income": null}, {"symbol": "QCOM", "company": "QUALCOMM Inc.", "sector": "Technology", "industry": "Semiconductors", "weight": 0.0196, "score_composite": 0.56, "score_sm": 0.385, "score_insider": 0.5, "score_momentum": 0.888, "score_quality": 0.6, "perf_3m": 2.74, "perf_ytd": null, "vol_30d": 46.41, "gp_buys": 3, "gp_tier": "C", "insider_buys": 0, "rsi": 45.42207, "td_price": 165.14, "roe": null, "roa": null, "debt_equity": null, "current_ratio": null, "gross_margin": null, "operating_margin": null, "net_margin": null, "capex_ratio": null, "fcf": null, "revenue": null, "net_income": null}, {"symbol": "BAX", "company": "Baxter International Inc.", "sector": "Unknown", "industry": "Unknown", "weight": 0.0195, "score_composite": 0.459, "score_sm": 0.451, "score_insider": 0.5, "score_momentum": 0.424, "score_quality": 0.5, "perf_3m": NaN, "perf_ytd": null, "vol_30d": NaN, "gp_buys": 5, "gp_tier": "C", "insider_buys": 0, "rsi": 50.0, "td_price": 18.18, "roe": null, "roa": null, "debt_equity": null, "current_ratio": null, "gross_margin": null, "operating_margin": null, "net_margin": null, "capex_ratio": null, "fcf": null, "revenue": null, "net_income": null}];
+        
+        const ctx = document.getElementById('sectorChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ["Financial Services", "Healthcare", "Industrials", "Consumer Defensive", "Technology", "Unknown", "Energy"],
+                datasets: [{
+                    data: [20.4, 17.3, 9.9, 5.1, 19.4, 24.6, 3.3],
+                    backgroundColor: ["#f59e0b", "#10b981", "#8b5cf6", "#06b6d4", "#3b82f6", "#9ca3af", "#f97316"],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'right', labels: { color: '#94a3b8', font: { size: 10 } } }
+                }
+            }
+        });
+        
+        function calculateAllocation() {
+            const amount = parseFloat(document.getElementById('amount').value) || 0;
+            const result = document.getElementById('allocation-result');
+            let html = '';
+            let total = 0;
+            
+            portfolio.forEach(pos => {
+                const alloc = amount * pos.weight;
+                const price = pos.td_price || pos.current_price || 0;
+                const shares = price > 0 ? Math.floor(alloc / price) : 0;
+                const actualAlloc = shares * price;
+                total += actualAlloc;
+                
+                html += `<div class="alloc-row">
+                    <span><strong>${pos.symbol}</strong></span>
+                    <span>${shares} × ${price.toFixed(0)} = ${actualAlloc.toFixed(0)}</span>
+                </div>`;
+            });
+            
+            html = `<div class="alloc-row" style="font-weight:bold; border-bottom: 2px solid #475569;">
+                <span>TOTAL INVESTI</span>
+                <span>${total.toFixed(0)} / ${amount.toFixed(0)}</span>
+            </div>` + html;
+            
+            result.innerHTML = html;
+        }
+        
+        document.getElementById('amount').addEventListener('input', calculateAllocation);
+        calculateAllocation();
+    </script>
+</body>
+</html>

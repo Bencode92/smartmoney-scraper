@@ -1,0 +1,57 @@
+{
+  "generated_at": "2025-11-27T16:12:36.102175",
+  "benchmark_comparison": {
+    "period_days": 90,
+    "benchmark": {
+      "symbol": "SPY",
+      "return_pct": 7.17,
+      "volatility_pct": 11.85,
+      "sharpe": 0.51
+    },
+    "portfolio": {
+      "return_pct": NaN,
+      "volatility_pct": NaN,
+      "sharpe": 0,
+      "positions": 25
+    },
+    "comparison": {
+      "alpha_pct": NaN,
+      "outperformance": "False",
+      "sharpe_diff": -0.51
+    }
+  },
+  "turnover": {
+    "turnover_pct": 34.43,
+    "entries": [
+      "CP",
+      "AVGO",
+      "CPRT",
+      "XOM",
+      "KD",
+      "QCOM"
+    ],
+    "exits": [
+      "TSLA",
+      "ADBE",
+      "ELV",
+      "INTU",
+      "MCD",
+      "SHW"
+    ],
+    "entries_count": 6,
+    "exits_count": 6,
+    "unchanged_count": 19
+  },
+  "portfolio_history": [
+    {
+      "date": "2025-11-26",
+      "positions": 25,
+      "perf_3m": 2.01
+    },
+    {
+      "date": "2025-11-27",
+      "positions": 25,
+      "perf_3m": -0.74
+    }
+  ]
+}
