@@ -7,68 +7,32 @@
   },
   {
     "level": "warning",
-    "type": "quality",
-    "symbol": "PG",
-    "message": "Score composite inf\u00e9rieur \u00e0 0.4"
-  },
-  {
-    "level": "warning",
-    "type": "quality",
-    "symbol": "SPGI",
-    "message": "Score composite inf\u00e9rieur \u00e0 0.4"
-  },
-  {
-    "level": "warning",
-    "type": "quality",
-    "symbol": "MCD",
-    "message": "Score composite inf\u00e9rieur \u00e0 0.4"
-  },
-  {
-    "level": "warning",
-    "type": "quality",
-    "symbol": "BN",
-    "message": "Score composite inf\u00e9rieur \u00e0 0.4"
-  },
-  {
-    "level": "warning",
-    "type": "quality",
-    "symbol": "PBH",
-    "message": "Score composite inf\u00e9rieur \u00e0 0.4"
-  },
-  {
-    "level": "warning",
-    "type": "quality",
-    "symbol": "FERG",
-    "message": "Score composite inf\u00e9rieur \u00e0 0.4"
-  },
-  {
-    "level": "warning",
-    "type": "quality",
-    "symbol": "AMAT",
-    "message": "Score composite inf\u00e9rieur \u00e0 0.4"
-  },
-  {
-    "level": "warning",
-    "type": "quality",
-    "symbol": "SCHW",
-    "message": "Score composite inf\u00e9rieur \u00e0 0.4"
-  },
-  {
-    "level": "warning",
-    "type": "quality",
-    "symbol": "CPRT",
-    "message": "Score composite inf\u00e9rieur \u00e0 0.4"
-  },
-  {
-    "level": "warning",
-    "type": "quality",
-    "symbol": "ADBE",
-    "message": "Score composite inf\u00e9rieur \u00e0 0.4"
+    "type": "concentration",
+    "symbol": "MSFT",
+    "message": "Position sup\u00e9rieure \u00e0 5.5% du portefeuille"
   },
   {
     "level": "warning",
     "type": "sector",
     "symbol": null,
     "message": "Plus de 3 positions dans le secteur technologique"
+  },
+  {
+    "level": "warning",
+    "type": "momentum",
+    "symbol": "CPRT",
+    "message": "RSI inf\u00e9rieur \u00e0 30"
+  },
+  {
+    "level": "warning",
+    "type": "momentum",
+    "symbol": "ADBE",
+    "message": "RSI inf\u00e9rieur \u00e0 30"
+  },
+  {
+    "level": "warning",
+    "type": "momentum",
+    "symbol": "KD",
+    "message": "RSI inf\u00e9rieur \u00e0 30"
   }
 ]
