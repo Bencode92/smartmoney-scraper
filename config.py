@@ -1,4 +1,4 @@
-"""Configuration SmartMoney Engine"""
+"""Configuration SmartMoney Engine v2.1"""
 import os
 from pathlib import Path
 
@@ -24,16 +24,18 @@ WEIGHTS = {
 CONSTRAINTS = {
     "min_positions": 15,
     "max_positions": 25,
-    "max_weight": 0.06,        # 6% max par ligne
-    "max_sector": 0.30,        # 30% max par secteur
-    "min_score": 0.3,          # Score minimum pour inclusion
-    "min_price": 5.0,          # Prix minimum $5
-    "min_buys": 2              # Minimum 2 achats smart money
+    "max_weight": 0.06,            # 6% max par ligne
+    "max_sector": 0.30,            # 30% max par secteur
+    "min_score": 0.3,              # Score minimum pour inclusion
+    "min_price": 5.0,              # Prix minimum $5
+    "min_buys": 2,                 # Minimum 2 achats smart money
+    "min_avg_volume": 100_000,     # Volume moyen minimum (liquidité)
+    "min_fundamentals_coverage": 0.5  # 50% minimum avec fondamentaux
 }
 
 # === TWELVE DATA ===
 TWELVE_DATA_BASE = "https://api.twelvedata.com"
-TWELVE_DATA_RATE_LIMIT = 120  # calls per minute (Ultra plan: 2584/min max)
+TWELVE_DATA_RATE_LIMIT = 80  # Réduit de 120 à 80 pour marge de sécurité
 
 # === OPENAI ===
 OPENAI_MODEL = "gpt-4o"
