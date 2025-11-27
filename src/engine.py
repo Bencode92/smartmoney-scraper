@@ -3,6 +3,7 @@ import json
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
+from functools import wraps
 import requests
 import numpy as np
 import pandas as pd
@@ -17,6 +18,44 @@ from config import (
 )
 
 
+# === DÉCORATEUR RETRY AVEC BACKOFF ===
+
+def with_credit_retry(max_retries: int = 3, base_wait: int = 65):
+    """
+    Gère automatiquement les erreurs 'You have run out of API credits...'
+    avec retry + backoff exponentiel.
+
+    - max_retries=3 → jusqu'à 4 tentatives (0, 1, 2, 3)
+    - base_wait=65 → 65s, 97s, 146s...
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(self, symbol: str, *args, **kwargs):
+            for attempt in range(max_retries + 1):
+                result = func(self, symbol, *args, **kwargs)
+
+                # Si on a des données ou que c'est la dernière tentative → on renvoie
+                if result or attempt == max_retries:
+                    return result
+
+                # On ne retry que si la dernière erreur vient clairement des crédits
+                if getattr(self, "_last_api_error", None) and "API credits" in self._last_api_error:
+                    wait_time = base_wait * (1.5 ** attempt)
+                    print(
+                        f"    ⏳ Crédits API épuisés, pause {wait_time:.0f}s "
+                        f"(tentative {attempt+1}/{max_retries})..."
+                    )
+                    time.sleep(wait_time)
+                    self._last_api_error = None
+                else:
+                    # autre type d'erreur (réseau, symbole invalide...) → on n'insiste pas
+                    return result
+
+            return {}
+        return wrapper
+    return decorator
+
+
 class SmartMoneyEngine:
     """Moteur principal: charge données → enrichit → score → optimise"""
     
@@ -25,7 +64,7 @@ class SmartMoneyEngine:
         self.portfolio = pd.DataFrame()
         self.portfolio_metrics = {}
         self._last_api_call = 0
-        self._fundamentals_available = True  # Flag pour économiser les crédits API
+        self._last_api_error = None  # Pour tracker le type d'erreur (utilisé par le décorateur)
     
     # === DATA LOADING ===
     
@@ -107,21 +146,18 @@ class SmartMoneyEngine:
             time.sleep(wait)
         self._last_api_call = time.time()
     
-    def _check_api_error(self, data: dict, endpoint: str, symbol: str) -> bool:
+    def _handle_api_response(self, data: dict, endpoint: str, symbol: str) -> bool:
         """
-        Vérifie si l'API renvoie une erreur et gère le flag _fundamentals_available.
-        Retourne True si erreur détectée.
+        Retourne True s'il y a une erreur (champ 'code' dans la réponse).
+        Stocke le message dans self._last_api_error.
         """
-        if "code" in data:
-            msg = data.get("message", str(data.get("code", "")))
-            print(f"    ⚠️ {endpoint} {symbol}: {msg}")
-            
-            # Détection erreur de crédits épuisés
-            if "run out of API credits" in msg or "API credits" in msg:
-                print(f"    🛑 Crédits API épuisés - désactivation des fondamentaux pour ce run")
-                self._fundamentals_available = False
-            
+        if isinstance(data, dict) and "code" in data:
+            self._last_api_error = data.get("message", str(data.get("code", "")))
+            print(f"    ⚠️ {endpoint} {symbol}: {self._last_api_error}")
             return True
+
+        # pas d'erreur → reset
+        self._last_api_error = None
         return False
     
     def _fetch_quote(self, symbol: str) -> dict:
@@ -209,9 +245,10 @@ class SmartMoneyEngine:
             print(f"⚠️ Time series error {symbol}: {e}")
         return []
     
+    @with_credit_retry(max_retries=3, base_wait=65)
     def _fetch_statistics(self, symbol: str) -> dict:
         """Récupère les statistiques via Twelve Data"""
-        if not TWELVE_DATA_KEY or not self._fundamentals_available:
+        if not TWELVE_DATA_KEY:
             return {}
         
         self._rate_limit()
@@ -223,18 +260,21 @@ class SmartMoneyEngine:
             )
             if resp.status_code == 200:
                 data = resp.json()
-                if not self._check_api_error(data, "Statistics", symbol):
-                    return data
+                if self._handle_api_response(data, "Statistics", symbol):
+                    return {}
+                return data
         except Exception as e:
+            self._last_api_error = None
             print(f"⚠️ Statistics error {symbol}: {e}")
         return {}
     
+    @with_credit_retry(max_retries=3, base_wait=65)
     def _fetch_balance_sheet(self, symbol: str) -> dict:
         """
         Récupère le bilan via Twelve Data.
         Endpoint: /balance_sheet (sans /consolidated)
         """
-        if not TWELVE_DATA_KEY or not self._fundamentals_available:
+        if not TWELVE_DATA_KEY:
             return {}
         
         self._rate_limit()
@@ -246,20 +286,22 @@ class SmartMoneyEngine:
             )
             if resp.status_code == 200:
                 data = resp.json()
-                if self._check_api_error(data, "Balance sheet", symbol):
+                if self._handle_api_response(data, "Balance sheet", symbol):
                     return {}
-                elif "balance_sheet" in data and data["balance_sheet"]:
+                if "balance_sheet" in data and data["balance_sheet"]:
                     return data["balance_sheet"][0]
         except Exception as e:
+            self._last_api_error = None
             print(f"⚠️ Balance sheet error {symbol}: {e}")
         return {}
     
+    @with_credit_retry(max_retries=3, base_wait=65)
     def _fetch_income_statement(self, symbol: str) -> dict:
         """
         Récupère le compte de résultat via Twelve Data.
         Endpoint: /income_statement (sans /consolidated)
         """
-        if not TWELVE_DATA_KEY or not self._fundamentals_available:
+        if not TWELVE_DATA_KEY:
             return {}
         
         self._rate_limit()
@@ -271,20 +313,22 @@ class SmartMoneyEngine:
             )
             if resp.status_code == 200:
                 data = resp.json()
-                if self._check_api_error(data, "Income statement", symbol):
+                if self._handle_api_response(data, "Income statement", symbol):
                     return {}
-                elif "income_statement" in data and data["income_statement"]:
+                if "income_statement" in data and data["income_statement"]:
                     return data["income_statement"][0]
         except Exception as e:
+            self._last_api_error = None
             print(f"⚠️ Income statement error {symbol}: {e}")
         return {}
     
+    @with_credit_retry(max_retries=3, base_wait=65)
     def _fetch_cash_flow(self, symbol: str) -> dict:
         """
         Récupère le cash flow via Twelve Data.
         Endpoint: /cash_flow (sans /consolidated)
         """
-        if not TWELVE_DATA_KEY or not self._fundamentals_available:
+        if not TWELVE_DATA_KEY:
             return {}
         
         self._rate_limit()
@@ -296,11 +340,12 @@ class SmartMoneyEngine:
             )
             if resp.status_code == 200:
                 data = resp.json()
-                if self._check_api_error(data, "Cash flow", symbol):
+                if self._handle_api_response(data, "Cash flow", symbol):
                     return {}
-                elif "cash_flow" in data and data["cash_flow"]:
+                if "cash_flow" in data and data["cash_flow"]:
                     return data["cash_flow"][0]
         except Exception as e:
+            self._last_api_error = None
             print(f"⚠️ Cash flow error {symbol}: {e}")
         return {}
     
@@ -505,36 +550,35 @@ class SmartMoneyEngine:
     
     # === ENRICHISSEMENT ===
     
-    def enrich(self, top_n: int = 50, max_fundamentals: int = 15) -> pd.DataFrame:
+    def enrich(self, top_n: int = 50) -> pd.DataFrame:
         """
-        Enrichit les top N candidats avec Twelve Data.
+        Enrichit les top N candidats avec Twelve Data (quote, profil, RSI,
+        historique, fondamentaux) pour TOUS les tickers.
         
         Args:
             top_n: Nombre de tickers à enrichir
-            max_fundamentals: Limite de tickers avec fondamentaux complets (économie crédits)
         """
         if self.universe.empty:
             self.load_data()
-        
-        # Reset flag au début de chaque run
-        self._fundamentals_available = True
-        
+
         candidates = self.universe[
             (self.universe["gp_buys"] >= CONSTRAINTS["min_buys"]) |
             (self.universe["insider_buys"] > 0)
         ].head(top_n)
-        
+
         print(f"📊 Enrichissement de {len(candidates)} tickers via Twelve Data...")
-        print(f"   (Quote + Profile + RSI + TimeSeries)")
-        print(f"   (Fondamentaux: limité aux {max_fundamentals} premiers tickers)")
-        estimated_time = len(candidates) * 4 / TWELVE_DATA_RATE_LIMIT
-        print(f"   ⏱️  Temps estimé: ~{estimated_time:.1f} minutes (rate limit {TWELVE_DATA_RATE_LIMIT}/min)")
-        
+        print(f"   (Quote + Profile + RSI + TimeSeries + Statistics + Balance + Income + CashFlow)")
+        estimated_time = len(candidates) * 8 / TWELVE_DATA_RATE_LIMIT
+        print(
+            f"   ⏱️  Temps estimé théorique: ~{estimated_time:.1f} minutes "
+            f"(hors pauses liées aux crédits, rate limit {TWELVE_DATA_RATE_LIMIT}/min)"
+        )
+
         enriched = []
         for idx, (_, row) in enumerate(candidates.iterrows(), 1):
             symbol = row["symbol"]
             print(f"\n  [{idx}/{len(candidates)}] {symbol}")
-            
+
             # 1. Quote
             quote = self._fetch_quote(symbol)
             row["td_price"] = float(quote.get("close", row.get("current_price", 0)) or 0)
@@ -545,18 +589,18 @@ class SmartMoneyEngine:
             row["td_high_52w"] = float(ftw.get("high", row.get("high_52w", 0)) or 0)
             row["td_low_52w"] = float(ftw.get("low", row.get("low_52w", 0)) or 0)
             print(f"    ✓ Quote: ${row['td_price']:.2f}")
-            
+
             # 2. Profile
             profile = self._fetch_profile(symbol)
             row["sector"] = profile.get("sector") or "Unknown"
             row["industry"] = profile.get("industry") or "Unknown"
             print(f"    ✓ Profile: {row['sector']}")
-            
+
             # 3. RSI
             tech = self._fetch_technicals(symbol)
             row["rsi"] = tech.get("rsi", 50.0)
             print(f"    ✓ RSI: {row['rsi']:.1f}")
-            
+
             # 4. Time series
             prices = self._fetch_time_series(symbol, 90)
             perf_vol = self._calculate_perf_vol(prices)
@@ -564,49 +608,37 @@ class SmartMoneyEngine:
             row["perf_ytd"] = perf_vol["perf_ytd"]
             row["vol_30d"] = perf_vol["vol_30d"]
             print(f"    ✓ Perf 3M: {row['perf_3m']}% | Vol: {row['vol_30d']}%")
-            
-            # 5-8. Fondamentaux (limité aux premiers tickers pour économiser crédits)
-            fundamentals_enabled = (idx <= max_fundamentals) and self._fundamentals_available
-            
-            if not fundamentals_enabled:
-                if idx == max_fundamentals + 1:
-                    print(f"    ⏭️ Fondamentaux désactivés (limite {max_fundamentals} atteinte)")
-                elif not self._fundamentals_available:
-                    print(f"    ⏭️ Fondamentaux ignorés (crédits épuisés)")
-                
-                for k in ["roe", "roa", "debt_equity", "current_ratio", 
-                         "gross_margin", "operating_margin", "net_margin",
-                         "capex_ratio", "fcf", "revenue", "net_income"]:
-                    row[k] = None
-            else:
-                stats = self._fetch_statistics(symbol)
-                balance = self._fetch_balance_sheet(symbol)
-                income = self._fetch_income_statement(symbol)
-                cashflow = self._fetch_cash_flow(symbol)
-                
-                # Debug: afficher les clés reçues
-                if balance:
-                    print(f"    📋 Balance keys: {list(balance.keys())[:5]}...")
-                if income:
-                    print(f"    📋 Income keys: {list(income.keys())[:5]}...")
-                
-                fundamentals = self._extract_fundamentals(stats, balance, income, cashflow)
-                for k, v in fundamentals.items():
-                    row[k] = v
-                
-                roe_str = f"{row['roe']:.1f}%" if row['roe'] is not None else "N/A"
-                de_str = f"{row['debt_equity']:.2f}" if row['debt_equity'] is not None else "N/A"
-                margin_str = f"{row['net_margin']:.1f}%" if row['net_margin'] is not None else "N/A"
-                cr_str = f"{row['current_ratio']:.2f}" if row['current_ratio'] is not None else "N/A"
-                print(f"    ✓ Fundamentals: ROE={roe_str} | D/E={de_str} | Margin={margin_str} | CR={cr_str}")
-            
+
+            # 5-8. Fondamentaux (toujours, avec retry géré par les fetch)
+            stats = self._fetch_statistics(symbol)
+            balance = self._fetch_balance_sheet(symbol)
+            income = self._fetch_income_statement(symbol)
+            cashflow = self._fetch_cash_flow(symbol)
+
+            fundamentals = self._extract_fundamentals(stats, balance, income, cashflow)
+            for k, v in fundamentals.items():
+                row[k] = v
+
+            roe_str = f"{row['roe']:.1f}%" if row.get("roe") is not None else "N/A"
+            de_str = f"{row['debt_equity']:.2f}" if row.get("debt_equity") is not None else "N/A"
+            margin_str = f"{row['net_margin']:.1f}%" if row.get("net_margin") is not None else "N/A"
+            cr_str = f"{row['current_ratio']:.2f}" if row.get("current_ratio") is not None else "N/A"
+            print(f"    ✓ Fundamentals: ROE={roe_str} | D/E={de_str} | Margin={margin_str} | CR={cr_str}")
+
             enriched.append(row)
-        
+
         self.universe = pd.DataFrame(enriched)
-        
-        # Résumé final
-        if not self._fundamentals_available:
-            print(f"\n⚠️ Attention: crédits API épuisés en cours de run")
+
+        # === Validation coverage fondamentaux ===
+        fundamentals_cols = ["roe", "debt_equity", "net_margin", "current_ratio"]
+        existing_cols = [c for c in fundamentals_cols if c in self.universe.columns]
+        if existing_cols:
+            coverage = self.universe[existing_cols].notna().any(axis=1).mean()
+            print(f"\n📊 Coverage fondamentaux (≥1 ratio non nul): {coverage:.0%}")
+            if coverage < 0.5:
+                missing = self.universe[self.universe[existing_cols].isna().all(axis=1)]["symbol"].tolist()
+                print(f"⚠️ Beaucoup de tickers sans fondamentaux, ex: {missing[:10]}{'...' if len(missing) > 10 else ''}")
+
         print(f"\n✅ Enrichissement terminé")
         return self.universe
     
@@ -1020,7 +1052,7 @@ class SmartMoneyEngine:
 if __name__ == "__main__":
     engine = SmartMoneyEngine()
     engine.load_data()
-    engine.enrich(top_n=40, max_fundamentals=15)
+    engine.enrich(top_n=40)
     engine.clean_universe(strict=False)  # Mode souple pour garder les tickers sans fondamentaux
     engine.calculate_scores()
     engine.apply_filters()
