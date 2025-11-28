@@ -3,19 +3,19 @@
     "level": "warning",
     "type": "concentration",
     "symbol": null,
-    "message": "Concentration dans le portefeuille sup\u00e9rieur \u00e0 5.5%."
+    "message": "Concentration \u00e9lev\u00e9e dans le portefeuille avec plusieurs positions d\u00e9passant 5.5%."
   },
   {
-    "level": "warning",
+    "level": "critical",
     "type": "quality",
-    "symbol": "FICO",
-    "message": "Score composite inf\u00e9rieur \u00e0 0.4 pour FICO."
+    "symbol": "ADBE",
+    "message": "Score composite de 0.466 pour Adobe Inc. indiquant une faiblesse de qualit\u00e9."
   },
   {
     "level": "warning",
     "type": "momentum",
     "symbol": "CPRT",
-    "message": "RSI inf\u00e9rieur \u00e0 30 pour Copart Inc."
+    "message": "RSI de 26.22 pour Copart Inc. indiquant un momentum extr\u00eame."
   },
   {
     "level": "warning",
