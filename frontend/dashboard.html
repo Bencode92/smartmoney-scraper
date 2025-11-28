@@ -2,615 +2,1376 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <title>SmartMoney Portfolio Dashboard</title>
+  <title>SmartMoney Pro Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <style>
     :root {
-      --bg: #020617;
-      --bg-card: #0f172a;
-      --border: #1e293b;
-      --accent: #38bdf8;
-      --accent-soft: rgba(56, 189, 248, 0.15);
-      --text: #e2e8f0;
-      --text-soft: #94a3b8;
-      --success: #22c55e;
-      --warning: #f59e0b;
+      --bg-primary: #06080d;
+      --bg-secondary: #0a0e17;
+      --bg-card: rgba(15, 23, 42, 0.6);
+      --bg-card-hover: rgba(20, 30, 50, 0.8);
+      --border: rgba(148, 163, 184, 0.12);
+      --border-light: rgba(148, 163, 184, 0.08);
+      --accent: #3b82f6;
+      --accent-glow: rgba(59, 130, 246, 0.4);
+      --gold: #f59e0b;
+      --gold-soft: rgba(245, 158, 11, 0.15);
+      --text: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --success: #10b981;
+      --success-soft: rgba(16, 185, 129, 0.15);
       --danger: #ef4444;
+      --danger-soft: rgba(239, 68, 68, 0.15);
+      --warning: #f59e0b;
+      --warning-soft: rgba(245, 158, 11, 0.15);
       --radius: 16px;
+      --radius-sm: 10px;
+      --sidebar-width: 240px;
+      --topbar-height: 64px;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: "Inter", system-ui, sans-serif;
-      background: var(--bg);
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-primary);
       color: var(--text);
       min-height: 100vh;
-      padding: 24px;
       line-height: 1.5;
+      overflow-x: hidden;
     }
 
-    .container { max-width: 1400px; margin: 0 auto; }
-
-    /* Header */
-    .header {
+    /* === APP LAYOUT === */
+    .app {
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 24px;
-      flex-wrap: wrap;
-      gap: 16px;
+      min-height: 100vh;
     }
 
-    .logo {
+    /* === SIDEBAR === */
+    .sidebar {
+      width: var(--sidebar-width);
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border);
+      padding: 24px 16px;
+      position: fixed;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      display: flex;
+      flex-direction: column;
+      z-index: 100;
+      transition: transform 0.3s ease;
+    }
+
+    .sidebar-logo {
       display: flex;
       align-items: center;
       gap: 12px;
-      font-size: 24px;
-      font-weight: 700;
+      padding: 0 8px;
+      margin-bottom: 32px;
     }
 
     .logo-icon {
-      width: 40px;
-      height: 40px;
-      background: linear-gradient(135deg, var(--accent), #0ea5e9);
+      width: 42px;
+      height: 42px;
+      background: linear-gradient(135deg, var(--accent), #1d4ed8);
       border-radius: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: 800;
       font-size: 18px;
-      box-shadow: 0 0 20px rgba(56, 189, 248, 0.4);
+      box-shadow: 0 0 24px var(--accent-glow);
     }
 
-    .meta-pills {
+    .logo-text {
+      font-size: 18px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #fff, #94a3b8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .sidebar-nav {
+      flex: 1;
       display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
+      flex-direction: column;
+      gap: 4px;
     }
 
-    .pill {
-      padding: 6px 12px;
-      border-radius: 20px;
-      border: 1px solid var(--border);
-      background: rgba(15, 23, 42, 0.8);
-      font-size: 12px;
+    .nav-item {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 12px;
+      padding: 12px 16px;
+      border-radius: var(--radius-sm);
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-size: 14px;
+      font-weight: 500;
+      border: none;
+      background: none;
+      width: 100%;
+      text-align: left;
     }
 
-    .pill-dot {
+    .nav-item:hover {
+      background: rgba(59, 130, 246, 0.1);
+      color: var(--text);
+    }
+
+    .nav-item.active {
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(59, 130, 246, 0.1));
+      color: var(--accent);
+      box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.3);
+    }
+
+    .nav-icon {
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+
+    .sidebar-footer {
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+      margin-top: auto;
+    }
+
+    .sidebar-meta {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    /* === MAIN === */
+    .main {
+      flex: 1;
+      margin-left: var(--sidebar-width);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* === TOPBAR === */
+    .topbar {
+      height: var(--topbar-height);
+      background: rgba(10, 14, 23, 0.8);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .topbar-title {
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .topbar-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background: var(--success-soft);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 20px;
+      font-size: 12px;
+      color: var(--success);
+    }
+
+    .topbar-badge-dot {
       width: 8px;
       height: 8px;
-      border-radius: 50%;
       background: var(--success);
-      box-shadow: 0 0 8px var(--success);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
     }
 
-    .pill.warning { border-color: var(--warning); color: #fde68a; }
-    .pill.warning .pill-dot { background: var(--warning); box-shadow: 0 0 8px var(--warning); }
-
-    /* Grid */
-    .grid { display: grid; gap: 16px; margin-bottom: 16px; }
-    .grid-4 { grid-template-columns: repeat(4, 1fr); }
-    .grid-3 { grid-template-columns: repeat(3, 1fr); }
-    .grid-2 { grid-template-columns: 1fr 1fr; }
-    .grid-2-1 { grid-template-columns: 2fr 1fr; }
-
-    @media (max-width: 1200px) {
-      .grid-4 { grid-template-columns: repeat(2, 1fr); }
-      .grid-3 { grid-template-columns: 1fr; }
-      .grid-2, .grid-2-1 { grid-template-columns: 1fr; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
     }
 
-    /* Cards */
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .topbar-stat {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+    }
+
+    .topbar-stat-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+    }
+
+    .topbar-stat-value {
+      font-size: 14px;
+      font-weight: 600;
+      font-family: "JetBrains Mono", monospace;
+    }
+
+    /* === CONTENT === */
+    .content {
+      flex: 1;
+      padding: 24px 32px;
+    }
+
+    .tab-panel {
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .tab-panel.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* === CARDS === */
     .card {
       background: var(--bg-card);
+      backdrop-filter: blur(20px);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 20px;
+      padding: 24px;
+      transition: all 0.3s ease;
+    }
+
+    .card:hover {
+      background: var(--bg-card-hover);
+      border-color: rgba(148, 163, 184, 0.2);
     }
 
     .card-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 16px;
+      margin-bottom: 20px;
     }
 
     .card-title {
-      font-size: 12px;
+      font-size: 13px;
+      font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.1em;
-      color: var(--text-soft);
+      letter-spacing: 0.08em;
+      color: var(--text-secondary);
     }
 
-    .card-value {
-      font-size: 32px;
-      font-weight: 700;
+    .card-badge {
+      font-size: 11px;
+      padding: 4px 10px;
+      background: rgba(59, 130, 246, 0.15);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      border-radius: 12px;
       color: var(--accent);
     }
 
-    .card-value.positive { color: var(--success); }
-    .card-value.negative { color: var(--danger); }
+    /* === GRID === */
+    .grid { display: grid; gap: 20px; }
+    .grid-4 { grid-template-columns: repeat(4, 1fr); }
+    .grid-3 { grid-template-columns: repeat(3, 1fr); }
+    .grid-2 { grid-template-columns: repeat(2, 1fr); }
+    .grid-1-2 { grid-template-columns: 1fr 2fr; }
+    .grid-2-1 { grid-template-columns: 2fr 1fr; }
 
-    .card-sub {
-      font-size: 12px;
-      color: var(--text-soft);
-      margin-top: 4px;
+    @media (max-width: 1200px) {
+      .grid-4 { grid-template-columns: repeat(2, 1fr); }
+      .grid-3, .grid-2, .grid-1-2, .grid-2-1 { grid-template-columns: 1fr; }
     }
 
-    /* KPI Cards */
+    /* === KPI CARDS === */
     .kpi-card {
-      text-align: center;
-      padding: 24px 16px;
+      position: relative;
+      overflow: hidden;
     }
+
+    .kpi-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent), transparent);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .kpi-card:hover::before {
+      opacity: 1;
+    }
+
+    .kpi-icon {
+      width: 44px;
+      height: 44px;
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      margin-bottom: 16px;
+    }
+
+    .kpi-value {
+      font-size: 32px;
+      font-weight: 700;
+      font-family: "JetBrains Mono", monospace;
+      line-height: 1.1;
+      margin-bottom: 4px;
+    }
+
+    .kpi-value.positive { color: var(--success); }
+    .kpi-value.negative { color: var(--danger); }
 
     .kpi-label {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      color: var(--text-soft);
-      margin-top: 8px;
-    }
-
-    /* Benchmark Table */
-    .benchmark-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 13px;
-    }
-
-    .benchmark-table th,
-    .benchmark-table td {
-      padding: 12px 8px;
-      text-align: left;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .benchmark-table th {
-      font-size: 11px;
+      font-size: 12px;
+      color: var(--text-muted);
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      color: var(--text-soft);
-      font-weight: 500;
     }
 
-    .benchmark-table .highlight {
-      background: var(--accent-soft);
+    .kpi-trend {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      margin-top: 8px;
+      padding: 4px 8px;
+      border-radius: 6px;
+    }
+
+    .kpi-trend.up {
+      background: var(--success-soft);
+      color: var(--success);
+    }
+
+    .kpi-trend.down {
+      background: var(--danger-soft);
+      color: var(--danger);
+    }
+
+    /* === BENCHMARK TABLE === */
+    .bench-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .bench-table th,
+    .bench-table td {
+      padding: 14px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border-light);
+    }
+
+    .bench-table th {
+      font-size: 10px;
       font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
     }
 
-    .positive { color: var(--success); }
-    .negative { color: var(--danger); }
+    .bench-table td {
+      font-size: 14px;
+      font-family: "JetBrains Mono", monospace;
+    }
 
-    /* Chart Container */
+    .bench-table tr.highlight {
+      background: linear-gradient(90deg, rgba(59, 130, 246, 0.1), transparent);
+    }
+
+    .bench-table tr.highlight td:first-child {
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    /* === CHART === */
     .chart-container {
       position: relative;
       height: 280px;
     }
 
-    /* Sector Bars */
-    .sector-row {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      margin-bottom: 12px;
+    /* === SECTOR BARS === */
+    .sector-item {
+      margin-bottom: 16px;
     }
 
     .sector-header {
       display: flex;
       justify-content: space-between;
-      font-size: 12px;
+      margin-bottom: 6px;
+    }
+
+    .sector-name {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .sector-value {
+      font-size: 13px;
+      font-family: "JetBrains Mono", monospace;
+      color: var(--text);
     }
 
     .sector-bar {
-      height: 8px;
-      background: rgba(15, 23, 42, 0.8);
-      border-radius: 4px;
+      height: 6px;
+      background: var(--bg-secondary);
+      border-radius: 3px;
       overflow: hidden;
     }
 
     .sector-fill {
       height: 100%;
-      background: linear-gradient(90deg, var(--accent), var(--success));
-      border-radius: 4px;
+      background: linear-gradient(90deg, var(--accent), #60a5fa);
+      border-radius: 3px;
       transition: width 0.6s ease;
     }
 
-    /* Simulator */
-    .simulator-input {
+    /* === TABLE === */
+    .table-toolbar {
       display: flex;
       gap: 12px;
-      align-items: center;
       margin-bottom: 20px;
       flex-wrap: wrap;
     }
 
-    .simulator-input label {
-      font-size: 14px;
-      color: var(--text-soft);
-    }
-
-    .simulator-input input {
-      background: var(--bg);
+    .search-input {
+      flex: 1;
+      min-width: 200px;
+      background: var(--bg-secondary);
       border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 12px 16px;
+      border-radius: var(--radius-sm);
+      padding: 10px 16px;
       color: var(--text);
-      font-size: 16px;
-      width: 160px;
+      font-size: 14px;
+      transition: all 0.2s ease;
     }
 
-    .simulator-input input:focus {
+    .search-input:focus {
       outline: none;
       border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
     }
 
-    .simulator-input select {
-      background: var(--bg);
+    .search-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .filter-select {
+      background: var(--bg-secondary);
       border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 12px 16px;
+      border-radius: var(--radius-sm);
+      padding: 10px 16px;
       color: var(--text);
       font-size: 14px;
+      cursor: pointer;
     }
 
-    .simulator-results {
-      max-height: 350px;
-      overflow-y: auto;
-    }
-
-    .alloc-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px 0;
-      border-bottom: 1px solid var(--border);
-      font-size: 13px;
-    }
-
-    .alloc-row:first-child {
-      font-weight: 600;
-      background: var(--accent-soft);
-      margin: -10px -10px 10px;
-      padding: 12px 10px;
-      border-radius: 8px;
-    }
-
-    .alloc-ticker {
-      font-weight: 600;
-      color: var(--accent);
-      min-width: 60px;
-    }
-
-    .alloc-detail {
-      color: var(--text-soft);
-      font-size: 12px;
-    }
-
-    /* Portfolio Table */
     .table-container {
       overflow-x: auto;
-      max-height: 500px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
     }
 
-    table {
+    .data-table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 12px;
-      min-width: 900px;
+      min-width: 1000px;
     }
 
-    th, td {
-      padding: 12px 8px;
+    .data-table th,
+    .data-table td {
+      padding: 14px 16px;
       text-align: left;
-      border-bottom: 1px solid var(--border);
-      white-space: nowrap;
+      border-bottom: 1px solid var(--border-light);
     }
 
-    th {
+    .data-table th {
+      background: var(--bg-secondary);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
       position: sticky;
       top: 0;
-      background: var(--bg-card);
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--text-soft);
-      font-weight: 500;
-      z-index: 1;
     }
 
-    tbody tr:hover {
-      background: rgba(56, 189, 248, 0.05);
+    .data-table tbody tr {
+      transition: background 0.2s ease;
+    }
+
+    .data-table tbody tr:hover {
+      background: rgba(59, 130, 246, 0.05);
+    }
+
+    .ticker-cell {
+      display: flex;
+      align-items: center;
+      gap: 12px;
     }
 
     .ticker-badge {
-      font-weight: 600;
-      padding: 4px 8px;
-      border-radius: 6px;
+      font-weight: 700;
+      font-family: "JetBrains Mono", monospace;
+      padding: 6px 10px;
+      background: var(--bg-secondary);
       border: 1px solid var(--border);
-      background: var(--bg);
+      border-radius: 8px;
+      font-size: 13px;
+    }
+
+    .company-name {
+      font-size: 12px;
+      color: var(--text-muted);
     }
 
     .score-badge {
-      padding: 4px 8px;
-      border-radius: 12px;
-      font-size: 11px;
-      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      font-family: "JetBrains Mono", monospace;
     }
 
-    .score-high { background: rgba(34, 197, 94, 0.2); color: #86efac; border: 1px solid rgba(34, 197, 94, 0.3); }
-    .score-medium { background: rgba(245, 158, 11, 0.2); color: #fde68a; border: 1px solid rgba(245, 158, 11, 0.3); }
-    .score-low { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .score-high {
+      background: var(--success-soft);
+      color: var(--success);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
 
-    /* Alerts */
+    .score-medium {
+      background: var(--warning-soft);
+      color: var(--warning);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    .score-low {
+      background: var(--danger-soft);
+      color: var(--danger);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .weight-bar {
+      width: 60px;
+      height: 6px;
+      background: var(--bg-secondary);
+      border-radius: 3px;
+      overflow: hidden;
+      display: inline-block;
+      vertical-align: middle;
+      margin-left: 8px;
+    }
+
+    .weight-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 3px;
+    }
+
+    .positive { color: var(--success); }
+    .negative { color: var(--danger); }
+
+    /* === ALERTS === */
+    .alert-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
     .alert-item {
       display: flex;
-      gap: 12px;
-      padding: 12px;
-      background: rgba(245, 158, 11, 0.1);
-      border: 1px solid rgba(245, 158, 11, 0.3);
-      border-radius: 12px;
-      margin-bottom: 10px;
+      gap: 14px;
+      padding: 16px;
+      background: var(--warning-soft);
+      border: 1px solid rgba(245, 158, 11, 0.25);
+      border-radius: var(--radius-sm);
+    }
+
+    .alert-item.danger {
+      background: var(--danger-soft);
+      border-color: rgba(239, 68, 68, 0.25);
     }
 
     .alert-icon {
-      width: 24px;
-      height: 24px;
+      width: 36px;
+      height: 36px;
       background: rgba(245, 158, 11, 0.2);
-      border-radius: 50%;
+      border-radius: 10px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 12px;
+      font-size: 16px;
       flex-shrink: 0;
     }
 
-    .alert-content { flex: 1; }
-    .alert-type { font-size: 11px; text-transform: uppercase; color: #fde68a; font-weight: 600; }
-    .alert-message { font-size: 13px; color: var(--text-soft); margin-top: 4px; }
-
-    /* Footer */
-    .footer {
-      text-align: center;
-      padding: 24px;
-      color: var(--text-soft);
-      font-size: 12px;
-      margin-top: 24px;
-      border-top: 1px solid var(--border);
+    .alert-item.danger .alert-icon {
+      background: rgba(239, 68, 68, 0.2);
     }
 
-    /* Loading */
-    .loading {
+    .alert-content {
+      flex: 1;
+    }
+
+    .alert-type {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--warning);
+      margin-bottom: 4px;
+    }
+
+    .alert-item.danger .alert-type {
+      color: var(--danger);
+    }
+
+    .alert-message {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    /* === RISK METRICS === */
+    .risk-metric {
+      text-align: center;
+      padding: 20px;
+    }
+
+    .risk-value {
+      font-size: 28px;
+      font-weight: 700;
+      font-family: "JetBrains Mono", monospace;
+      margin-bottom: 4px;
+    }
+
+    .risk-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* === MEMO === */
+    .memo-content {
+      font-size: 15px;
+      line-height: 1.8;
+      color: var(--text-secondary);
+    }
+
+    .memo-content h1 {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text);
+      margin: 32px 0 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .memo-content h2 {
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--text);
+      margin: 28px 0 12px;
+    }
+
+    .memo-content h3 {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+      margin: 24px 0 10px;
+    }
+
+    .memo-content p {
+      margin-bottom: 16px;
+    }
+
+    .memo-content ul, .memo-content ol {
+      margin-bottom: 16px;
+      padding-left: 24px;
+    }
+
+    .memo-content li {
+      margin-bottom: 8px;
+    }
+
+    .memo-content strong {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .memo-content code {
+      background: var(--bg-secondary);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 13px;
+    }
+
+    /* === SIMULATOR === */
+    .simulator-controls {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+
+    .simulator-input-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .simulator-label {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .simulator-input {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 16px;
+      color: var(--text);
+      font-size: 16px;
+      font-family: "JetBrains Mono", monospace;
+      width: 140px;
+    }
+
+    .simulator-select {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 16px;
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    .simulator-summary {
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.05));
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      border-radius: var(--radius-sm);
+      padding: 16px 20px;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .simulator-total {
+      font-size: 24px;
+      font-weight: 700;
+      font-family: "JetBrains Mono", monospace;
+      color: var(--accent);
+    }
+
+    .simulator-cash {
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    .simulator-list {
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .simulator-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border-light);
+    }
+
+    .simulator-row:last-child {
+      border-bottom: none;
+    }
+
+    .simulator-ticker {
+      font-weight: 600;
+      font-family: "JetBrains Mono", monospace;
+      color: var(--accent);
+    }
+
+    .simulator-weight {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-left: 8px;
+    }
+
+    .simulator-amount {
+      text-align: right;
+    }
+
+    .simulator-shares {
+      font-size: 14px;
+      font-family: "JetBrains Mono", monospace;
+    }
+
+    .simulator-value {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* === CONCENTRATION CHART === */
+    .concentration-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .concentration-rank {
+      width: 24px;
+      height: 24px;
+      background: var(--bg-secondary);
+      border-radius: 6px;
       display: flex;
       align-items: center;
       justify-content: center;
-      height: 200px;
-      color: var(--text-soft);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .concentration-ticker {
+      font-weight: 600;
+      font-family: "JetBrains Mono", monospace;
+      min-width: 60px;
+    }
+
+    .concentration-bar-container {
+      flex: 1;
+      height: 8px;
+      background: var(--bg-secondary);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .concentration-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--gold), #fbbf24);
+      border-radius: 4px;
+    }
+
+    .concentration-value {
+      font-size: 13px;
+      font-family: "JetBrains Mono", monospace;
+      min-width: 50px;
+      text-align: right;
+    }
+
+    /* === LOADING === */
+    .loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+      color: var(--text-secondary);
     }
 
     .spinner {
-      width: 24px;
-      height: 24px;
-      border: 2px solid var(--border);
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--border);
       border-top-color: var(--accent);
       border-radius: 50%;
       animation: spin 1s linear infinite;
-      margin-right: 12px;
+      margin-bottom: 16px;
     }
 
-    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* === EMPTY STATE === */
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-muted);
+    }
+
+    .empty-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+      opacity: 0.5;
+    }
+
+    /* === MOBILE === */
+    .menu-toggle {
+      display: none;
+      background: none;
+      border: none;
+      color: var(--text);
+      font-size: 24px;
+      cursor: pointer;
+      padding: 8px;
+    }
+
+    @media (max-width: 1024px) {
+      .sidebar {
+        transform: translateX(-100%);
+      }
+
+      .sidebar.open {
+        transform: translateX(0);
+      }
+
+      .main {
+        margin-left: 0;
+      }
+
+      .menu-toggle {
+        display: block;
+      }
+
+      .content {
+        padding: 20px 16px;
+      }
+
+      .topbar {
+        padding: 0 16px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .grid-4 { grid-template-columns: 1fr 1fr; }
+      
+      .kpi-value {
+        font-size: 24px;
+      }
+
+      .topbar-right {
+        display: none;
+      }
+    }
+
+    /* === SCROLLBAR === */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--bg-secondary);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-muted);
+    }
   </style>
 </head>
 <body>
-  <div class="container">
-    <!-- Header -->
-    <header class="header">
-      <div class="logo">
+  <div class="app">
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
         <div class="logo-icon">S</div>
-        <span>SmartMoney Dashboard</span>
-      </div>
-      <div class="meta-pills">
-        <span class="pill"><span class="pill-dot"></span><span id="meta-date">Chargement...</span></span>
-        <span class="pill" id="meta-positions">-- positions</span>
-        <span class="pill warning" id="meta-alerts">-- alertes</span>
-      </div>
-    </header>
-
-    <!-- KPIs -->
-    <section class="grid grid-4" id="kpi-section">
-      <div class="card kpi-card">
-        <div class="card-value" id="kpi-positions">--</div>
-        <div class="kpi-label">Positions</div>
-      </div>
-      <div class="card kpi-card">
-        <div class="card-value" id="kpi-perf-ytd">--%</div>
-        <div class="kpi-label">Performance YTD</div>
-      </div>
-      <div class="card kpi-card">
-        <div class="card-value" id="kpi-vol">--%</div>
-        <div class="kpi-label">Volatilité 30j</div>
-      </div>
-      <div class="card kpi-card">
-        <div class="card-value" id="kpi-alpha">--%</div>
-        <div class="kpi-label">Alpha vs SPY</div>
-      </div>
-    </section>
-
-    <!-- Benchmark Comparison + Chart -->
-    <section class="grid grid-2">
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">Performance vs Benchmarks</span>
-          <span class="card-title" id="bench-period">90 jours</span>
-        </div>
-        <table class="benchmark-table">
-          <thead>
-            <tr>
-              <th>Indice</th>
-              <th>Return</th>
-              <th>Vol</th>
-              <th>Sharpe</th>
-              <th>Max DD</th>
-            </tr>
-          </thead>
-          <tbody id="benchmark-tbody">
-            <tr class="highlight">
-              <td><strong>SmartMoney</strong></td>
-              <td id="bench-port-ret">--%</td>
-              <td id="bench-port-vol">--%</td>
-              <td id="bench-port-sharpe">--</td>
-              <td id="bench-port-dd">--%</td>
-            </tr>
-            <tr>
-              <td>S&P 500 (SPY)</td>
-              <td id="bench-spy-ret">--%</td>
-              <td id="bench-spy-vol">--%</td>
-              <td id="bench-spy-sharpe">--</td>
-              <td id="bench-spy-dd">--%</td>
-            </tr>
-            <tr>
-              <td>CAC 40</td>
-              <td id="bench-cac-ret">--%</td>
-              <td id="bench-cac-vol">--%</td>
-              <td id="bench-cac-sharpe">--</td>
-              <td id="bench-cac-dd">--%</td>
-            </tr>
-          </tbody>
-        </table>
-        <div style="margin-top: 16px; display: flex; gap: 20px; font-size: 13px;">
-          <div>Alpha vs SPY: <strong id="alpha-spy" class="positive">--%</strong></div>
-          <div>Alpha vs CAC: <strong id="alpha-cac" class="positive">--%</strong></div>
-        </div>
+        <span class="logo-text">SmartMoney</span>
       </div>
 
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">Évolution comparative (90j)</span>
-        </div>
-        <div class="chart-container">
-          <canvas id="performanceChart"></canvas>
-        </div>
-      </div>
-    </section>
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-tab="overview">
+          <span class="nav-icon">📊</span>
+          <span>Overview</span>
+        </button>
+        <button class="nav-item" data-tab="positions">
+          <span class="nav-icon">💼</span>
+          <span>Positions</span>
+        </button>
+        <button class="nav-item" data-tab="risks">
+          <span class="nav-icon">⚠️</span>
+          <span>Risques & Alertes</span>
+        </button>
+        <button class="nav-item" data-tab="memo">
+          <span class="nav-icon">📝</span>
+          <span>Investment Memo</span>
+        </button>
+        <button class="nav-item" data-tab="simulator">
+          <span class="nav-icon">🧮</span>
+          <span>Simulateur</span>
+        </button>
+      </nav>
 
-    <!-- Allocation + Simulateur -->
-    <section class="grid grid-2">
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">Allocation Sectorielle</span>
-        </div>
-        <div id="sector-list"></div>
+      <div class="sidebar-footer">
+        <p class="sidebar-meta">SmartMoney v2.0</p>
+        <p class="sidebar-meta" id="last-update">--</p>
       </div>
+    </aside>
 
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">💰 Simulateur d'Allocation</span>
+    <!-- MAIN -->
+    <main class="main">
+      <!-- TOPBAR -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="menu-toggle" id="menu-toggle">☰</button>
+          <h1 class="topbar-title" id="page-title">Overview</h1>
+          <div class="topbar-badge">
+            <span class="topbar-badge-dot"></span>
+            <span id="portfolio-date">Chargement...</span>
+          </div>
         </div>
-        <div class="simulator-input">
-          <label for="budget">Budget :</label>
-          <input type="number" id="budget" value="10000" step="1000" min="100">
-          <select id="currency">
-            <option value="EUR">€ EUR</option>
-            <option value="USD">$ USD</option>
-          </select>
+        <div class="topbar-right">
+          <div class="topbar-stat">
+            <span class="topbar-stat-label">Positions</span>
+            <span class="topbar-stat-value" id="topbar-positions">--</span>
+          </div>
+          <div class="topbar-stat">
+            <span class="topbar-stat-label">Perf YTD</span>
+            <span class="topbar-stat-value positive" id="topbar-perf">--%</span>
+          </div>
         </div>
-        <div class="simulator-results" id="simulator-results">
-          <!-- Généré par JS -->
-        </div>
-      </div>
-    </section>
+      </header>
 
-    <!-- Alertes -->
-    <section class="card" id="alerts-section">
-      <div class="card-header">
-        <span class="card-title">⚠️ Alertes Actives</span>
-        <span id="alerts-count" class="card-title">0 alertes</span>
-      </div>
-      <div id="alerts-container">
-        <p style="color: var(--text-soft); font-size: 13px;">Aucune alerte active.</p>
-      </div>
-    </section>
+      <!-- CONTENT -->
+      <div class="content">
+        <!-- OVERVIEW TAB -->
+        <section class="tab-panel active" data-panel="overview">
+          <!-- KPIs -->
+          <div class="grid grid-4" style="margin-bottom: 24px;">
+            <div class="card kpi-card">
+              <div class="kpi-icon">📈</div>
+              <div class="kpi-value" id="kpi-positions">--</div>
+              <div class="kpi-label">Positions</div>
+            </div>
+            <div class="card kpi-card">
+              <div class="kpi-icon">💰</div>
+              <div class="kpi-value" id="kpi-perf-ytd">--%</div>
+              <div class="kpi-label">Performance YTD</div>
+            </div>
+            <div class="card kpi-card">
+              <div class="kpi-icon">⚡</div>
+              <div class="kpi-value" id="kpi-vol">--%</div>
+              <div class="kpi-label">Volatilité 30j</div>
+            </div>
+            <div class="card kpi-card">
+              <div class="kpi-icon">🎯</div>
+              <div class="kpi-value" id="kpi-alpha">--%</div>
+              <div class="kpi-label">Alpha vs SPY</div>
+            </div>
+          </div>
 
-    <!-- Portfolio Table -->
-    <section class="card">
-      <div class="card-header">
-        <span class="card-title">Portefeuille Détaillé</span>
-        <span class="card-title" id="table-count">-- positions</span>
-      </div>
-      <div class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>Ticker</th>
-              <th>Entreprise</th>
-              <th>Secteur</th>
-              <th>Poids</th>
-              <th>Score</th>
-              <th>Perf 3M</th>
-              <th>Perf YTD</th>
-              <th>Vol 30j</th>
-              <th>ROE</th>
-              <th>D/E</th>
-            </tr>
-          </thead>
-          <tbody id="portfolio-tbody">
-            <!-- Généré par JS -->
-          </tbody>
-        </table>
-      </div>
-    </section>
+          <!-- Benchmarks + Chart -->
+          <div class="grid grid-2" style="margin-bottom: 24px;">
+            <div class="card">
+              <div class="card-header">
+                <span class="card-title">Performance vs Benchmarks</span>
+                <span class="card-badge" id="bench-period">90 jours</span>
+              </div>
+              <table class="bench-table">
+                <thead>
+                  <tr>
+                    <th>Indice</th>
+                    <th>Return</th>
+                    <th>Vol</th>
+                    <th>Sharpe</th>
+                    <th>Max DD</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="highlight">
+                    <td>SmartMoney</td>
+                    <td id="bench-port-ret">--%</td>
+                    <td id="bench-port-vol">--%</td>
+                    <td id="bench-port-sharpe">--</td>
+                    <td id="bench-port-dd">--%</td>
+                  </tr>
+                  <tr>
+                    <td>S&P 500</td>
+                    <td id="bench-spy-ret">--%</td>
+                    <td id="bench-spy-vol">--%</td>
+                    <td id="bench-spy-sharpe">--</td>
+                    <td id="bench-spy-dd">--%</td>
+                  </tr>
+                  <tr>
+                    <td>CAC 40</td>
+                    <td id="bench-cac-ret">--%</td>
+                    <td id="bench-cac-vol">--%</td>
+                    <td id="bench-cac-sharpe">--</td>
+                    <td id="bench-cac-dd">--%</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div style="margin-top: 16px; display: flex; gap: 24px;">
+                <div style="font-size: 13px;">Alpha SPY: <strong id="alpha-spy" class="positive">--%</strong></div>
+                <div style="font-size: 13px;">Alpha CAC: <strong id="alpha-cac" class="positive">--%</strong></div>
+              </div>
+            </div>
 
-    <footer class="footer">
-      SmartMoney Quantitative Strategy • Données mises à jour automatiquement chaque semaine
-    </footer>
+            <div class="card">
+              <div class="card-header">
+                <span class="card-title">Évolution Comparative</span>
+              </div>
+              <div class="chart-container">
+                <canvas id="perfChart"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sectors + Alerts -->
+          <div class="grid grid-2">
+            <div class="card">
+              <div class="card-header">
+                <span class="card-title">Allocation Sectorielle</span>
+              </div>
+              <div id="sector-list"></div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <span class="card-title">Alertes Actives</span>
+                <span class="card-badge" id="alerts-count">0</span>
+              </div>
+              <div id="alerts-preview"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- POSITIONS TAB -->
+        <section class="tab-panel" data-panel="positions">
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Portefeuille Détaillé</span>
+              <span class="card-badge" id="positions-count">-- positions</span>
+            </div>
+            
+            <div class="table-toolbar">
+              <input type="search" class="search-input" id="search-input" placeholder="Rechercher un ticker ou entreprise..." />
+              <select class="filter-select" id="sector-filter">
+                <option value="">Tous les secteurs</option>
+              </select>
+              <select class="filter-select" id="score-filter">
+                <option value="0">Score ≥ 0</option>
+                <option value="0.4">Score ≥ 0.4</option>
+                <option value="0.5">Score ≥ 0.5</option>
+                <option value="0.6">Score ≥ 0.6</option>
+              </select>
+            </div>
+
+            <div class="table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Ticker</th>
+                    <th>Secteur</th>
+                    <th>Poids</th>
+                    <th>Score</th>
+                    <th>Perf 3M</th>
+                    <th>Perf YTD</th>
+                    <th>Vol 30j</th>
+                    <th>ROE</th>
+                    <th>D/E</th>
+                    <th>Marge</th>
+                  </tr>
+                </thead>
+                <tbody id="positions-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- RISKS TAB -->
+        <section class="tab-panel" data-panel="risks">
+          <!-- Risk Metrics -->
+          <div class="grid grid-4" style="margin-bottom: 24px;">
+            <div class="card risk-metric">
+              <div class="risk-value" id="risk-alerts">0</div>
+              <div class="risk-label">Alertes Actives</div>
+            </div>
+            <div class="card risk-metric">
+              <div class="risk-value" id="risk-max-weight">--%</div>
+              <div class="risk-label">Poids Max Position</div>
+            </div>
+            <div class="card risk-metric">
+              <div class="risk-value" id="risk-top-sector">--%</div>
+              <div class="risk-label">Concentration Secteur</div>
+            </div>
+            <div class="card risk-metric">
+              <div class="risk-value negative" id="risk-max-dd">--%</div>
+              <div class="risk-label">Max Drawdown</div>
+            </div>
+          </div>
+
+          <div class="grid grid-2">
+            <!-- Concentration -->
+            <div class="card">
+              <div class="card-header">
+                <span class="card-title">Top 5 Concentrations</span>
+              </div>
+              <div id="concentration-list"></div>
+            </div>
+
+            <!-- Full Alerts -->
+            <div class="card">
+              <div class="card-header">
+                <span class="card-title">Toutes les Alertes</span>
+              </div>
+              <div class="alert-list" id="alerts-full"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- MEMO TAB -->
+        <section class="tab-panel" data-panel="memo">
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Investment Memo</span>
+              <span class="card-badge" id="memo-date">--</span>
+            </div>
+            <div class="memo-content" id="memo-content">
+              <div class="loading">
+                <div class="spinner"></div>
+                <span>Chargement du memo...</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SIMULATOR TAB -->
+        <section class="tab-panel" data-panel="simulator">
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Simulateur d'Allocation</span>
+            </div>
+
+            <div class="simulator-controls">
+              <div class="simulator-input-group">
+                <span class="simulator-label">Budget:</span>
+                <input type="number" class="simulator-input" id="sim-budget" value="10000" step="1000" min="100" />
+              </div>
+              <div class="simulator-input-group">
+                <span class="simulator-label">Devise:</span>
+                <select class="simulator-select" id="sim-currency">
+                  <option value="EUR">€ EUR</option>
+                  <option value="USD">$ USD</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="simulator-summary" id="sim-summary">
+              <div>
+                <div class="simulator-total" id="sim-total">€0</div>
+                <div class="simulator-cash" id="sim-cash">Cash restant: €0</div>
+              </div>
+              <div style="text-align: right;">
+                <div style="font-size: 14px; color: var(--text-secondary);">Positions investies</div>
+                <div style="font-size: 24px; font-weight: 700;" id="sim-positions">0</div>
+              </div>
+            </div>
+
+            <div class="simulator-list" id="sim-list"></div>
+          </div>
+        </section>
+      </div>
+    </main>
   </div>
 
   <script>
-    // === Configuration ===
+    // === DATA LAYER ===
     const OUTPUTS_BASE = "../outputs";
-    
-    // Liste des dossiers datés à essayer (du plus récent au plus ancien)
-    // On génère les 30 derniers jours comme fallback
+    let DATA = { portfolio: null, backtest: null, alerts: [], memo: "" };
+    let DATA_PATH = null;
+
     function getRecentDates(days = 30) {
       const dates = [];
       const today = new Date();
       for (let i = 0; i < days; i++) {
         const d = new Date(today);
         d.setDate(d.getDate() - i);
-        dates.push(d.toISOString().split('T')[0]); // Format YYYY-MM-DD
+        dates.push(d.toISOString().split('T')[0]);
       }
       return dates;
     }
 
-    let DATA_PATH = null;
-    let portfolioData = null;
-    let alertsData = [];
-    let backtestData = null;
+    async function findDataPath() {
+      // Try latest first
+      try {
+        const res = await fetch(`${OUTPUTS_BASE}/latest/portfolio.json`, { method: 'HEAD' });
+        if (res.ok) return `${OUTPUTS_BASE}/latest`;
+      } catch (e) {}
 
-    // === Utilities ===
-    function fmtPct(val, decimals = 2, sign = false) {
+      // Try dated folders
+      for (const date of getRecentDates(30)) {
+        try {
+          const res = await fetch(`${OUTPUTS_BASE}/${date}/portfolio.json`, { method: 'HEAD' });
+          if (res.ok) return `${OUTPUTS_BASE}/${date}`;
+        } catch (e) {}
+      }
+
+      throw new Error("No data found");
+    }
+
+    async function loadAllData() {
+      DATA_PATH = await findDataPath();
+      console.log("📂 Loading from:", DATA_PATH);
+
+      const [portfolioRes, backtestRes, alertsRes, memoRes] = await Promise.all([
+        fetch(`${DATA_PATH}/portfolio.json`),
+        fetch(`${DATA_PATH}/backtest.json`).catch(() => ({ ok: false })),
+        fetch(`${DATA_PATH}/alerts.json`).catch(() => ({ ok: false })),
+        fetch(`${DATA_PATH}/memo.md`).catch(() => ({ ok: false })),
+      ]);
+
+      DATA.portfolio = portfolioRes.ok ? await portfolioRes.json() : null;
+      DATA.backtest = backtestRes.ok ? await backtestRes.json() : null;
+      DATA.alerts = alertsRes.ok ? await alertsRes.json() : [];
+      DATA.memo = memoRes.ok ? await memoRes.text() : "";
+
+      return DATA;
+    }
+
+    // === UTILITIES ===
+    function fmtPct(val, decimals = 1, sign = false) {
       if (val == null || isNaN(val)) return "--%";
       const num = Number(val);
       return (sign && num > 0 ? "+" : "") + num.toFixed(decimals) + "%";
     }
 
-    function fmtNumber(val, decimals = 2) {
+    function fmtNum(val, decimals = 2) {
       if (val == null || isNaN(val)) return "--";
       return Number(val).toFixed(decimals);
-    }
-
-    function fmtDate(iso) {
-      if (!iso) return "--";
-      try {
-        return new Date(iso).toLocaleDateString("fr-FR", {
-          year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"
-        });
-      } catch { return iso; }
     }
 
     function fmtMoney(val, currency = "EUR") {
@@ -619,140 +1380,175 @@
       return symbol + Number(val).toLocaleString("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
     }
 
+    function fmtDate(iso) {
+      if (!iso) return "--";
+      try {
+        return new Date(iso).toLocaleDateString("fr-FR", {
+          day: "numeric", month: "short", year: "numeric"
+        });
+      } catch { return iso; }
+    }
+
     function scoreClass(score) {
-      if (score >= 0.65) return "score-high";
-      if (score >= 0.5) return "score-medium";
+      if (score >= 0.6) return "score-high";
+      if (score >= 0.45) return "score-medium";
       return "score-low";
     }
 
-    // === Find Valid Data Path ===
-    async function findDataPath() {
-      // 1. Essayer d'abord "latest"
-      const latestPath = `${OUTPUTS_BASE}/latest`;
-      try {
-        const res = await fetch(`${latestPath}/portfolio.json`, { method: 'HEAD' });
-        if (res.ok) {
-          console.log("✅ Données trouvées dans: latest/");
-          return latestPath;
-        }
-      } catch (e) {
-        console.log("ℹ️ latest/ non disponible, recherche par date...");
-      }
+    // === NAVIGATION ===
+    function initNavigation() {
+      const navItems = document.querySelectorAll('.nav-item');
+      const panels = document.querySelectorAll('.tab-panel');
+      const pageTitle = document.getElementById('page-title');
 
-      // 2. Sinon, essayer les dossiers datés (30 derniers jours)
-      const dates = getRecentDates(30);
-      for (const date of dates) {
-        const datePath = `${OUTPUTS_BASE}/${date}`;
-        try {
-          const res = await fetch(`${datePath}/portfolio.json`, { method: 'HEAD' });
-          if (res.ok) {
-            console.log(`✅ Données trouvées dans: ${date}/`);
-            return datePath;
-          }
-        } catch (e) {
-          // Continue to next date
-        }
-      }
+      const titles = {
+        overview: "Overview",
+        positions: "Positions",
+        risks: "Risques & Alertes",
+        memo: "Investment Memo",
+        simulator: "Simulateur"
+      };
 
-      // 3. Aucun dossier trouvé
-      throw new Error("Aucun dossier de données trouvé (ni latest, ni dates récentes)");
+      navItems.forEach(item => {
+        item.addEventListener('click', () => {
+          const tab = item.dataset.tab;
+
+          navItems.forEach(n => n.classList.remove('active'));
+          panels.forEach(p => p.classList.remove('active'));
+
+          item.classList.add('active');
+          document.querySelector(`[data-panel="${tab}"]`).classList.add('active');
+          pageTitle.textContent = titles[tab];
+
+          // Close mobile menu
+          document.getElementById('sidebar').classList.remove('open');
+        });
+      });
+
+      // Mobile menu toggle
+      document.getElementById('menu-toggle').addEventListener('click', () => {
+        document.getElementById('sidebar').classList.toggle('open');
+      });
     }
 
-    // === Render Functions ===
-    function renderKPIs(portfolio, metrics, backtest) {
-      document.getElementById("kpi-positions").textContent = metrics.positions || portfolio.length;
-      
-      const perfYtd = metrics.perf_ytd;
-      const kpiPerfYtd = document.getElementById("kpi-perf-ytd");
-      kpiPerfYtd.textContent = fmtPct(perfYtd, 1, true);
-      kpiPerfYtd.className = "card-value " + (perfYtd >= 0 ? "positive" : "negative");
+    // === RENDER OVERVIEW ===
+    function renderOverview() {
+      const portfolio = DATA.portfolio?.portfolio || [];
+      const metrics = DATA.portfolio?.metrics || {};
+      const meta = DATA.portfolio?.metadata || {};
+      const backtest = DATA.backtest;
+      const alerts = DATA.alerts || [];
 
-      document.getElementById("kpi-vol").textContent = fmtPct(metrics.vol_30d, 1);
+      // Update topbar
+      document.getElementById('portfolio-date').textContent = fmtDate(meta.generated_at);
+      document.getElementById('topbar-positions').textContent = portfolio.length;
+      document.getElementById('last-update').textContent = `MAJ: ${fmtDate(meta.generated_at)}`;
+
+      const perfYtd = metrics.perf_ytd;
+      const topbarPerf = document.getElementById('topbar-perf');
+      topbarPerf.textContent = fmtPct(perfYtd, 1, true);
+      topbarPerf.className = `topbar-stat-value ${perfYtd >= 0 ? 'positive' : 'negative'}`;
+
+      // KPIs
+      document.getElementById('kpi-positions').textContent = portfolio.length;
+
+      const kpiPerfYtd = document.getElementById('kpi-perf-ytd');
+      kpiPerfYtd.textContent = fmtPct(perfYtd, 1, true);
+      kpiPerfYtd.className = `kpi-value ${perfYtd >= 0 ? 'positive' : 'negative'}`;
+
+      document.getElementById('kpi-vol').textContent = fmtPct(metrics.vol_30d, 1);
 
       const alphaSpy = backtest?.benchmark_comparison?.comparisons?.SPY?.alpha_pct;
-      const kpiAlpha = document.getElementById("kpi-alpha");
+      const kpiAlpha = document.getElementById('kpi-alpha');
       kpiAlpha.textContent = fmtPct(alphaSpy, 1, true);
-      kpiAlpha.className = "card-value " + (alphaSpy >= 0 ? "positive" : "negative");
+      kpiAlpha.className = `kpi-value ${alphaSpy >= 0 ? 'positive' : 'negative'}`;
+
+      // Benchmarks
+      renderBenchmarks(backtest);
+      renderChart(backtest);
+
+      // Sectors
+      renderSectors(metrics.sector_weights || {});
+
+      // Alerts preview
+      renderAlertsPreview(alerts);
     }
 
     function renderBenchmarks(backtest) {
       const comp = backtest?.benchmark_comparison;
       if (!comp) return;
 
-      document.getElementById("bench-period").textContent = `${comp.period_days || 90} jours`;
+      document.getElementById('bench-period').textContent = `${comp.period_days || 90} jours`;
 
-      // Portfolio
       const port = comp.portfolio || {};
-      document.getElementById("bench-port-ret").textContent = fmtPct(port.return_pct, 1, true);
-      document.getElementById("bench-port-vol").textContent = fmtPct(port.volatility_pct, 1);
-      document.getElementById("bench-port-sharpe").textContent = fmtNumber(port.sharpe);
-      document.getElementById("bench-port-dd").textContent = fmtPct(port.max_drawdown_pct, 1);
+      document.getElementById('bench-port-ret').textContent = fmtPct(port.return_pct, 1, true);
+      document.getElementById('bench-port-vol').textContent = fmtPct(port.volatility_pct, 1);
+      document.getElementById('bench-port-sharpe').textContent = fmtNum(port.sharpe);
+      document.getElementById('bench-port-dd').textContent = fmtPct(port.max_drawdown_pct, 1);
 
-      // SPY
       const spy = comp.benchmarks?.SPY || {};
-      document.getElementById("bench-spy-ret").textContent = fmtPct(spy.return_pct, 1, true);
-      document.getElementById("bench-spy-vol").textContent = fmtPct(spy.volatility_pct, 1);
-      document.getElementById("bench-spy-sharpe").textContent = fmtNumber(spy.sharpe);
-      document.getElementById("bench-spy-dd").textContent = fmtPct(spy.max_drawdown_pct, 1);
+      document.getElementById('bench-spy-ret').textContent = fmtPct(spy.return_pct, 1, true);
+      document.getElementById('bench-spy-vol').textContent = fmtPct(spy.volatility_pct, 1);
+      document.getElementById('bench-spy-sharpe').textContent = fmtNum(spy.sharpe);
+      document.getElementById('bench-spy-dd').textContent = fmtPct(spy.max_drawdown_pct, 1);
 
-      // CAC
       const cac = comp.benchmarks?.CAC || {};
-      document.getElementById("bench-cac-ret").textContent = fmtPct(cac.return_pct, 1, true);
-      document.getElementById("bench-cac-vol").textContent = fmtPct(cac.volatility_pct, 1);
-      document.getElementById("bench-cac-sharpe").textContent = fmtNumber(cac.sharpe);
-      document.getElementById("bench-cac-dd").textContent = fmtPct(cac.max_drawdown_pct, 1);
+      document.getElementById('bench-cac-ret').textContent = fmtPct(cac.return_pct, 1, true);
+      document.getElementById('bench-cac-vol').textContent = fmtPct(cac.volatility_pct, 1);
+      document.getElementById('bench-cac-sharpe').textContent = fmtNum(cac.sharpe);
+      document.getElementById('bench-cac-dd').textContent = fmtPct(cac.max_drawdown_pct, 1);
 
-      // Alphas
       const alphaSpy = comp.comparisons?.SPY?.alpha_pct;
       const alphaCac = comp.comparisons?.CAC?.alpha_pct;
-      
-      const alphaSpyEl = document.getElementById("alpha-spy");
-      alphaSpyEl.textContent = fmtPct(alphaSpy, 1, true);
-      alphaSpyEl.className = alphaSpy >= 0 ? "positive" : "negative";
 
-      const alphaCacEl = document.getElementById("alpha-cac");
+      const alphaSpyEl = document.getElementById('alpha-spy');
+      alphaSpyEl.textContent = fmtPct(alphaSpy, 1, true);
+      alphaSpyEl.className = alphaSpy >= 0 ? 'positive' : 'negative';
+
+      const alphaCacEl = document.getElementById('alpha-cac');
       alphaCacEl.textContent = fmtPct(alphaCac, 1, true);
-      alphaCacEl.className = alphaCac >= 0 ? "positive" : "negative";
+      alphaCacEl.className = alphaCac >= 0 ? 'positive' : 'negative';
     }
 
     function renderChart(backtest) {
-      const ctx = document.getElementById("performanceChart").getContext("2d");
+      const ctx = document.getElementById('perfChart').getContext('2d');
       
-      // Données simulées si pas de vraies données
-      const labels = ["Début", "30j", "60j", "90j"];
       const portReturn = backtest?.benchmark_comparison?.portfolio?.return_pct || 8;
       const spyReturn = backtest?.benchmark_comparison?.benchmarks?.SPY?.return_pct || 5;
       const cacReturn = backtest?.benchmark_comparison?.benchmarks?.CAC?.return_pct || 3;
 
       new Chart(ctx, {
-        type: "line",
+        type: 'line',
         data: {
-          labels: labels,
+          labels: ['Début', '30j', '60j', '90j'],
           datasets: [
             {
-              label: "SmartMoney",
+              label: 'SmartMoney',
               data: [0, portReturn * 0.3, portReturn * 0.7, portReturn],
-              borderColor: "#38bdf8",
-              backgroundColor: "rgba(56, 189, 248, 0.1)",
-              borderWidth: 3,
+              borderColor: '#3b82f6',
+              backgroundColor: 'rgba(59, 130, 246, 0.1)',
+              borderWidth: 2.5,
               fill: true,
-              tension: 0.3
+              tension: 0.4,
+              pointRadius: 0
             },
             {
-              label: "S&P 500",
+              label: 'S&P 500',
               data: [0, spyReturn * 0.35, spyReturn * 0.65, spyReturn],
-              borderColor: "#94a3b8",
+              borderColor: '#64748b',
               borderWidth: 2,
               fill: false,
-              tension: 0.3
+              tension: 0.4,
+              pointRadius: 0
             },
             {
-              label: "CAC 40",
+              label: 'CAC 40',
               data: [0, cacReturn * 0.4, cacReturn * 0.6, cacReturn],
-              borderColor: "#6366f1",
+              borderColor: '#8b5cf6',
               borderWidth: 2,
               fill: false,
-              tension: 0.3
+              tension: 0.4,
+              pointRadius: 0
             }
           ]
         },
@@ -761,201 +1557,320 @@
           maintainAspectRatio: false,
           plugins: {
             legend: {
-              position: "top",
-              labels: { color: "#94a3b8", font: { size: 11 } }
+              position: 'top',
+              labels: { color: '#94a3b8', font: { size: 11 }, boxWidth: 12 }
             }
           },
           scales: {
             x: {
-              grid: { color: "rgba(148, 163, 184, 0.1)" },
-              ticks: { color: "#94a3b8" }
+              grid: { display: false },
+              ticks: { color: '#64748b' }
             },
             y: {
-              grid: { color: "rgba(148, 163, 184, 0.1)" },
-              ticks: { 
-                color: "#94a3b8",
-                callback: (val) => val + "%"
-              }
+              grid: { color: 'rgba(148, 163, 184, 0.08)' },
+              ticks: { color: '#64748b', callback: v => v + '%' }
             }
           }
         }
       });
     }
 
-    function renderSectors(metrics) {
-      const container = document.getElementById("sector-list");
-      const sectors = metrics.sector_weights || {};
-      
-      container.innerHTML = Object.entries(sectors)
-        .sort((a, b) => b[1] - a[1])
-        .map(([name, weight]) => `
-          <div class="sector-row">
-            <div class="sector-header">
-              <span>${name}</span>
-              <span>${weight.toFixed(1)}%</span>
-            </div>
-            <div class="sector-bar">
-              <div class="sector-fill" style="width: ${Math.min(weight * 2, 100)}%"></div>
-            </div>
+    function renderSectors(sectors) {
+      const container = document.getElementById('sector-list');
+      const sorted = Object.entries(sectors).sort((a, b) => b[1] - a[1]);
+
+      container.innerHTML = sorted.map(([name, weight]) => `
+        <div class="sector-item">
+          <div class="sector-header">
+            <span class="sector-name">${name}</span>
+            <span class="sector-value">${weight.toFixed(1)}%</span>
           </div>
-        `).join("");
+          <div class="sector-bar">
+            <div class="sector-fill" style="width: ${Math.min(weight * 2.5, 100)}%"></div>
+          </div>
+        </div>
+      `).join('');
     }
 
-    function renderSimulator(portfolio) {
-      const budgetInput = document.getElementById("budget");
-      const currencySelect = document.getElementById("currency");
-      const container = document.getElementById("simulator-results");
+    function renderAlertsPreview(alerts) {
+      const container = document.getElementById('alerts-preview');
+      document.getElementById('alerts-count').textContent = alerts.length;
+
+      if (!alerts.length) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">✅</div>
+            <p>Aucune alerte active</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="alert-list">
+          ${alerts.slice(0, 3).map(a => `
+            <div class="alert-item">
+              <div class="alert-icon">⚠️</div>
+              <div class="alert-content">
+                <div class="alert-type">${a.type || 'Alerte'} ${a.symbol ? `• ${a.symbol}` : ''}</div>
+                <div class="alert-message">${a.message || ''}</div>
+              </div>
+            </div>
+          `).join('')}
+          ${alerts.length > 3 ? `<p style="text-align: center; color: var(--text-muted); font-size: 13px; margin-top: 12px;">+ ${alerts.length - 3} autres alertes</p>` : ''}
+        </div>
+      `;
+    }
+
+    // === RENDER POSITIONS ===
+    function renderPositions() {
+      const portfolio = DATA.portfolio?.portfolio || [];
+      populateSectorFilter(portfolio);
+      renderPositionsTable(portfolio);
+      initPositionFilters(portfolio);
+    }
+
+    function populateSectorFilter(portfolio) {
+      const sectors = [...new Set(portfolio.map(p => p.sector).filter(Boolean))].sort();
+      const select = document.getElementById('sector-filter');
+      select.innerHTML = '<option value="">Tous les secteurs</option>' +
+        sectors.map(s => `<option value="${s}">${s}</option>`).join('');
+    }
+
+    function renderPositionsTable(portfolio) {
+      const tbody = document.getElementById('positions-tbody');
+      document.getElementById('positions-count').textContent = `${portfolio.length} positions`;
+
+      tbody.innerHTML = portfolio.map(pos => {
+        const score = pos.score_composite || 0;
+        const perf3m = pos.perf_3m;
+        const perfYtd = pos.perf_ytd;
+        const maxWeight = Math.max(...portfolio.map(p => p.weight));
+
+        return `
+          <tr>
+            <td>
+              <div class="ticker-cell">
+                <span class="ticker-badge">${pos.symbol}</span>
+                <span class="company-name">${pos.company || '--'}</span>
+              </div>
+            </td>
+            <td style="font-size: 12px; color: var(--text-muted);">${pos.sector || '--'}</td>
+            <td>
+              <span style="font-family: 'JetBrains Mono', monospace;">${(pos.weight * 100).toFixed(2)}%</span>
+              <div class="weight-bar">
+                <div class="weight-fill" style="width: ${(pos.weight / maxWeight) * 100}%"></div>
+              </div>
+            </td>
+            <td><span class="score-badge ${scoreClass(score)}">${score.toFixed(3)}</span></td>
+            <td class="${perf3m >= 0 ? 'positive' : 'negative'}" style="font-family: 'JetBrains Mono', monospace;">${fmtPct(perf3m, 1, true)}</td>
+            <td class="${perfYtd >= 0 ? 'positive' : 'negative'}" style="font-family: 'JetBrains Mono', monospace;">${fmtPct(perfYtd, 1, true)}</td>
+            <td style="font-family: 'JetBrains Mono', monospace;">${fmtPct(pos.vol_30d, 0)}</td>
+            <td style="font-family: 'JetBrains Mono', monospace;">${pos.roe != null ? pos.roe.toFixed(1) + '%' : '--'}</td>
+            <td style="font-family: 'JetBrains Mono', monospace;">${pos.debt_equity != null ? pos.debt_equity.toFixed(2) : '--'}</td>
+            <td style="font-family: 'JetBrains Mono', monospace;">${pos.net_margin != null ? pos.net_margin.toFixed(1) + '%' : '--'}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function initPositionFilters(portfolio) {
+      const searchInput = document.getElementById('search-input');
+      const sectorFilter = document.getElementById('sector-filter');
+      const scoreFilter = document.getElementById('score-filter');
+
+      function filter() {
+        const search = searchInput.value.toLowerCase();
+        const sector = sectorFilter.value;
+        const minScore = parseFloat(scoreFilter.value);
+
+        const filtered = portfolio.filter(pos => {
+          const matchSearch = !search ||
+            pos.symbol.toLowerCase().includes(search) ||
+            (pos.company || '').toLowerCase().includes(search);
+          const matchSector = !sector || pos.sector === sector;
+          const matchScore = (pos.score_composite || 0) >= minScore;
+          return matchSearch && matchSector && matchScore;
+        });
+
+        renderPositionsTable(filtered);
+      }
+
+      searchInput.addEventListener('input', filter);
+      sectorFilter.addEventListener('change', filter);
+      scoreFilter.addEventListener('change', filter);
+    }
+
+    // === RENDER RISKS ===
+    function renderRisks() {
+      const portfolio = DATA.portfolio?.portfolio || [];
+      const backtest = DATA.backtest;
+      const alerts = DATA.alerts || [];
+      const metrics = DATA.portfolio?.metrics || {};
+
+      // Risk metrics
+      document.getElementById('risk-alerts').textContent = alerts.length;
+
+      const maxWeight = Math.max(...portfolio.map(p => p.weight || 0));
+      document.getElementById('risk-max-weight').textContent = fmtPct(maxWeight * 100, 1);
+
+      const sectorWeights = metrics.sector_weights || {};
+      const topSector = Math.max(...Object.values(sectorWeights));
+      document.getElementById('risk-top-sector').textContent = fmtPct(topSector, 1);
+
+      const maxDD = backtest?.benchmark_comparison?.portfolio?.max_drawdown_pct;
+      document.getElementById('risk-max-dd').textContent = fmtPct(maxDD, 1);
+
+      // Concentration
+      const top5 = [...portfolio].sort((a, b) => b.weight - a.weight).slice(0, 5);
+      const concList = document.getElementById('concentration-list');
+      concList.innerHTML = top5.map((pos, i) => `
+        <div class="concentration-item">
+          <div class="concentration-rank">${i + 1}</div>
+          <div class="concentration-ticker">${pos.symbol}</div>
+          <div class="concentration-bar-container">
+            <div class="concentration-bar" style="width: ${(pos.weight / top5[0].weight) * 100}%"></div>
+          </div>
+          <div class="concentration-value">${(pos.weight * 100).toFixed(1)}%</div>
+        </div>
+      `).join('');
+
+      // Full alerts
+      const alertsFull = document.getElementById('alerts-full');
+      if (!alerts.length) {
+        alertsFull.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">✅</div>
+            <p>Aucune alerte</p>
+          </div>
+        `;
+      } else {
+        alertsFull.innerHTML = alerts.map(a => `
+          <div class="alert-item ${a.severity === 'high' ? 'danger' : ''}">
+            <div class="alert-icon">${a.severity === 'high' ? '🚨' : '⚠️'}</div>
+            <div class="alert-content">
+              <div class="alert-type">${a.type || 'Alerte'} ${a.symbol ? `• ${a.symbol}` : ''}</div>
+              <div class="alert-message">${a.message || ''}</div>
+            </div>
+          </div>
+        `).join('');
+      }
+    }
+
+    // === RENDER MEMO ===
+    function renderMemo() {
+      const container = document.getElementById('memo-content');
+      const memo = DATA.memo;
+
+      if (!memo) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">📝</div>
+            <p>Aucun memo disponible</p>
+          </div>
+        `;
+        return;
+      }
+
+      // Use marked.js if available, else simple parsing
+      if (typeof marked !== 'undefined') {
+        container.innerHTML = marked.parse(memo);
+      } else {
+        container.innerHTML = memo
+          .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+          .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+          .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+          .replace(/^- (.*$)/gim, '<li>$1</li>')
+          .replace(/\n\n/g, '</p><p>');
+      }
+
+      document.getElementById('memo-date').textContent = fmtDate(DATA.portfolio?.metadata?.generated_at);
+    }
+
+    // === RENDER SIMULATOR ===
+    function renderSimulator() {
+      const portfolio = DATA.portfolio?.portfolio || [];
+      const budgetInput = document.getElementById('sim-budget');
+      const currencySelect = document.getElementById('sim-currency');
 
       function calculate() {
         const budget = parseFloat(budgetInput.value) || 0;
         const currency = currencySelect.value;
-        const rate = currency === "USD" ? 1 : 1.08; // EUR to USD approx
+        const rate = currency === 'USD' ? 1 : 1.08;
 
         let totalInvested = 0;
-        let rows = portfolio.map(pos => {
+        let positionsInvested = 0;
+
+        const rows = portfolio.map(pos => {
           const amount = budget * pos.weight;
           const amountUSD = amount * rate;
-          const price = pos.td_price || pos.current_price || 100;
+          const price = pos.td_price || 100;
           const shares = Math.floor(amountUSD / price);
           const invested = shares * price / rate;
-          totalInvested += invested;
 
-          return {
-            symbol: pos.symbol,
-            weight: (pos.weight * 100).toFixed(1),
-            amount: invested,
-            shares: shares,
-            price: price
-          };
+          if (shares > 0) {
+            totalInvested += invested;
+            positionsInvested++;
+          }
+
+          return { symbol: pos.symbol, weight: pos.weight, shares, price, invested };
         }).filter(r => r.shares > 0);
 
         const cashLeft = budget - totalInvested;
 
-        container.innerHTML = `
-          <div class="alloc-row">
-            <span>TOTAL INVESTI</span>
-            <span>${fmtMoney(totalInvested, currency)} / ${fmtMoney(budget, currency)} (Cash: ${fmtMoney(cashLeft, currency)})</span>
-          </div>
-          ${rows.map(r => `
-            <div class="alloc-row">
-              <div>
-                <span class="alloc-ticker">${r.symbol}</span>
-                <span class="alloc-detail">${r.weight}%</span>
-              </div>
-              <div style="text-align: right;">
-                <div>${r.shares} × $${r.price.toFixed(0)}</div>
-                <div class="alloc-detail">${fmtMoney(r.amount, currency)}</div>
-              </div>
+        document.getElementById('sim-total').textContent = fmtMoney(totalInvested, currency);
+        document.getElementById('sim-cash').textContent = `Cash restant: ${fmtMoney(cashLeft, currency)}`;
+        document.getElementById('sim-positions').textContent = positionsInvested;
+
+        document.getElementById('sim-list').innerHTML = rows.map(r => `
+          <div class="simulator-row">
+            <div>
+              <span class="simulator-ticker">${r.symbol}</span>
+              <span class="simulator-weight">${(r.weight * 100).toFixed(1)}%</span>
             </div>
-          `).join("")}
-        `;
+            <div class="simulator-amount">
+              <div class="simulator-shares">${r.shares} × $${r.price.toFixed(0)}</div>
+              <div class="simulator-value">${fmtMoney(r.invested, currency)}</div>
+            </div>
+          </div>
+        `).join('');
       }
 
-      budgetInput.addEventListener("input", calculate);
-      currencySelect.addEventListener("change", calculate);
+      budgetInput.addEventListener('input', calculate);
+      currencySelect.addEventListener('change', calculate);
       calculate();
     }
 
-    function renderAlerts(alerts) {
-      const container = document.getElementById("alerts-container");
-      const countEl = document.getElementById("alerts-count");
-      const metaAlerts = document.getElementById("meta-alerts");
-
-      countEl.textContent = `${alerts.length} alerte${alerts.length > 1 ? "s" : ""}`;
-      metaAlerts.textContent = `${alerts.length} alerte${alerts.length > 1 ? "s" : ""}`;
-
-      if (!alerts.length) {
-        container.innerHTML = '<p style="color: var(--text-soft); font-size: 13px;">✅ Aucune alerte active. Le portefeuille respecte toutes les contraintes.</p>';
-        metaAlerts.classList.remove("warning");
-        return;
-      }
-
-      container.innerHTML = alerts.map(a => `
-        <div class="alert-item">
-          <div class="alert-icon">⚠️</div>
-          <div class="alert-content">
-            <div class="alert-type">${a.type || "Alerte"} ${a.symbol ? `• ${a.symbol}` : ""}</div>
-            <div class="alert-message">${a.message || ""}</div>
-          </div>
-        </div>
-      `).join("");
-    }
-
-    function renderPortfolioTable(portfolio) {
-      const tbody = document.getElementById("portfolio-tbody");
-      document.getElementById("table-count").textContent = `${portfolio.length} positions`;
-
-      tbody.innerHTML = portfolio.map(pos => {
-        const perf3m = pos.perf_3m;
-        const perfYtd = pos.perf_ytd;
-        const score = pos.score_composite || 0;
-
-        return `
-          <tr>
-            <td><span class="ticker-badge">${pos.symbol}</span></td>
-            <td>${pos.company || "--"}</td>
-            <td style="color: var(--text-soft); font-size: 11px;">${pos.sector || "--"}</td>
-            <td><strong>${(pos.weight * 100).toFixed(2)}%</strong></td>
-            <td><span class="score-badge ${scoreClass(score)}">${score.toFixed(3)}</span></td>
-            <td class="${perf3m >= 0 ? 'positive' : 'negative'}">${fmtPct(perf3m, 1, true)}</td>
-            <td class="${perfYtd >= 0 ? 'positive' : 'negative'}">${fmtPct(perfYtd, 1, true)}</td>
-            <td>${fmtPct(pos.vol_30d, 0)}</td>
-            <td>${pos.roe != null ? pos.roe.toFixed(1) + "%" : "--"}</td>
-            <td>${pos.debt_equity != null ? pos.debt_equity.toFixed(2) : "--"}</td>
-          </tr>
-        `;
-      }).join("");
-    }
-
-    // === Load Data ===
-    async function loadData() {
+    // === INIT ===
+    async function init() {
       try {
-        // 1. Trouver le bon chemin (latest ou date la plus récente)
-        DATA_PATH = await findDataPath();
-        console.log(`📂 Chargement depuis: ${DATA_PATH}`);
+        await loadAllData();
 
-        // 2. Charger les fichiers
-        const [portfolioRes, alertsRes, backtestRes] = await Promise.all([
-          fetch(`${DATA_PATH}/portfolio.json`),
-          fetch(`${DATA_PATH}/alerts.json`).catch(() => ({ ok: false })),
-          fetch(`${DATA_PATH}/backtest.json`).catch(() => ({ ok: false }))
-        ]);
+        renderOverview();
+        renderPositions();
+        renderRisks();
+        renderMemo();
+        renderSimulator();
 
-        if (!portfolioRes.ok) throw new Error("Portfolio non trouvé");
+        initNavigation();
 
-        portfolioData = await portfolioRes.json();
-        alertsData = alertsRes.ok ? await alertsRes.json() : [];
-        backtestData = backtestRes.ok ? await backtestRes.json() : null;
-
-        // Render
-        const portfolio = portfolioData.portfolio || [];
-        const metrics = portfolioData.metrics || {};
-        const meta = portfolioData.metadata || {};
-
-        document.getElementById("meta-date").textContent = fmtDate(meta.generated_at);
-        document.getElementById("meta-positions").textContent = `${portfolio.length} positions`;
-
-        renderKPIs(portfolio, metrics, backtestData);
-        renderBenchmarks(backtestData);
-        renderChart(backtestData);
-        renderSectors(metrics);
-        renderSimulator(portfolio);
-        renderAlerts(alertsData);
-        renderPortfolioTable(portfolio);
-
+        console.log("✅ Dashboard loaded");
       } catch (err) {
-        console.error("Erreur chargement:", err);
-        document.body.innerHTML += `
-          <div style="position: fixed; bottom: 20px; left: 20px; right: 20px; background: #7f1d1d; color: #fecaca; padding: 16px; border-radius: 12px; font-size: 14px;">
-            ⚠️ Erreur de chargement des données: ${err.message}<br>
-            <small>Vérifiez que les fichiers existent dans <code>outputs/latest/</code> ou <code>outputs/YYYY-MM-DD/</code></small>
+        console.error("Error loading data:", err);
+        document.querySelector('.content').innerHTML = `
+          <div class="card">
+            <div class="empty-state">
+              <div class="empty-icon">⚠️</div>
+              <p style="color: var(--danger);">Erreur de chargement des données</p>
+              <p style="font-size: 13px; color: var(--text-muted); margin-top: 8px;">${err.message}</p>
+            </div>
           </div>
         `;
       }
     }
 
-    // === Init ===
-    loadData();
+    init();
   </script>
 </body>
 </html>
