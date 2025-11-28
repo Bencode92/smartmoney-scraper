@@ -392,7 +392,7 @@ class SmartMoneyEngine:
         - income_statement[0] -> champs au premier niveau (sales, net_income, etc.)
         - balance_sheet[0] -> structure IMBRIQUÉE (assets.total_assets, etc.)
         - cash_flow[0] -> structure IMBRIQUÉE (operating_activities.operating_cash_flow, etc.)
-        - statistics -> financials.balance_sheet.current_ratio_mrq, financials.operating_margin, etc.
+        - statistics -> stats["statistics"]["financials"]["balance_sheet"]["current_ratio_mrq"], etc.
         """
         result = {
             "roe": None, "roa": None, "debt_equity": None, "current_ratio": None,
@@ -521,9 +521,17 @@ class SmartMoneyEngine:
                 result["fcf"] = fcf_direct
 
         # === STATISTICS (fallback complet si certains ratios manquent) ===
-        # Structure: stats["financials"]["balance_sheet"]["current_ratio_mrq"], etc.
+        # Structure réelle Twelve Data:
+        #   stats["statistics"]["financials"]["balance_sheet"]["current_ratio_mrq"]
+        #   stats["statistics"]["financials"]["operating_margin"]
         if stats:
-            fin = stats.get("financials", {}) or stats.get("statistics", {}) or {}
+            # 1) On descend au bon niveau: "statistics"
+            stats_root = stats.get("statistics") or stats.get("data") or stats
+            
+            # 2) Puis dans "financials"
+            fin = stats_root.get("financials", {}) or {}
+            
+            # 3) Puis sous-blocs
             fin_bs = fin.get("balance_sheet", {}) or {}
             fin_is = fin.get("income_statement", {}) or {}
 
