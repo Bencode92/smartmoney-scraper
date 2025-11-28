@@ -507,6 +507,7 @@ class SmartMoneyEngine:
                 or inv.get("free_cash_flow")
             )
 
+            # Cas normal : CAPEX explicite dans l'API
             if capex is not None:
                 capex_abs = abs(capex)
                 if result["revenue"] and result["revenue"] > 0:
@@ -517,8 +518,23 @@ class SmartMoneyEngine:
                 elif operating_cf is not None:
                     result["fcf"] = round(operating_cf - capex_abs, 0)
 
-            elif fcf_direct is not None:
-                result["fcf"] = fcf_direct
+            else:
+                # Fallback: CAPEX implicite via OCF - FCF si les données sont propres
+                # (ex: UNP où capital_expenditures est null mais OCF et FCF existent)
+                if (
+                    result["capex_ratio"] is None
+                    and result["revenue"] and result["revenue"] > 0
+                    and operating_cf is not None
+                    and fcf_direct is not None
+                    and fcf_direct <= operating_cf  # garde-fou pour éviter les absurdités
+                ):
+                    implied_capex = operating_cf - fcf_direct
+                    capex_abs = abs(implied_capex)
+                    result["capex_ratio"] = round(capex_abs / result["revenue"] * 100, 2)
+
+                # Dans tous les cas, si on a un FCF direct, on le garde
+                if fcf_direct is not None:
+                    result["fcf"] = fcf_direct
 
         # === STATISTICS (fallback complet si certains ratios manquent) ===
         # Structure réelle Twelve Data:
