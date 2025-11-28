@@ -1,13 +1,13 @@
 {
-  "generated_at": "2025-11-28T15:56:45.676204",
+  "generated_at": "2025-11-28T16:22:40.882593",
   "benchmark_comparison": {
     "period_days": 90,
-    "generated_at": "2025-11-28T15:56:45.675633",
+    "generated_at": "2025-11-28T16:22:40.882240",
     "benchmarks": {
       "SPY": {
-        "return_pct": 7.57,
+        "return_pct": 7.61,
         "volatility_pct": 11.87,
-        "sharpe": 0.54,
+        "sharpe": 0.55,
         "max_drawdown_pct": -5.07,
         "prices": [
           {
@@ -368,7 +368,7 @@
           },
           {
             "datetime": "2025-11-28 00:00:00",
-            "close": 682.42
+            "close": 682.7
           }
         ],
         "name": "S&P 500",
@@ -376,9 +376,9 @@
         "symbol": "SPY"
       },
       "CAC": {
-        "return_pct": -1.12,
-        "volatility_pct": 33.75,
-        "sharpe": -0.07,
+        "return_pct": -1.47,
+        "volatility_pct": 33.76,
+        "sharpe": -0.08,
         "max_drawdown_pct": -14.62,
         "prices": [
           {
@@ -739,7 +739,7 @@
           },
           {
             "datetime": "2025-11-28 00:00:00",
-            "close": 40.49
+            "close": 40.35
           }
         ],
         "name": "CAC 40",
@@ -748,24 +748,24 @@
       }
     },
     "portfolio": {
-      "return_pct": 2.79,
+      "return_pct": 2.87,
       "volatility_pct": 5.27,
-      "sharpe": 0.32,
+      "sharpe": 0.33,
       "max_drawdown_pct": -2.64,
       "positions": 25
     },
     "comparisons": {
       "SPY": {
-        "alpha_pct": -4.78,
+        "alpha_pct": -4.74,
         "outperformance": "False",
         "sharpe_diff": -0.22,
         "vol_diff": -6.6
       },
       "CAC": {
-        "alpha_pct": 3.91,
+        "alpha_pct": 4.34,
         "outperformance": "True",
-        "sharpe_diff": 0.39,
-        "vol_diff": -28.48
+        "sharpe_diff": 0.41,
+        "vol_diff": -28.49
       }
     }
   },
@@ -774,7 +774,7 @@
     {
       "date": "2025-11-28",
       "positions": 25,
-      "perf_3m": 2.79
+      "perf_3m": 2.87
     }
   ]
 }

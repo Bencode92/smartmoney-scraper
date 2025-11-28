@@ -3,19 +3,19 @@
     "level": "warning",
     "type": "concentration",
     "symbol": null,
-    "message": "Plusieurs positions d\u00e9passent 5.5% du portefeuille."
+    "message": "Concentration \u00e9lev\u00e9e dans le portefeuille, plusieurs positions au-del\u00e0 de 5.5%."
   },
   {
-    "level": "warning",
+    "level": "critical",
     "type": "quality",
     "symbol": "CPRT",
-    "message": "Score composite de 0.469 inf\u00e9rieur \u00e0 0.4."
+    "message": "Score composite de la position Copart Inc. est inf\u00e9rieur \u00e0 0.4."
   },
   {
     "level": "warning",
     "type": "momentum",
     "symbol": "CPRT",
-    "message": "RSI de 30.31 indique un momentum extr\u00eame."
+    "message": "RSI de Copart Inc. est inf\u00e9rieur \u00e0 30, signalant un momentum extr\u00eame."
   },
   {
     "level": "warning",

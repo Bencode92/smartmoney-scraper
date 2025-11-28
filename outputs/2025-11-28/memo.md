@@ -3,48 +3,48 @@
 # Investment Memo
 
 ## 1. Vue Globale
-Le portefeuille, composé de 25 positions, est orienté vers la stabilité et la croissance de qualité, avec une forte présence dans les services financiers et la santé. Les biais principaux incluent une forte exposition aux grandes capitalisations et une préférence pour des entreprises ayant des avantages compétitifs établis.
+Le portefeuille est diversifié avec 25 positions, bien que majoritairement orienté vers les services financiers et la technologie. Les principaux biais incluent un accent sur la qualité et la momentum, soutenus par des entreprises ayant une forte capitalisation boursière et une bonne rentabilité.
 
 ## 2. Top 5 Convictions
 
-- **VISA (6.86%)**
-  - **Signaux**: SmartMoney: A / Insider: Neutre / Momentum: Moyen
-  - **Thèse**: Visa est un leader incontesté dans les services de crédit avec une qualité opérationnelle exceptionnelle et un modèle d'affaires résilient, malgré une légère baisse de performance à court terme.
+- **VISA Inc. (V) - 6.86%**
+  - **Signaux**: SmartMoney: 0.853 / Insider: 0.5 / Momentum: 0.775
+  - **Thèse**: Visa, avec un modèle commercial résilient et des marges élevées, reste une valeur sûre dans le secteur des services financiers malgré des performances récentes en baisse.
 
-- **UNITED HEALTH GROUP (6.86%)**
-  - **Signaux**: SmartMoney: A / Insider: Neutre / Momentum: Positif
-  - **Thèse**: Bien que la performance YTD soit négative, la position de leader de UNH dans les plans de santé et sa capacité d’innovation dans un secteur en pleine croissance en font un acteur incontournable.
+- **United Health Group Inc. (UNH) - 6.86%**
+  - **Signaux**: SmartMoney: 0.837 / Insider: 0.5 / Momentum: 0.8
+  - **Thèse**: Malgré une performance annuelle en retrait, United Health bénéficie d'une solide dynamique de marché et d'une position dominante dans les plans de santé.
 
-- **BERKSHIRE HATHAWAY (6.86%)**
-  - **Signaux**: SmartMoney: B / Insider: Neutre / Momentum: Moyen
-  - **Thèse**: La diversification et la gestion prudente font de Berkshire un pilier de stabilité, avec une performance robuste et une gestion de capital exemplaire.
+- **Berkshire Hathaway CL B (BRK.B) - 6.86%**
+  - **Signaux**: SmartMoney: 0.636 / Insider: 0.5 / Momentum: 0.639
+  - **Thèse**: La diversification et la gestion de qualité de Berkshire Hathaway en font une valeur défensive attrayante avec une performance solide en année glissante.
 
-- **UNION PACIFIC (6.86%)**
-  - **Signaux**: SmartMoney: C / Insider: Neutre / Momentum: Positif
-  - **Thèse**: Union Pacific bénéficie d’opérations efficaces et de marges solides, capitalisant sur l’importance stratégique du transport ferroviaire aux États-Unis.
+- **Union Pacific (UNP) - 6.86%**
+  - **Signaux**: SmartMoney: 0.567 / Insider: 0.5 / Momentum: 0.768
+  - **Thèse**: Union Pacific, avec sa forte rentabilité et son rôle central dans le transport de marchandises, reste un acteur clé dans le secteur industriel.
 
-- **CHARLES SCHWAB (6.86%)**
-  - **Signaux**: SmartMoney: C / Insider: Neutre / Momentum: Neutre
-  - **Thèse**: Schwab se positionne avantageusement avec une croissance soutenue dans les marchés de capitaux, malgré des défis de volatilité à court terme.
+- **Charles Schwab Corp. (SCHW) - 6.86%**
+  - **Signaux**: SmartMoney: 0.377 / Insider: 0.5 / Momentum: 0.616
+  - **Thèse**: Bien que Schwab montre des signes de sous-performance à court terme, sa position de leader sur les marchés de capitaux offre un potentiel de croissance à long terme.
 
 ## 3. Risques Identifiés
-
-- **Concentration sectorielle**: Forte exposition aux services financiers (Visa, Berkshire Hathaway, Charles Schwab) pourrait entraîner des risques de concentration en cas de choc sectoriel.
-- **Corrélations dangereuses**: Potentiel de corrélation élevé entre les positions de services financiers et les impacts macroéconomiques.
-- **Points d'attention**: Volatilité des marchés de crédit et régulation accrue des services financiers.
+- **Concentration sectorielle**: Prédominance des services financiers, augmentant le risque en cas de choc sectoriel.
+- **Corrélations dangereuses**: Potentielle corrélation élevée entre les actions technologiques et financières en cas de volatilité du marché.
+- **Points d'attention**: Surveillance des positions avec des ratios d'endettement élevés et des performances récentes en baisse.
 
 ## 4. Scénarios de Stress
 
 - **Scénario 1: Impact si Tech -15%**
-  - Impact significatif sur des positions comme MSFT, NVDA, et GOOGL, avec une répercussion modérée sur l’ensemble du portefeuille vu la diversification.
+  - Les positions dans Microsoft, Nvidia, et Alphabet pourraient subir des pertes significatives, entraînant une baisse notable du portefeuille.
 
 - **Scénario 2: Impact si taux +50bps**
-  - Potentiel de pression sur les entreprises à forte dette (ex: Union Pacific), mais impact limité sur Visa et Berkshire en raison de leur faible endettement.
+  - Les entreprises à forte dette comme Union Pacific pourraient voir leur coût de financement augmenter, affectant leur rentabilité.
 
 - **Scénario 3: Flight to quality**
-  - Augmentation de la demande pour des valeurs sûres comme Berkshire et Visa, renforçant la position de ces titres dans le portefeuille.
+  - Les valeurs de qualité élevée telles que Visa et Berkshire Hathaway pourraient bénéficier d'un afflux de capitaux à la recherche de sécurité.
 
 ## 5. Actions Recommandées
 
-- **Surveillances**: Suivre les développements réglementaires dans les services financiers et les tendances macroéconomiques affectant les taux d'intérêt.
-- **Triggers de sortie potentiels**: Révision des positions si les signaux de momentum deviennent négatifs de manière persistante ou si le score composite se détériore sous 0.6 pour les positions clés.
+- **Surveillances**: Suivi attentif des indicateurs de marché pour les secteurs financiers et technologiques.
+- **Triggers de sortie potentiels**: Réévaluation des positions en cas de dégradation du momentum ou d'une baisse significative des scores de qualité.
+- **Diversification**: Considérer l'ajout de secteurs moins représentés pour réduire le risque sectoriel global.
