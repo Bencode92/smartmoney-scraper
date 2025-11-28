@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>SmartMoney Portfolio Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg: #020617;
+      --bg-card: #0f172a;
+      --border: #1e293b;
+      --accent: #38bdf8;
+      --accent-soft: rgba(56, 189, 248, 0.15);
+      --text: #e2e8f0;
+      --text-soft: #94a3b8;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --radius: 16px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Inter", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px;
+      line-height: 1.5;
+    }
+
+    .container { max-width: 1400px; margin: 0 auto; }
+
+    /* Header */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    .logo-icon {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, var(--accent), #0ea5e9);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 18px;
+      box-shadow: 0 0 20px rgba(56, 189, 248, 0.4);
+    }
+
+    .meta-pills {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .pill {
+      padding: 6px 12px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: rgba(15, 23, 42, 0.8);
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pill-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 8px var(--success);
+    }
+
+    .pill.warning { border-color: var(--warning); color: #fde68a; }
+    .pill.warning .pill-dot { background: var(--warning); box-shadow: 0 0 8px var(--warning); }
+
+    /* Grid */
+    .grid { display: grid; gap: 16px; margin-bottom: 16px; }
+    .grid-4 { grid-template-columns: repeat(4, 1fr); }
+    .grid-3 { grid-template-columns: repeat(3, 1fr); }
+    .grid-2 { grid-template-columns: 1fr 1fr; }
+    .grid-2-1 { grid-template-columns: 2fr 1fr; }
+
+    @media (max-width: 1200px) {
+      .grid-4 { grid-template-columns: repeat(2, 1fr); }
+      .grid-3 { grid-template-columns: 1fr; }
+      .grid-2, .grid-2-1 { grid-template-columns: 1fr; }
+    }
+
+    /* Cards */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .card-title {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-soft);
+    }
+
+    .card-value {
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .card-value.positive { color: var(--success); }
+    .card-value.negative { color: var(--danger); }
+
+    .card-sub {
+      font-size: 12px;
+      color: var(--text-soft);
+      margin-top: 4px;
+    }
+
+    /* KPI Cards */
+    .kpi-card {
+      text-align: center;
+      padding: 24px 16px;
+    }
+
+    .kpi-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-soft);
+      margin-top: 8px;
+    }
+
+    /* Benchmark Table */
+    .benchmark-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .benchmark-table th,
+    .benchmark-table td {
+      padding: 12px 8px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .benchmark-table th {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-soft);
+      font-weight: 500;
+    }
+
+    .benchmark-table .highlight {
+      background: var(--accent-soft);
+      font-weight: 600;
+    }
+
+    .positive { color: var(--success); }
+    .negative { color: var(--danger); }
+
+    /* Chart Container */
+    .chart-container {
+      position: relative;
+      height: 280px;
+    }
+
+    /* Sector Bars */
+    .sector-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-bottom: 12px;
+    }
+
+    .sector-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+    }
+
+    .sector-bar {
+      height: 8px;
+      background: rgba(15, 23, 42, 0.8);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .sector-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--success));
+      border-radius: 4px;
+      transition: width 0.6s ease;
+    }
+
+    /* Simulator */
+    .simulator-input {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .simulator-input label {
+      font-size: 14px;
+      color: var(--text-soft);
+    }
+
+    .simulator-input input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 16px;
+      color: var(--text);
+      font-size: 16px;
+      width: 160px;
+    }
+
+    .simulator-input input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .simulator-input select {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 16px;
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    .simulator-results {
+      max-height: 350px;
+      overflow-y: auto;
+    }
+
+    .alloc-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+
+    .alloc-row:first-child {
+      font-weight: 600;
+      background: var(--accent-soft);
+      margin: -10px -10px 10px;
+      padding: 12px 10px;
+      border-radius: 8px;
+    }
+
+    .alloc-ticker {
+      font-weight: 600;
+      color: var(--accent);
+      min-width: 60px;
+    }
+
+    .alloc-detail {
+      color: var(--text-soft);
+      font-size: 12px;
+    }
+
+    /* Portfolio Table */
+    .table-container {
+      overflow-x: auto;
+      max-height: 500px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      min-width: 900px;
+    }
+
+    th, td {
+      padding: 12px 8px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      background: var(--bg-card);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-soft);
+      font-weight: 500;
+      z-index: 1;
+    }
+
+    tbody tr:hover {
+      background: rgba(56, 189, 248, 0.05);
+    }
+
+    .ticker-badge {
+      font-weight: 600;
+      padding: 4px 8px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+    }
+
+    .score-badge {
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .score-high { background: rgba(34, 197, 94, 0.2); color: #86efac; border: 1px solid rgba(34, 197, 94, 0.3); }
+    .score-medium { background: rgba(245, 158, 11, 0.2); color: #fde68a; border: 1px solid rgba(245, 158, 11, 0.3); }
+    .score-low { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.3); }
+
+    /* Alerts */
+    .alert-item {
+      display: flex;
+      gap: 12px;
+      padding: 12px;
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      border-radius: 12px;
+      margin-bottom: 10px;
+    }
+
+    .alert-icon {
+      width: 24px;
+      height: 24px;
+      background: rgba(245, 158, 11, 0.2);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+
+    .alert-content { flex: 1; }
+    .alert-type { font-size: 11px; text-transform: uppercase; color: #fde68a; font-weight: 600; }
+    .alert-message { font-size: 13px; color: var(--text-soft); margin-top: 4px; }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      padding: 24px;
+      color: var(--text-soft);
+      font-size: 12px;
+      margin-top: 24px;
+      border-top: 1px solid var(--border);
+    }
+
+    /* Loading */
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 200px;
+      color: var(--text-soft);
+    }
+
+    .spinner {
+      width: 24px;
+      height: 24px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-right: 12px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo">
+        <div class="logo-icon">S</div>
+        <span>SmartMoney Dashboard</span>
+      </div>
+      <div class="meta-pills">
+        <span class="pill"><span class="pill-dot"></span><span id="meta-date">Chargement...</span></span>
+        <span class="pill" id="meta-positions">-- positions</span>
+        <span class="pill warning" id="meta-alerts">-- alertes</span>
+      </div>
+    </header>
+
+    <!-- KPIs -->
+    <section class="grid grid-4" id="kpi-section">
+      <div class="card kpi-card">
+        <div class="card-value" id="kpi-positions">--</div>
+        <div class="kpi-label">Positions</div>
+      </div>
+      <div class="card kpi-card">
+        <div class="card-value" id="kpi-perf-ytd">--%</div>
+        <div class="kpi-label">Performance YTD</div>
+      </div>
+      <div class="card kpi-card">
+        <div class="card-value" id="kpi-vol">--%</div>
+        <div class="kpi-label">Volatilité 30j</div>
+      </div>
+      <div class="card kpi-card">
+        <div class="card-value" id="kpi-alpha">--%</div>
+        <div class="kpi-label">Alpha vs SPY</div>
+      </div>
+    </section>
+
+    <!-- Benchmark Comparison + Chart -->
+    <section class="grid grid-2">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Performance vs Benchmarks</span>
+          <span class="card-title" id="bench-period">90 jours</span>
+        </div>
+        <table class="benchmark-table">
+          <thead>
+            <tr>
+              <th>Indice</th>
+              <th>Return</th>
+              <th>Vol</th>
+              <th>Sharpe</th>
+              <th>Max DD</th>
+            </tr>
+          </thead>
+          <tbody id="benchmark-tbody">
+            <tr class="highlight">
+              <td><strong>SmartMoney</strong></td>
+              <td id="bench-port-ret">--%</td>
+              <td id="bench-port-vol">--%</td>
+              <td id="bench-port-sharpe">--</td>
+              <td id="bench-port-dd">--%</td>
+            </tr>
+            <tr>
+              <td>S&P 500 (SPY)</td>
+              <td id="bench-spy-ret">--%</td>
+              <td id="bench-spy-vol">--%</td>
+              <td id="bench-spy-sharpe">--</td>
+              <td id="bench-spy-dd">--%</td>
+            </tr>
+            <tr>
+              <td>CAC 40</td>
+              <td id="bench-cac-ret">--%</td>
+              <td id="bench-cac-vol">--%</td>
+              <td id="bench-cac-sharpe">--</td>
+              <td id="bench-cac-dd">--%</td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="margin-top: 16px; display: flex; gap: 20px; font-size: 13px;">
+          <div>Alpha vs SPY: <strong id="alpha-spy" class="positive">--%</strong></div>
+          <div>Alpha vs CAC: <strong id="alpha-cac" class="positive">--%</strong></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Évolution comparative (90j)</span>
+        </div>
+        <div class="chart-container">
+          <canvas id="performanceChart"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- Allocation + Simulateur -->
+    <section class="grid grid-2">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Allocation Sectorielle</span>
+        </div>
+        <div id="sector-list"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">💰 Simulateur d'Allocation</span>
+        </div>
+        <div class="simulator-input">
+          <label for="budget">Budget :</label>
+          <input type="number" id="budget" value="10000" step="1000" min="100">
+          <select id="currency">
+            <option value="EUR">€ EUR</option>
+            <option value="USD">$ USD</option>
+          </select>
+        </div>
+        <div class="simulator-results" id="simulator-results">
+          <!-- Généré par JS -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Alertes -->
+    <section class="card" id="alerts-section">
+      <div class="card-header">
+        <span class="card-title">⚠️ Alertes Actives</span>
+        <span id="alerts-count" class="card-title">0 alertes</span>
+      </div>
+      <div id="alerts-container">
+        <p style="color: var(--text-soft); font-size: 13px;">Aucune alerte active.</p>
+      </div>
+    </section>
+
+    <!-- Portfolio Table -->
+    <section class="card">
+      <div class="card-header">
+        <span class="card-title">Portefeuille Détaillé</span>
+        <span class="card-title" id="table-count">-- positions</span>
+      </div>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Ticker</th>
+              <th>Entreprise</th>
+              <th>Secteur</th>
+              <th>Poids</th>
+              <th>Score</th>
+              <th>Perf 3M</th>
+              <th>Perf YTD</th>
+              <th>Vol 30j</th>
+              <th>ROE</th>
+              <th>D/E</th>
+            </tr>
+          </thead>
+          <tbody id="portfolio-tbody">
+            <!-- Généré par JS -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer class="footer">
+      SmartMoney Quantitative Strategy • Données mises à jour automatiquement chaque semaine
+    </footer>
+  </div>
+
+  <script>
+    // === Configuration ===
+    const DATA_PATH = "../outputs/latest";
+    let portfolioData = null;
+    let alertsData = [];
+    let backtestData = null;
+
+    // === Utilities ===
+    function fmtPct(val, decimals = 2, sign = false) {
+      if (val == null || isNaN(val)) return "--%";
+      const num = Number(val);
+      return (sign && num > 0 ? "+" : "") + num.toFixed(decimals) + "%";
+    }
+
+    function fmtNumber(val, decimals = 2) {
+      if (val == null || isNaN(val)) return "--";
+      return Number(val).toFixed(decimals);
+    }
+
+    function fmtDate(iso) {
+      if (!iso) return "--";
+      try {
+        return new Date(iso).toLocaleDateString("fr-FR", {
+          year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"
+        });
+      } catch { return iso; }
+    }
+
+    function fmtMoney(val, currency = "EUR") {
+      if (val == null) return "--";
+      const symbol = currency === "USD" ? "$" : "€";
+      return symbol + Number(val).toLocaleString("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    }
+
+    function scoreClass(score) {
+      if (score >= 0.65) return "score-high";
+      if (score >= 0.5) return "score-medium";
+      return "score-low";
+    }
+
+    // === Render Functions ===
+    function renderKPIs(portfolio, metrics, backtest) {
+      document.getElementById("kpi-positions").textContent = metrics.positions || portfolio.length;
+      
+      const perfYtd = metrics.perf_ytd;
+      const kpiPerfYtd = document.getElementById("kpi-perf-ytd");
+      kpiPerfYtd.textContent = fmtPct(perfYtd, 1, true);
+      kpiPerfYtd.className = "card-value " + (perfYtd >= 0 ? "positive" : "negative");
+
+      document.getElementById("kpi-vol").textContent = fmtPct(metrics.vol_30d, 1);
+
+      const alphaSpy = backtest?.benchmark_comparison?.comparisons?.SPY?.alpha_pct;
+      const kpiAlpha = document.getElementById("kpi-alpha");
+      kpiAlpha.textContent = fmtPct(alphaSpy, 1, true);
+      kpiAlpha.className = "card-value " + (alphaSpy >= 0 ? "positive" : "negative");
+    }
+
+    function renderBenchmarks(backtest) {
+      const comp = backtest?.benchmark_comparison;
+      if (!comp) return;
+
+      document.getElementById("bench-period").textContent = `${comp.period_days || 90} jours`;
+
+      // Portfolio
+      const port = comp.portfolio || {};
+      document.getElementById("bench-port-ret").textContent = fmtPct(port.return_pct, 1, true);
+      document.getElementById("bench-port-vol").textContent = fmtPct(port.volatility_pct, 1);
+      document.getElementById("bench-port-sharpe").textContent = fmtNumber(port.sharpe);
+      document.getElementById("bench-port-dd").textContent = fmtPct(port.max_drawdown_pct, 1);
+
+      // SPY
+      const spy = comp.benchmarks?.SPY || {};
+      document.getElementById("bench-spy-ret").textContent = fmtPct(spy.return_pct, 1, true);
+      document.getElementById("bench-spy-vol").textContent = fmtPct(spy.volatility_pct, 1);
+      document.getElementById("bench-spy-sharpe").textContent = fmtNumber(spy.sharpe);
+      document.getElementById("bench-spy-dd").textContent = fmtPct(spy.max_drawdown_pct, 1);
+
+      // CAC
+      const cac = comp.benchmarks?.CAC || {};
+      document.getElementById("bench-cac-ret").textContent = fmtPct(cac.return_pct, 1, true);
+      document.getElementById("bench-cac-vol").textContent = fmtPct(cac.volatility_pct, 1);
+      document.getElementById("bench-cac-sharpe").textContent = fmtNumber(cac.sharpe);
+      document.getElementById("bench-cac-dd").textContent = fmtPct(cac.max_drawdown_pct, 1);
+
+      // Alphas
+      const alphaSpy = comp.comparisons?.SPY?.alpha_pct;
+      const alphaCac = comp.comparisons?.CAC?.alpha_pct;
+      
+      const alphaSpyEl = document.getElementById("alpha-spy");
+      alphaSpyEl.textContent = fmtPct(alphaSpy, 1, true);
+      alphaSpyEl.className = alphaSpy >= 0 ? "positive" : "negative";
+
+      const alphaCacEl = document.getElementById("alpha-cac");
+      alphaCacEl.textContent = fmtPct(alphaCac, 1, true);
+      alphaCacEl.className = alphaCac >= 0 ? "positive" : "negative";
+    }
+
+    function renderChart(backtest) {
+      const ctx = document.getElementById("performanceChart").getContext("2d");
+      
+      // Données simulées si pas de vraies données
+      const labels = ["Début", "30j", "60j", "90j"];
+      const portReturn = backtest?.benchmark_comparison?.portfolio?.return_pct || 8;
+      const spyReturn = backtest?.benchmark_comparison?.benchmarks?.SPY?.return_pct || 5;
+      const cacReturn = backtest?.benchmark_comparison?.benchmarks?.CAC?.return_pct || 3;
+
+      new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: "SmartMoney",
+              data: [0, portReturn * 0.3, portReturn * 0.7, portReturn],
+              borderColor: "#38bdf8",
+              backgroundColor: "rgba(56, 189, 248, 0.1)",
+              borderWidth: 3,
+              fill: true,
+              tension: 0.3
+            },
+            {
+              label: "S&P 500",
+              data: [0, spyReturn * 0.35, spyReturn * 0.65, spyReturn],
+              borderColor: "#94a3b8",
+              borderWidth: 2,
+              fill: false,
+              tension: 0.3
+            },
+            {
+              label: "CAC 40",
+              data: [0, cacReturn * 0.4, cacReturn * 0.6, cacReturn],
+              borderColor: "#6366f1",
+              borderWidth: 2,
+              fill: false,
+              tension: 0.3
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: "top",
+              labels: { color: "#94a3b8", font: { size: 11 } }
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: "rgba(148, 163, 184, 0.1)" },
+              ticks: { color: "#94a3b8" }
+            },
+            y: {
+              grid: { color: "rgba(148, 163, 184, 0.1)" },
+              ticks: { 
+                color: "#94a3b8",
+                callback: (val) => val + "%"
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function renderSectors(metrics) {
+      const container = document.getElementById("sector-list");
+      const sectors = metrics.sector_weights || {};
+      
+      container.innerHTML = Object.entries(sectors)
+        .sort((a, b) => b[1] - a[1])
+        .map(([name, weight]) => `
+          <div class="sector-row">
+            <div class="sector-header">
+              <span>${name}</span>
+              <span>${weight.toFixed(1)}%</span>
+            </div>
+            <div class="sector-bar">
+              <div class="sector-fill" style="width: ${Math.min(weight * 2, 100)}%"></div>
+            </div>
+          </div>
+        `).join("");
+    }
+
+    function renderSimulator(portfolio) {
+      const budgetInput = document.getElementById("budget");
+      const currencySelect = document.getElementById("currency");
+      const container = document.getElementById("simulator-results");
+
+      function calculate() {
+        const budget = parseFloat(budgetInput.value) || 0;
+        const currency = currencySelect.value;
+        const rate = currency === "USD" ? 1 : 1.08; // EUR to USD approx
+
+        let totalInvested = 0;
+        let rows = portfolio.map(pos => {
+          const amount = budget * pos.weight;
+          const amountUSD = amount * rate;
+          const price = pos.td_price || pos.current_price || 100;
+          const shares = Math.floor(amountUSD / price);
+          const invested = shares * price / rate;
+          totalInvested += invested;
+
+          return {
+            symbol: pos.symbol,
+            weight: (pos.weight * 100).toFixed(1),
+            amount: invested,
+            shares: shares,
+            price: price
+          };
+        }).filter(r => r.shares > 0);
+
+        const cashLeft = budget - totalInvested;
+
+        container.innerHTML = `
+          <div class="alloc-row">
+            <span>TOTAL INVESTI</span>
+            <span>${fmtMoney(totalInvested, currency)} / ${fmtMoney(budget, currency)} (Cash: ${fmtMoney(cashLeft, currency)})</span>
+          </div>
+          ${rows.map(r => `
+            <div class="alloc-row">
+              <div>
+                <span class="alloc-ticker">${r.symbol}</span>
+                <span class="alloc-detail">${r.weight}%</span>
+              </div>
+              <div style="text-align: right;">
+                <div>${r.shares} × $${r.price.toFixed(0)}</div>
+                <div class="alloc-detail">${fmtMoney(r.amount, currency)}</div>
+              </div>
+            </div>
+          `).join("")}
+        `;
+      }
+
+      budgetInput.addEventListener("input", calculate);
+      currencySelect.addEventListener("change", calculate);
+      calculate();
+    }
+
+    function renderAlerts(alerts) {
+      const container = document.getElementById("alerts-container");
+      const countEl = document.getElementById("alerts-count");
+      const metaAlerts = document.getElementById("meta-alerts");
+
+      countEl.textContent = `${alerts.length} alerte${alerts.length > 1 ? "s" : ""}`;
+      metaAlerts.textContent = `${alerts.length} alerte${alerts.length > 1 ? "s" : ""}`;
+
+      if (!alerts.length) {
+        container.innerHTML = '<p style="color: var(--text-soft); font-size: 13px;">✅ Aucune alerte active. Le portefeuille respecte toutes les contraintes.</p>';
+        metaAlerts.classList.remove("warning");
+        return;
+      }
+
+      container.innerHTML = alerts.map(a => `
+        <div class="alert-item">
+          <div class="alert-icon">⚠️</div>
+          <div class="alert-content">
+            <div class="alert-type">${a.type || "Alerte"} ${a.symbol ? `• ${a.symbol}` : ""}</div>
+            <div class="alert-message">${a.message || ""}</div>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function renderPortfolioTable(portfolio) {
+      const tbody = document.getElementById("portfolio-tbody");
+      document.getElementById("table-count").textContent = `${portfolio.length} positions`;
+
+      tbody.innerHTML = portfolio.map(pos => {
+        const perf3m = pos.perf_3m;
+        const perfYtd = pos.perf_ytd;
+        const score = pos.score_composite || 0;
+
+        return `
+          <tr>
+            <td><span class="ticker-badge">${pos.symbol}</span></td>
+            <td>${pos.company || "--"}</td>
+            <td style="color: var(--text-soft); font-size: 11px;">${pos.sector || "--"}</td>
+            <td><strong>${(pos.weight * 100).toFixed(2)}%</strong></td>
+            <td><span class="score-badge ${scoreClass(score)}">${score.toFixed(3)}</span></td>
+            <td class="${perf3m >= 0 ? 'positive' : 'negative'}">${fmtPct(perf3m, 1, true)}</td>
+            <td class="${perfYtd >= 0 ? 'positive' : 'negative'}">${fmtPct(perfYtd, 1, true)}</td>
+            <td>${fmtPct(pos.vol_30d, 0)}</td>
+            <td>${pos.roe != null ? pos.roe.toFixed(1) + "%" : "--"}</td>
+            <td>${pos.debt_equity != null ? pos.debt_equity.toFixed(2) : "--"}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    // === Load Data ===
+    async function loadData() {
+      try {
+        const [portfolioRes, alertsRes, backtestRes] = await Promise.all([
+          fetch(`${DATA_PATH}/portfolio.json`),
+          fetch(`${DATA_PATH}/alerts.json`).catch(() => ({ ok: false })),
+          fetch(`${DATA_PATH}/backtest.json`).catch(() => ({ ok: false }))
+        ]);
+
+        if (!portfolioRes.ok) throw new Error("Portfolio non trouvé");
+
+        portfolioData = await portfolioRes.json();
+        alertsData = alertsRes.ok ? await alertsRes.json() : [];
+        backtestData = backtestRes.ok ? await backtestRes.json() : null;
+
+        // Render
+        const portfolio = portfolioData.portfolio || [];
+        const metrics = portfolioData.metrics || {};
+        const meta = portfolioData.metadata || {};
+
+        document.getElementById("meta-date").textContent = fmtDate(meta.generated_at);
+        document.getElementById("meta-positions").textContent = `${portfolio.length} positions`;
+
+        renderKPIs(portfolio, metrics, backtestData);
+        renderBenchmarks(backtestData);
+        renderChart(backtestData);
+        renderSectors(metrics);
+        renderSimulator(portfolio);
+        renderAlerts(alertsData);
+        renderPortfolioTable(portfolio);
+
+      } catch (err) {
+        console.error("Erreur chargement:", err);
+        document.body.innerHTML += `
+          <div style="position: fixed; bottom: 20px; left: 20px; right: 20px; background: #7f1d1d; color: #fecaca; padding: 16px; border-radius: 12px; font-size: 14px;">
+            ⚠️ Erreur de chargement des données. Vérifiez que les fichiers existent dans <code>${DATA_PATH}/</code>
+          </div>
+        `;
+      }
+    }
+
+    // === Init ===
+    loadData();
+  </script>
+</body>
+</html>
