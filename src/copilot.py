@@ -144,36 +144,48 @@ Réponds de façon concise et factuelle. Si tu ne peux pas répondre avec les do
         return self._call(prompt, fast=True)
     
     def export_memo(self, portfolio: dict, output_dir: Path) -> Path:
-        """Génère et sauvegarde le memo"""
-        today = datetime.now().strftime("%Y-%m-%d")
+        """
+        Génère et sauvegarde le memo.
         
+        Args:
+            portfolio: Données du portefeuille
+            output_dir: Dossier daté (ex: outputs/2025-11-28/)
+        """
         print("🤖 Génération du memo IA...")
         memo = self.generate_memo(portfolio)
         
-        # Sauvegarde
-        memo_path = output_dir / f"memo_{today}.md"
+        # Sauvegarde (sans suffixe de date, le dossier parent est déjà daté)
+        memo_path = output_dir / "memo.md"
+        
+        # Récupère la date depuis le dossier parent ou metadata
+        date_str = portfolio.get("metadata", {}).get("date", datetime.now().strftime("%Y-%m-%d"))
+        
         with open(memo_path, "w") as f:
-            f.write(f"# Investment Memo - {today}\n\n")
+            f.write(f"# Investment Memo - {date_str}\n\n")
             f.write(memo)
         
-        print(f"📝 Memo exporté: {memo_path.name}")
+        print(f"📝 Memo exporté: {output_dir.name}/memo.md")
         return memo_path
     
     def export_alerts(self, portfolio: dict, output_dir: Path) -> Path:
-        """Génère et sauvegarde les alertes"""
-        today = datetime.now().strftime("%Y-%m-%d")
+        """
+        Génère et sauvegarde les alertes.
         
+        Args:
+            portfolio: Données du portefeuille
+            output_dir: Dossier daté (ex: outputs/2025-11-28/)
+        """
         print("🚨 Génération des alertes...")
         alerts = self.generate_alerts(portfolio)
         
-        # Sauvegarde
-        alerts_path = output_dir / f"alerts_{today}.json"
+        # Sauvegarde (sans suffixe de date)
+        alerts_path = output_dir / "alerts.json"
         with open(alerts_path, "w") as f:
             json.dump(alerts, f, indent=2)
         
         n_critical = len([a for a in alerts if a.get("level") == "critical"])
         n_warning = len([a for a in alerts if a.get("level") == "warning"])
-        print(f"🚨 Alertes: {n_critical} critiques, {n_warning} warnings")
+        print(f"🚨 Alertes: {n_critical} critiques, {n_warning} warnings → {output_dir.name}/alerts.json")
         
         return alerts_path
 
@@ -181,15 +193,30 @@ Réponds de façon concise et factuelle. Si tu ne peux pas répondre avec les do
 # === MAIN ===
 if __name__ == "__main__":
     # Test avec le dernier portfolio
-    portfolio_files = list(OUTPUTS.glob("portfolio_*.json"))
-    if not portfolio_files:
-        print("❌ Aucun portfolio trouvé. Lance d'abord: python src/engine.py")
+    # Cherche d'abord dans outputs/latest/, sinon dans les sous-dossiers datés
+    latest_dir = OUTPUTS / "latest"
+    
+    if latest_dir.exists() and (latest_dir / "portfolio.json").exists():
+        portfolio_path = latest_dir / "portfolio.json"
+    else:
+        # Fallback: cherche dans les sous-dossiers datés
+        dated_dirs = sorted([d for d in OUTPUTS.iterdir() if d.is_dir() and d.name != "latest"], reverse=True)
+        if not dated_dirs:
+            print("❌ Aucun portfolio trouvé. Lance d'abord: python main.py")
+            exit(1)
+        portfolio_path = dated_dirs[0] / "portfolio.json"
+    
+    if not portfolio_path.exists():
+        print(f"❌ Portfolio non trouvé: {portfolio_path}")
         exit(1)
     
-    latest = max(portfolio_files, key=lambda x: x.stat().st_mtime)
-    with open(latest) as f:
+    print(f"📂 Chargement: {portfolio_path}")
+    with open(portfolio_path) as f:
         portfolio = json.load(f)
     
+    # Exporte dans le même dossier que le portfolio
+    output_dir = portfolio_path.parent
+    
     copilot = Copilot()
-    copilot.export_memo(portfolio, OUTPUTS)
-    copilot.export_alerts(portfolio, OUTPUTS)
+    copilot.export_memo(portfolio, output_dir)
+    copilot.export_alerts(portfolio, output_dir)
