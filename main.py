@@ -1,5 +1,6 @@
 """SmartMoney Engine - Point d'entrée principal"""
 import sys
+import shutil
 from datetime import datetime
 from pathlib import Path
 
@@ -58,13 +59,13 @@ def main():
     print("\n" + "-"*60)
     print("PHASE 5: Export Portfolio")
     print("-"*60)
-    portfolio = engine.export(dated_dir)  # Passe le dossier daté
+    portfolio = engine.export(dated_dir)
     
     # === DASHBOARD HTML ===
     print("\n" + "-"*60)
     print("PHASE 6: Dashboard HTML")
     print("-"*60)
-    generate_dashboard(portfolio, dated_dir)  # Passe le dossier daté
+    generate_dashboard(portfolio, dated_dir)
     
     # === BACKTEST ===
     print("\n" + "-"*60)
@@ -74,7 +75,7 @@ def main():
         try:
             from src.backtest import Backtester
             backtester = Backtester()
-            backtester.generate_report(portfolio.get("portfolio", []), dated_dir)  # Passe le dossier daté
+            backtester.generate_report(portfolio.get("portfolio", []), dated_dir)
         except Exception as e:
             print(f"⚠️ Erreur Backtest: {e}")
     else:
@@ -87,25 +88,25 @@ def main():
         print("-"*60)
         try:
             copilot = Copilot()
-            copilot.export_memo(portfolio, dated_dir)    # Passe le dossier daté
-            copilot.export_alerts(portfolio, dated_dir)  # Passe le dossier daté
+            copilot.export_memo(portfolio, dated_dir)
+            copilot.export_alerts(portfolio, dated_dir)
         except Exception as e:
             print(f"⚠️ Erreur Copilot: {e}")
     else:
         print("\n⏭️ Copilot skipped (pas de clé API)")
     
-    # === CRÉER LE SYMLINK latest ===
-    latest_link = OUTPUTS / "latest"
+    # === COPIER DANS outputs/latest/ (pas symlink - plus robuste) ===
+    latest_dir = OUTPUTS / "latest"
     try:
-        if latest_link.is_symlink():
-            latest_link.unlink()
-        elif latest_link.exists():
-            import shutil
-            shutil.rmtree(latest_link)
-        latest_link.symlink_to(dated_dir.name, target_is_directory=True)
-        print(f"\n🔗 Symlink créé: latest → {dated_dir.name}")
+        # Supprimer l'ancien dossier latest s'il existe
+        if latest_dir.exists():
+            shutil.rmtree(latest_dir)
+        
+        # Copier tous les fichiers du dossier daté vers latest
+        shutil.copytree(dated_dir, latest_dir)
+        print(f"\n📁 Copié vers: outputs/latest/")
     except Exception as e:
-        print(f"⚠️ Impossible de créer le symlink: {e}")
+        print(f"⚠️ Erreur copie vers latest: {e}")
     
     # === RÉSUMÉ ===
     print("\n" + "="*60)
