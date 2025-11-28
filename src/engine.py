@@ -220,8 +220,8 @@ class SmartMoneyEngine:
             print(f"⚠️ RSI error {symbol}: {e}")
         return {}
     
-    def _fetch_time_series(self, symbol: str, outputsize: int = 90) -> list:
-        """Récupère l'historique de prix via Twelve Data"""
+    def _fetch_time_series(self, symbol: str, outputsize: int = 900) -> list:
+        """Récupère l'historique de prix via Twelve Data (ordre chronologique ASC)"""
         if not TWELVE_DATA_KEY:
             return []
         
@@ -232,7 +232,9 @@ class SmartMoneyEngine:
                 params={
                     "symbol": symbol,
                     "interval": "1day",
-                    "outputsize": outputsize,
+                    "outputsize": outputsize,  # 900 jours -> > 3 ans
+                    "order": "ASC",            # plus ancien → plus récent
+                    "adjusted": "true",        # propre pour gérer les splits
                     "apikey": TWELVE_DATA_KEY
                 },
                 timeout=15
@@ -350,38 +352,72 @@ class SmartMoneyEngine:
         return {}
     
     def _calculate_perf_vol(self, prices: list) -> dict:
-        """Calcule perf 3M, YTD, vol 30j depuis l'historique"""
+        """
+        Calcule perf 3M, YTD et vol 30j à partir d'une série ASC (plus ancien → plus récent),
+        comme dans stock-advanced-filter.js.
+        """
         result = {"perf_3m": None, "perf_ytd": None, "vol_30d": None}
         
         if not prices or len(prices) < 2:
             return result
-        
+
         try:
-            current_price = float(prices[0]["close"])
-            
-            if len(prices) >= 63:
-                price_3m = float(prices[62]["close"])
-                result["perf_3m"] = round((current_price / price_3m - 1) * 100, 2)
-            elif len(prices) >= 30:
-                price_old = float(prices[-1]["close"])
-                result["perf_3m"] = round((current_price / price_old - 1) * 100, 2)
-            
-            current_year = datetime.now().year
+            # Normalisation des données
+            closes = []
+            dates = []
             for p in prices:
-                if p["datetime"].startswith(f"{current_year}-01"):
-                    price_ytd = float(p["close"])
-                    result["perf_ytd"] = round((current_price / price_ytd - 1) * 100, 2)
+                c = self._safe_float(p.get("close"))
+                d = p.get("datetime", "")[:10]   # "YYYY-MM-DD"
+                if c is not None and d:
+                    closes.append(c)
+                    dates.append(d)
+
+            if len(closes) < 2:
+                return result
+
+            # Dernier cours (série ASC)
+            current_price = closes[-1]
+
+            # Helper pour récupérer un cours "n jours de bourse" avant
+            def price_n_days_ago(n: int):
+                idx = len(closes) - 1 - n
+                if idx >= 0:
+                    return closes[idx]
+                return None
+
+            # === Perf 3M (~63 séances) ===
+            price_3m = price_n_days_ago(63)
+            if price_3m and price_3m > 0:
+                result["perf_3m"] = round((current_price / price_3m - 1) * 100, 2)
+
+            # === Perf YTD (premier cours >= 1er janvier) ===
+            current_year = datetime.now().year
+            year_start = f"{current_year}-01-01"
+
+            price_ytd = None
+            for c, d in zip(closes, dates):
+                if d >= year_start:        # premier jour de cotation de l'année
+                    price_ytd = c
                     break
-            
-            if len(prices) >= 30:
-                closes = [float(p["close"]) for p in prices[:30]]
-                returns = [(closes[i] / closes[i+1] - 1) for i in range(len(closes)-1)]
-                vol = np.std(returns) * np.sqrt(252) * 100
-                result["vol_30d"] = round(vol, 2)
-        
+
+            if price_ytd and price_ytd > 0 and current_price > 0 and price_ytd != current_price:
+                result["perf_ytd"] = round((current_price / price_ytd - 1) * 100, 2)
+
+            # === Volatilité 30 jours ===
+            if len(closes) >= 30:
+                recent = closes[-30:]
+                returns = []
+                for i in range(1, len(recent)):
+                    if recent[i-1] and recent[i]:
+                        r = recent[i] / recent[i-1] - 1
+                        returns.append(r)
+                if returns:
+                    vol = np.std(returns) * np.sqrt(252) * 100
+                    result["vol_30d"] = round(vol, 2)
+
         except Exception as e:
             print(f"⚠️ Calc error: {e}")
-        
+
         return result
     
     def _extract_fundamentals(self, stats: dict, balance: dict, income: dict, cashflow: dict) -> dict:
@@ -667,13 +703,14 @@ class SmartMoneyEngine:
             row["rsi"] = tech.get("rsi", 50.0)
             print(f"    ✓ RSI: {row['rsi']:.1f}")
 
-            # 4. Time series
-            prices = self._fetch_time_series(symbol, 90)
+            # 4. Time series (900 jours pour avoir YTD correct)
+            prices = self._fetch_time_series(symbol, 900)
             perf_vol = self._calculate_perf_vol(prices)
             row["perf_3m"] = perf_vol["perf_3m"]
             row["perf_ytd"] = perf_vol["perf_ytd"]
             row["vol_30d"] = perf_vol["vol_30d"]
-            print(f"    ✓ Perf 3M: {row['perf_3m']}% | Vol: {row['vol_30d']}%")
+            ytd_str = f"{row['perf_ytd']}%" if row.get("perf_ytd") is not None else "N/A"
+            print(f"    ✓ Perf 3M: {row['perf_3m']}% | YTD: {ytd_str} | Vol: {row['vol_30d']}%")
 
             # 5-8. Fondamentaux (toujours, avec retry géré par les fetch)
             stats = self._fetch_statistics(symbol)
@@ -704,6 +741,11 @@ class SmartMoneyEngine:
             if coverage < 0.5:
                 missing = self.universe[self.universe[existing_cols].isna().all(axis=1)]["symbol"].tolist()
                 print(f"⚠️ Beaucoup de tickers sans fondamentaux, ex: {missing[:10]}{'...' if len(missing) > 10 else ''}")
+
+        # === Validation coverage perf_ytd ===
+        if "perf_ytd" in self.universe.columns:
+            ytd_coverage = self.universe["perf_ytd"].notna().mean()
+            print(f"📊 Coverage perf_ytd: {ytd_coverage:.0%}")
 
         print(f"\n✅ Enrichissement terminé")
         return self.universe
