@@ -1,5 +1,6 @@
 """SmartMoney Engine - Point d'entrée principal"""
 import sys
+from datetime import datetime
 from pathlib import Path
 
 from config import OUTPUTS, TWELVE_DATA_KEY, OPENAI_KEY
@@ -13,6 +14,12 @@ def main():
     print("🚀 SMARTMONEY ENGINE v2.0")
     print("   Scoring + Fondamentaux + HRP + Backtest")
     print("="*60)
+    
+    # === CRÉER LE DOSSIER DATÉ ===
+    today = datetime.now().strftime("%Y-%m-%d")
+    dated_dir = OUTPUTS / today
+    dated_dir.mkdir(parents=True, exist_ok=True)
+    print(f"\n📁 Dossier de sortie: {dated_dir}")
     
     # === VÉRIFICATIONS ===
     if not TWELVE_DATA_KEY:
@@ -49,25 +56,25 @@ def main():
     engine.optimize()
     
     print("\n" + "-"*60)
-    print("PHASE 5: Export")
+    print("PHASE 5: Export Portfolio")
     print("-"*60)
-    portfolio = engine.export(OUTPUTS)
+    portfolio = engine.export(dated_dir)  # Passe le dossier daté
     
     # === DASHBOARD HTML ===
     print("\n" + "-"*60)
     print("PHASE 6: Dashboard HTML")
     print("-"*60)
-    generate_dashboard(portfolio, OUTPUTS)
+    generate_dashboard(portfolio, dated_dir)  # Passe le dossier daté
     
     # === BACKTEST ===
     print("\n" + "-"*60)
-    print("PHASE 7: Backtest & Benchmark")
+    print("PHASE 7: Backtest & Benchmark (SPY + CAC40)")
     print("-"*60)
     if TWELVE_DATA_KEY:
         try:
             from src.backtest import Backtester
             backtester = Backtester()
-            backtester.generate_report(portfolio.get("portfolio", []), OUTPUTS)
+            backtester.generate_report(portfolio.get("portfolio", []), dated_dir)  # Passe le dossier daté
         except Exception as e:
             print(f"⚠️ Erreur Backtest: {e}")
     else:
@@ -80,12 +87,25 @@ def main():
         print("-"*60)
         try:
             copilot = Copilot()
-            copilot.export_memo(portfolio, OUTPUTS)
-            copilot.export_alerts(portfolio, OUTPUTS)
+            copilot.export_memo(portfolio, dated_dir)    # Passe le dossier daté
+            copilot.export_alerts(portfolio, dated_dir)  # Passe le dossier daté
         except Exception as e:
             print(f"⚠️ Erreur Copilot: {e}")
     else:
         print("\n⏭️ Copilot skipped (pas de clé API)")
+    
+    # === CRÉER LE SYMLINK latest ===
+    latest_link = OUTPUTS / "latest"
+    try:
+        if latest_link.is_symlink():
+            latest_link.unlink()
+        elif latest_link.exists():
+            import shutil
+            shutil.rmtree(latest_link)
+        latest_link.symlink_to(dated_dir.name, target_is_directory=True)
+        print(f"\n🔗 Symlink créé: latest → {dated_dir.name}")
+    except Exception as e:
+        print(f"⚠️ Impossible de créer le symlink: {e}")
     
     # === RÉSUMÉ ===
     print("\n" + "="*60)
@@ -102,7 +122,10 @@ def main():
     print(f"   D/E moyen: {metrics.get('avg_debt_equity', 'N/A')}")
     print(f"   Marge nette moy: {metrics.get('avg_net_margin', 'N/A')}%")
     
-    print(f"\n📁 Outputs: {OUTPUTS}")
+    # Liste des fichiers générés
+    print(f"\n📁 Fichiers générés dans {dated_dir.name}/:")
+    for f in sorted(dated_dir.iterdir()):
+        print(f"   • {f.name}")
     
     # Top 10
     print("\n🏆 TOP 10 POSITIONS:")
