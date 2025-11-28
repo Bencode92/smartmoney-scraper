@@ -1,1 +1,326 @@
-"\"\"Backtest & Benchmark - Compare le portefeuille au S&P 500\"\"\"\nimport json\nimport time\nfrom datetime import datetime, timedelta\nfrom pathlib import Path\nimport requests\nimport numpy as np\nimport pandas as pd\n\nimport sys\nsys.path.append(str(Path(__file__).parent.parent))\nfrom config import OUTPUTS, TWELVE_DATA_KEY, TWELVE_DATA_BASE, TWELVE_DATA_RATE_LIMIT\n\n\nclass Backtester:\n    \"\"\"Backtest du portefeuille et comparaison avec benchmark\"\"\"\n    \n    def __init__(self):\n        self._last_api_call = 0\n        self.benchmark_symbol = \"SPY\"  # S&P 500 ETF\n        self.results = {}\n    \n    def _rate_limit(self):\n        \"\"\"Respecte le rate limit Twelve Data\"\"\"\n        elapsed = time.time() - self._last_api_call\n        wait = (60 / TWELVE_DATA_RATE_LIMIT) - elapsed\n        if wait > 0:\n            time.sleep(wait)\n        self._last_api_call = time.time()\n    \n    def _fetch_time_series(self, symbol: str, outputsize: int = 252) -> pd.DataFrame:\n        \"\"\"Récupère l'historique de prix\"\"\"\n        if not TWELVE_DATA_KEY:\n            return pd.DataFrame()\n        \n        self._rate_limit()\n        try:\n            resp = requests.get(\n                f\"{TWELVE_DATA_BASE}/time_series\",\n                params={\n                    \"symbol\": symbol,\n                    \"interval\": \"1day\",\n                    \"outputsize\": outputsize,\n                    \"apikey\": TWELVE_DATA_KEY\n                },\n                timeout=15\n            )\n            if resp.status_code == 200:\n                data = resp.json()\n                if \"values\" in data:\n                    df = pd.DataFrame(data[\"values\"])\n                    df[\"datetime\"] = pd.to_datetime(df[\"datetime\"])\n                    df[\"close\"] = df[\"close\"].astype(float)\n                    df = df.sort_values(\"datetime\")\n                    return df[[\"datetime\", \"close\"]]\n        except Exception as e:\n            print(f\"⚠️ Time series error {symbol}: {e}\")\n        return pd.DataFrame()\n    \n    def load_portfolio_history(self) -> list:\n        \"\"\"Charge l'historique des portefeuilles générés\"\"\"\n        # Cherche dans les sous-dossiers datés\n        history = []\n        \n        for dated_dir in sorted(OUTPUTS.iterdir()):\n            if dated_dir.is_dir() and dated_dir.name != \"latest\":\n                portfolio_file = dated_dir / \"portfolio.json\"\n                if portfolio_file.exists():\n                    try:\n                        with open(portfolio_file) as f:\n                            data = json.load(f)\n                            history.append({\n                                \"date\": dated_dir.name,\n                                \"file\": portfolio_file.name,\n                                \"positions\": len(data.get(\"portfolio\", [])),\n                                \"portfolio\": data.get(\"portfolio\", []),\n                                \"metrics\": data.get(\"metrics\", {})\n                            })\n                    except Exception as e:\n                        print(f\"⚠️ Error loading {portfolio_file}: {e}\")\n        \n        return history\n    \n    def calculate_turnover(self, portfolio_old: list, portfolio_new: list) -> dict:\n        \"\"\"Calcule le turnover entre deux portefeuilles\"\"\"\n        symbols_old = {p[\"symbol\"]: p[\"weight\"] for p in portfolio_old}\n        symbols_new = {p[\"symbol\"]: p[\"weight\"] for p in portfolio_new}\n        \n        all_symbols = set(symbols_old.keys()) | set(symbols_new.keys())\n        \n        # Entrées et sorties\n        entries = set(symbols_new.keys()) - set(symbols_old.keys())\n        exits = set(symbols_old.keys()) - set(symbols_new.keys())\n        unchanged = set(symbols_old.keys()) & set(symbols_new.keys())\n        \n        # Turnover = somme des changements de poids / 2\n        total_change = 0\n        for symbol in all_symbols:\n            old_weight = symbols_old.get(symbol, 0)\n            new_weight = symbols_new.get(symbol, 0)\n            total_change += abs(new_weight - old_weight)\n        \n        turnover = total_change / 2  # On divise par 2 car chaque changement est compté 2x\n        \n        return {\n            \"turnover_pct\": round(turnover * 100, 2),\n            \"entries\": list(entries),\n            \"exits\": list(exits),\n            \"entries_count\": len(entries),\n            \"exits_count\": len(exits),\n            \"unchanged_count\": len(unchanged)\n        }\n    \n    def fetch_benchmark(self, days: int = 252) -> pd.DataFrame:\n        \"\"\"Récupère l'historique du benchmark (SPY)\"\"\"\n        print(f\"📊 Récupération benchmark {self.benchmark_symbol}...\")\n        return self._fetch_time_series(self.benchmark_symbol, days)\n    \n    def calculate_portfolio_returns(self, portfolio: list, days: int = 90) -> pd.DataFrame:\n        \"\"\"Calcule les rendements du portefeuille basé sur les poids\"\"\"\n        print(f\"📈 Calcul des rendements pour {len(portfolio)} positions...\")\n        \n        # Récupère les prix pour chaque position\n        price_data = {}\n        for pos in portfolio:\n            symbol = pos[\"symbol\"]\n            weight = pos[\"weight\"]\n            \n            df = self._fetch_time_series(symbol, days)\n            if not df.empty:\n                price_data[symbol] = {\n                    \"prices\": df,\n                    \"weight\": weight\n                }\n                print(f\"  ✓ {symbol}\")\n        \n        if not price_data:\n            return pd.DataFrame()\n        \n        # Trouve les dates communes\n        all_dates = None\n        for symbol, data in price_data.items():\n            dates = set(data[\"prices\"][\"datetime\"])\n            if all_dates is None:\n                all_dates = dates\n            else:\n                all_dates = all_dates & dates\n        \n        if not all_dates:\n            return pd.DataFrame()\n        \n        all_dates = sorted(all_dates)\n        \n        # Calcule les rendements pondérés\n        portfolio_values = []\n        for date in all_dates:\n            daily_return = 0\n            for symbol, data in price_data.items():\n                prices = data[\"prices\"]\n                price_row = prices[prices[\"datetime\"] == date]\n                if not price_row.empty:\n                    daily_return += data[\"weight\"] * price_row[\"close\"].values[0]\n            portfolio_values.append({\"datetime\": date, \"value\": daily_return})\n        \n        df = pd.DataFrame(portfolio_values)\n        df[\"return\"] = df[\"value\"].pct_change()\n        return df\n    \n    def compare_to_benchmark(self, portfolio: list, days: int = 90) -> dict:\n        \"\"\"Compare le portefeuille au benchmark\"\"\"\n        print(\"\\n\" + \"=\"*60)\n        print(\"📊 BACKTEST vs BENCHMARK\")\n        print(\"=\"*60)\n        \n        # Benchmark\n        bench_df = self.fetch_benchmark(days)\n        if bench_df.empty:\n            return {\"error\": \"Impossible de récupérer le benchmark\"}\n        \n        bench_df[\"return\"] = bench_df[\"close\"].pct_change()\n        bench_total_return = (bench_df[\"close\"].iloc[-1] / bench_df[\"close\"].iloc[0] - 1) * 100\n        bench_vol = bench_df[\"return\"].std() * np.sqrt(252) * 100\n        \n        # Portefeuille (approximation basée sur perf_3m pondérée)\n        portfolio_return = sum(p.get(\"weight\", 0) * (p.get(\"perf_3m\", 0) or 0) for p in portfolio)\n        portfolio_vol = np.sqrt(sum(p.get(\"weight\", 0)**2 * ((p.get(\"vol_30d\", 25) or 25)/100)**2 for p in portfolio)) * 100\n        \n        # Alpha et Sharpe\n        risk_free_rate = 4.5  # Taux sans risque actuel ~4.5%\n        alpha = portfolio_return - bench_total_return\n        sharpe_portfolio = (portfolio_return - risk_free_rate/4) / portfolio_vol if portfolio_vol > 0 else 0\n        sharpe_bench = (bench_total_return - risk_free_rate/4) / bench_vol if bench_vol > 0 else 0\n        \n        results = {\n            \"period_days\": days,\n            \"benchmark\": {\n                \"symbol\": self.benchmark_symbol,\n                \"return_pct\": round(bench_total_return, 2),\n                \"volatility_pct\": round(bench_vol, 2),\n                \"sharpe\": round(sharpe_bench, 2)\n            },\n            \"portfolio\": {\n                \"return_pct\": round(portfolio_return, 2),\n                \"volatility_pct\": round(portfolio_vol, 2),\n                \"sharpe\": round(sharpe_portfolio, 2),\n                \"positions\": len(portfolio)\n            },\n            \"comparison\": {\n                \"alpha_pct\": round(alpha, 2),\n                \"outperformance\": alpha > 0,\n                \"sharpe_diff\": round(sharpe_portfolio - sharpe_bench, 2)\n            }\n        }\n        \n        self.results = results\n        return results\n    \n    def calculate_drawdown(self, returns: pd.Series) -> dict:\n        \"\"\"Calcule le drawdown maximum\"\"\"\n        cumulative = (1 + returns).cumprod()\n        running_max = cumulative.cummax()\n        drawdown = (cumulative - running_max) / running_max\n        \n        max_dd = drawdown.min() * 100\n        max_dd_date = drawdown.idxmin() if not drawdown.empty else None\n        \n        return {\n            \"max_drawdown_pct\": round(max_dd, 2),\n            \"max_drawdown_date\": str(max_dd_date) if max_dd_date else None\n        }\n    \n    def generate_report(self, portfolio: list, output_dir: Path) -> Path:\n        \"\"\"\n        Génère un rapport de backtest complet.\n        \n        Args:\n            portfolio: Liste des positions\n            output_dir: Dossier daté (ex: outputs/2025-11-28/)\n        \"\"\"\n        # S'assurer que le dossier existe\n        output_dir = Path(output_dir)\n        output_dir.mkdir(parents=True, exist_ok=True)\n        \n        # Compare au benchmark\n        comparison = self.compare_to_benchmark(portfolio)\n        \n        # Charge l'historique pour calculer le turnover\n        history = self.load_portfolio_history()\n        turnover = None\n        if len(history) >= 2:\n            turnover = self.calculate_turnover(\n                history[-2][\"portfolio\"],\n                history[-1][\"portfolio\"]\n            )\n        \n        report = {\n            \"generated_at\": datetime.now().isoformat(),\n            \"benchmark_comparison\": comparison,\n            \"turnover\": turnover,\n            \"portfolio_history\": [\n                {\n                    \"date\": h[\"date\"],\n                    \"positions\": h[\"positions\"],\n                    \"perf_3m\": h[\"metrics\"].get(\"perf_3m\")\n                }\n                for h in history\n            ]\n        }\n        \n        # Export JSON (sans suffixe de date)\n        report_path = output_dir / \"backtest.json\"\n        with open(report_path, \"w\") as f:\n            json.dump(report, f, indent=2, default=str)\n        \n        # Affichage\n        print(\"\\n\" + \"-\"*60)\n        print(\"📊 RÉSULTATS\")\n        print(\"-\"*60)\n        \n        if \"error\" not in comparison:\n            print(f\"\\n🎯 PORTEFEUILLE:\")\n            print(f\"   Return: {comparison['portfolio']['return_pct']:+.2f}%\")\n            print(f\"   Vol: {comparison['portfolio']['volatility_pct']:.2f}%\")\n            print(f\"   Sharpe: {comparison['portfolio']['sharpe']:.2f}\")\n            \n            print(f\"\\n📈 BENCHMARK ({comparison['benchmark']['symbol']}):\")\n            print(f\"   Return: {comparison['benchmark']['return_pct']:+.2f}%\")\n            print(f\"   Vol: {comparison['benchmark']['volatility_pct']:.2f}%\")\n            print(f\"   Sharpe: {comparison['benchmark']['sharpe']:.2f}\")\n            \n            print(f\"\\n⚡ ALPHA: {comparison['comparison']['alpha_pct']:+.2f}%\")\n            status = \"✅ OUTPERFORM\" if comparison['comparison']['outperformance'] else \"❌ UNDERPERFORM\"\n            print(f\"   {status}\")\n        \n        if turnover:\n            print(f\"\\n🔄 TURNOVER:\")\n            print(f\"   {turnover['turnover_pct']:.1f}% du portefeuille\")\n            print(f\"   Entrées: {turnover['entries_count']} | Sorties: {turnover['exits_count']}\")\n        \n        print(f\"\\n📁 Rapport exporté: {report_path.name}\")\n        return report_path\n\n\ndef run_backtest():\n    \"\"\"Lance le backtest sur le dernier portefeuille\"\"\"\n    # Cherche le dernier dossier daté\n    dated_dirs = sorted([\n        d for d in OUTPUTS.iterdir() \n        if d.is_dir() and d.name != \"latest\"\n    ])\n    \n    if not dated_dirs:\n        print(\"❌ Aucun portefeuille trouvé\")\n        return\n    \n    latest_dir = dated_dirs[-1]\n    portfolio_file = latest_dir / \"portfolio.json\"\n    \n    if not portfolio_file.exists():\n        print(f\"❌ Fichier non trouvé: {portfolio_file}\")\n        return\n    \n    print(f\"📂 Chargement: {portfolio_file}\")\n    \n    with open(portfolio_file) as f:\n        data = json.load(f)\n    \n    portfolio = data.get(\"portfolio\", [])\n    \n    # Lance le backtest\n    backtester = Backtester()\n    backtester.generate_report(portfolio, latest_dir)\n\n\nif __name__ == \"__main__\":\n    run_backtest()\n"
+"""Backtest & Benchmark - Compare le portefeuille au S&P 500 et CAC 40"""
+import json
+import time
+from datetime import datetime, timedelta
+from pathlib import Path
+import requests
+import numpy as np
+import pandas as pd
+
+import sys
+sys.path.append(str(Path(__file__).parent.parent))
+from config import OUTPUTS, TWELVE_DATA_KEY, TWELVE_DATA_BASE, TWELVE_DATA_RATE_LIMIT
+
+
+class Backtester:
+    """Backtest du portefeuille et comparaison avec benchmarks"""
+    
+    def __init__(self):
+        self._last_api_call = 0
+        self.benchmarks = {
+            "SPY": {"name": "S&P 500", "currency": "USD"},
+            "CAC": {"name": "CAC 40", "currency": "EUR"}  # Twelve Data symbol for CAC 40
+        }
+        self.results = {}
+    
+    def _rate_limit(self):
+        """Respecte le rate limit Twelve Data"""
+        elapsed = time.time() - self._last_api_call
+        wait = (60 / TWELVE_DATA_RATE_LIMIT) - elapsed
+        if wait > 0:
+            time.sleep(wait)
+        self._last_api_call = time.time()
+    
+    def _fetch_time_series(self, symbol: str, outputsize: int = 252) -> pd.DataFrame:
+        """Récupère l'historique de prix"""
+        if not TWELVE_DATA_KEY:
+            return pd.DataFrame()
+        
+        self._rate_limit()
+        try:
+            resp = requests.get(
+                f"{TWELVE_DATA_BASE}/time_series",
+                params={
+                    "symbol": symbol,
+                    "interval": "1day",
+                    "outputsize": outputsize,
+                    "apikey": TWELVE_DATA_KEY
+                },
+                timeout=15
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                if "values" in data:
+                    df = pd.DataFrame(data["values"])
+                    df["datetime"] = pd.to_datetime(df["datetime"])
+                    df["close"] = df["close"].astype(float)
+                    df = df.sort_values("datetime")
+                    return df[["datetime", "close"]]
+        except Exception as e:
+            print(f"⚠️ Time series error {symbol}: {e}")
+        return pd.DataFrame()
+    
+    def load_portfolio_history(self) -> list:
+        """Charge l'historique des portefeuilles générés"""
+        history = []
+        
+        for dated_dir in sorted(OUTPUTS.iterdir()):
+            if dated_dir.is_dir() and dated_dir.name != "latest":
+                portfolio_file = dated_dir / "portfolio.json"
+                if portfolio_file.exists():
+                    try:
+                        with open(portfolio_file) as f:
+                            data = json.load(f)
+                            history.append({
+                                "date": dated_dir.name,
+                                "file": portfolio_file.name,
+                                "positions": len(data.get("portfolio", [])),
+                                "portfolio": data.get("portfolio", []),
+                                "metrics": data.get("metrics", {})
+                            })
+                    except Exception as e:
+                        print(f"⚠️ Error loading {portfolio_file}: {e}")
+        
+        return history
+    
+    def calculate_turnover(self, portfolio_old: list, portfolio_new: list) -> dict:
+        """Calcule le turnover entre deux portefeuilles"""
+        symbols_old = {p["symbol"]: p["weight"] for p in portfolio_old}
+        symbols_new = {p["symbol"]: p["weight"] for p in portfolio_new}
+        
+        all_symbols = set(symbols_old.keys()) | set(symbols_new.keys())
+        
+        entries = set(symbols_new.keys()) - set(symbols_old.keys())
+        exits = set(symbols_old.keys()) - set(symbols_new.keys())
+        unchanged = set(symbols_old.keys()) & set(symbols_new.keys())
+        
+        total_change = 0
+        for symbol in all_symbols:
+            old_weight = symbols_old.get(symbol, 0)
+            new_weight = symbols_new.get(symbol, 0)
+            total_change += abs(new_weight - old_weight)
+        
+        turnover = total_change / 2
+        
+        return {
+            "turnover_pct": round(turnover * 100, 2),
+            "entries": list(entries),
+            "exits": list(exits),
+            "entries_count": len(entries),
+            "exits_count": len(exits),
+            "unchanged_count": len(unchanged)
+        }
+    
+    def fetch_benchmark(self, symbol: str, days: int = 252) -> pd.DataFrame:
+        """Récupère l'historique d'un benchmark"""
+        print(f"📊 Récupération benchmark {symbol}...")
+        return self._fetch_time_series(symbol, days)
+    
+    def calculate_benchmark_metrics(self, df: pd.DataFrame, risk_free_rate: float = 4.5) -> dict:
+        """Calcule les métriques pour un benchmark"""
+        if df.empty:
+            return {"error": "No data"}
+        
+        df["return"] = df["close"].pct_change()
+        total_return = (df["close"].iloc[-1] / df["close"].iloc[0] - 1) * 100
+        vol = df["return"].std() * np.sqrt(252) * 100
+        
+        # Drawdown
+        cumulative = (1 + df["return"].dropna()).cumprod()
+        running_max = cumulative.cummax()
+        drawdown = (cumulative - running_max) / running_max
+        max_dd = drawdown.min() * 100
+        
+        # Sharpe (annualisé sur 90 jours = /4)
+        sharpe = (total_return - risk_free_rate/4) / vol if vol > 0 else 0
+        
+        return {
+            "return_pct": round(total_return, 2),
+            "volatility_pct": round(vol, 2),
+            "sharpe": round(sharpe, 2),
+            "max_drawdown_pct": round(max_dd, 2),
+            "prices": df[["datetime", "close"]].to_dict("records")[-90:]  # Derniers 90 jours pour graphique
+        }
+    
+    def compare_to_benchmarks(self, portfolio: list, days: int = 90) -> dict:
+        """Compare le portefeuille à plusieurs benchmarks (SPY + CAC40)"""
+        print("\n" + "="*60)
+        print("📊 BACKTEST vs BENCHMARKS (SPY + CAC40)")
+        print("="*60)
+        
+        risk_free_rate = 4.5
+        
+        # Récupère tous les benchmarks
+        benchmarks_data = {}
+        for symbol, info in self.benchmarks.items():
+            df = self.fetch_benchmark(symbol, days)
+            if not df.empty:
+                metrics = self.calculate_benchmark_metrics(df, risk_free_rate)
+                metrics["name"] = info["name"]
+                metrics["currency"] = info["currency"]
+                metrics["symbol"] = symbol
+                benchmarks_data[symbol] = metrics
+            else:
+                print(f"⚠️ Impossible de récupérer {symbol}")
+        
+        if not benchmarks_data:
+            return {"error": "Impossible de récupérer les benchmarks"}
+        
+        # Portefeuille (approximation basée sur perf_3m pondérée)
+        portfolio_return = sum(p.get("weight", 0) * (p.get("perf_3m", 0) or 0) for p in portfolio)
+        portfolio_vol = np.sqrt(sum(p.get("weight", 0)**2 * ((p.get("vol_30d", 25) or 25)/100)**2 for p in portfolio)) * 100
+        
+        # Calcul du drawdown portfolio (approximation)
+        max_dd_portfolio = -portfolio_vol * 0.5  # Estimation conservative
+        
+        sharpe_portfolio = (portfolio_return - risk_free_rate/4) / portfolio_vol if portfolio_vol > 0 else 0
+        
+        # Comparaisons avec chaque benchmark
+        comparisons = {}
+        for symbol, bench in benchmarks_data.items():
+            if "error" not in bench:
+                alpha = portfolio_return - bench["return_pct"]
+                comparisons[symbol] = {
+                    "alpha_pct": round(alpha, 2),
+                    "outperformance": alpha > 0,
+                    "sharpe_diff": round(sharpe_portfolio - bench["sharpe"], 2),
+                    "vol_diff": round(portfolio_vol - bench["volatility_pct"], 2)
+                }
+        
+        results = {
+            "period_days": days,
+            "generated_at": datetime.now().isoformat(),
+            "benchmarks": benchmarks_data,
+            "portfolio": {
+                "return_pct": round(portfolio_return, 2),
+                "volatility_pct": round(portfolio_vol, 2),
+                "sharpe": round(sharpe_portfolio, 2),
+                "max_drawdown_pct": round(max_dd_portfolio, 2),
+                "positions": len(portfolio)
+            },
+            "comparisons": comparisons
+        }
+        
+        self.results = results
+        return results
+    
+    def calculate_drawdown(self, returns: pd.Series) -> dict:
+        """Calcule le drawdown maximum"""
+        cumulative = (1 + returns).cumprod()
+        running_max = cumulative.cummax()
+        drawdown = (cumulative - running_max) / running_max
+        
+        max_dd = drawdown.min() * 100
+        max_dd_date = drawdown.idxmin() if not drawdown.empty else None
+        
+        return {
+            "max_drawdown_pct": round(max_dd, 2),
+            "max_drawdown_date": str(max_dd_date) if max_dd_date else None
+        }
+    
+    def generate_report(self, portfolio: list, output_dir: Path) -> Path:
+        """
+        Génère un rapport de backtest complet avec multi-benchmarks.
+        
+        Args:
+            portfolio: Liste des positions
+            output_dir: Dossier daté (ex: outputs/2025-11-28/)
+        """
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Compare aux benchmarks (SPY + CAC40)
+        comparison = self.compare_to_benchmarks(portfolio)
+        
+        # Charge l'historique pour calculer le turnover
+        history = self.load_portfolio_history()
+        turnover = None
+        if len(history) >= 2:
+            turnover = self.calculate_turnover(
+                history[-2]["portfolio"],
+                history[-1]["portfolio"]
+            )
+        
+        report = {
+            "generated_at": datetime.now().isoformat(),
+            "benchmark_comparison": comparison,
+            "turnover": turnover,
+            "portfolio_history": [
+                {
+                    "date": h["date"],
+                    "positions": h["positions"],
+                    "perf_3m": h["metrics"].get("perf_3m")
+                }
+                for h in history
+            ]
+        }
+        
+        # Export JSON
+        report_path = output_dir / "backtest.json"
+        with open(report_path, "w") as f:
+            json.dump(report, f, indent=2, default=str)
+        
+        # Affichage
+        print("\n" + "-"*60)
+        print("📊 RÉSULTATS")
+        print("-"*60)
+        
+        if "error" not in comparison:
+            print(f"\n🎯 PORTEFEUILLE:")
+            print(f"   Return: {comparison['portfolio']['return_pct']:+.2f}%")
+            print(f"   Vol: {comparison['portfolio']['volatility_pct']:.2f}%")
+            print(f"   Sharpe: {comparison['portfolio']['sharpe']:.2f}")
+            print(f"   Max DD: {comparison['portfolio']['max_drawdown_pct']:.2f}%")
+            
+            for symbol, bench in comparison.get("benchmarks", {}).items():
+                if "error" not in bench:
+                    print(f"\n📈 {bench['name']} ({symbol}):")
+                    print(f"   Return: {bench['return_pct']:+.2f}%")
+                    print(f"   Vol: {bench['volatility_pct']:.2f}%")
+                    print(f"   Sharpe: {bench['sharpe']:.2f}")
+                    print(f"   Max DD: {bench['max_drawdown_pct']:.2f}%")
+            
+            print(f"\n⚡ ALPHA vs SPY: {comparison['comparisons'].get('SPY', {}).get('alpha_pct', 'N/A')}%")
+            print(f"⚡ ALPHA vs CAC: {comparison['comparisons'].get('CAC', {}).get('alpha_pct', 'N/A')}%")
+        
+        if turnover:
+            print(f"\n🔄 TURNOVER:")
+            print(f"   {turnover['turnover_pct']:.1f}% du portefeuille")
+            print(f"   Entrées: {turnover['entries_count']} | Sorties: {turnover['exits_count']}")
+        
+        print(f"\n📁 Rapport exporté: {output_dir.name}/{report_path.name}")
+        return report_path
+
+
+def run_backtest():
+    """Lance le backtest sur le dernier portefeuille"""
+    dated_dirs = sorted([
+        d for d in OUTPUTS.iterdir() 
+        if d.is_dir() and d.name != "latest"
+    ])
+    
+    if not dated_dirs:
+        print("❌ Aucun portefeuille trouvé")
+        return
+    
+    latest_dir = dated_dirs[-1]
+    portfolio_file = latest_dir / "portfolio.json"
+    
+    if not portfolio_file.exists():
+        print(f"❌ Fichier non trouvé: {portfolio_file}")
+        return
+    
+    print(f"📂 Chargement: {portfolio_file}")
+    
+    with open(portfolio_file) as f:
+        data = json.load(f)
+    
+    portfolio = data.get("portfolio", [])
+    
+    # Lance le backtest
+    backtester = Backtester()
+    backtester.generate_report(portfolio, latest_dir)
+
+
+if __name__ == "__main__":
+    run_backtest()
