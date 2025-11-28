@@ -1,0 +1,32 @@
+[
+  {
+    "level": "warning",
+    "type": "concentration",
+    "symbol": null,
+    "message": "Le portefeuille pr\u00e9sente une concentration \u00e9lev\u00e9e avec plusieurs positions d\u00e9passant 5.5%."
+  },
+  {
+    "level": "warning",
+    "type": "quality",
+    "symbol": "CPRT",
+    "message": "Score composite inf\u00e9rieur \u00e0 0.4 pour Copart Inc."
+  },
+  {
+    "level": "warning",
+    "type": "momentum",
+    "symbol": "CPRT",
+    "message": "RSI inf\u00e9rieur \u00e0 30 pour Copart Inc."
+  },
+  {
+    "level": "warning",
+    "type": "momentum",
+    "symbol": "MDB",
+    "message": "RSI inf\u00e9rieur \u00e0 30 pour MongoDB Inc."
+  },
+  {
+    "level": "warning",
+    "type": "sector",
+    "symbol": null,
+    "message": "Plus de 3 positions dans le secteur technologique."
+  }
+]
