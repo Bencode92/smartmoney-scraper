@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-11-28T09:48:37.934766",
+  "generated_at": "2025-11-28T10:20:29.074710",
   "benchmark_comparison": {
     "period_days": 90,
     "benchmark": {
@@ -9,24 +9,28 @@
       "sharpe": 0.51
     },
     "portfolio": {
-      "return_pct": 1.34,
-      "volatility_pct": 5.4,
-      "sharpe": 0.04,
+      "return_pct": 0.8,
+      "volatility_pct": 5.35,
+      "sharpe": -0.06,
       "positions": 25
     },
     "comparison": {
-      "alpha_pct": -5.83,
+      "alpha_pct": -6.37,
       "outperformance": "False",
-      "sharpe_diff": -0.47
+      "sharpe_diff": -0.57
     }
   },
   "turnover": {
-    "turnover_pct": 0.0,
-    "entries": [],
-    "exits": [],
-    "entries_count": 0,
-    "exits_count": 0,
-    "unchanged_count": 25
+    "turnover_pct": 5.83,
+    "entries": [
+      "INTU"
+    ],
+    "exits": [
+      "MDB"
+    ],
+    "entries_count": 1,
+    "exits_count": 1,
+    "unchanged_count": 24
   },
   "portfolio_history": [
     {
@@ -42,7 +46,7 @@
     {
       "date": "2025-11-28",
       "positions": 25,
-      "perf_3m": 1.34
+      "perf_3m": 0.8
     }
   ]
 }
