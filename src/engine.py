@@ -1,5 +1,6 @@
 """SmartMoney Engine - Scoring + Optimisation HRP"""
 import json
+import math
 import os
 import time
 from datetime import datetime, timedelta
@@ -19,15 +20,36 @@ from config import (
 )
 
 
+# === CUSTOM JSON ENCODER ===
+
+class NaNSafeEncoder(json.JSONEncoder):
+    """Encode NaN et Infinity comme null pour JSON valide."""
+    def default(self, obj):
+        if isinstance(obj, float):
+            if math.isnan(obj) or math.isinf(obj):
+                return None
+        return super().default(obj)
+    
+    def encode(self, obj):
+        return super().encode(self._clean(obj))
+    
+    def _clean(self, obj):
+        if isinstance(obj, dict):
+            return {k: self._clean(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [self._clean(v) for v in obj]
+        elif isinstance(obj, float):
+            if math.isnan(obj) or math.isinf(obj):
+                return None
+        return obj
+
+
 # === DÉCORATEUR RETRY AVEC BACKOFF ===
 
 def with_credit_retry(max_retries: int = 3, base_wait: int = 65):
     """
     Gère automatiquement les erreurs 'You have run out of API credits...'
     avec retry + backoff exponentiel.
-
-    - max_retries=3 → jusqu'à 4 tentatives (0, 1, 2, 3)
-    - base_wait=65 → 65s, 97s, 146s...
     """
     def decorator(func):
         @wraps(func)
@@ -35,11 +57,9 @@ def with_credit_retry(max_retries: int = 3, base_wait: int = 65):
             for attempt in range(max_retries + 1):
                 result = func(self, symbol, *args, **kwargs)
 
-                # Si on a des données ou que c'est la dernière tentative → on renvoie
                 if result or attempt == max_retries:
                     return result
 
-                # On ne retry que si la dernière erreur vient clairement des crédits
                 if getattr(self, "_last_api_error", None) and "API credits" in self._last_api_error:
                     wait_time = base_wait * (1.5 ** attempt)
                     print(
@@ -49,7 +69,6 @@ def with_credit_retry(max_retries: int = 3, base_wait: int = 65):
                     time.sleep(wait_time)
                     self._last_api_error = None
                 else:
-                    # autre type d'erreur (réseau, symbole invalide...) → on n'insiste pas
                     return result
 
             return {}
@@ -65,7 +84,7 @@ class SmartMoneyEngine:
         self.portfolio = pd.DataFrame()
         self.portfolio_metrics = {}
         self._last_api_call = 0
-        self._last_api_error = None  # Pour tracker le type d'erreur (utilisé par le décorateur)
+        self._last_api_error = None
     
     # === DATA LOADING ===
     
@@ -148,21 +167,14 @@ class SmartMoneyEngine:
         self._last_api_call = time.time()
     
     def _handle_api_response(self, data: dict, endpoint: str, symbol: str) -> bool:
-        """
-        Retourne True s'il y a une erreur (champ 'code' dans la réponse).
-        Stocke le message dans self._last_api_error.
-        """
         if isinstance(data, dict) and "code" in data:
             self._last_api_error = data.get("message", str(data.get("code", "")))
             print(f"    ⚠️ {endpoint} {symbol}: {self._last_api_error}")
             return True
-
-        # pas d'erreur → reset
         self._last_api_error = None
         return False
     
     def _fetch_quote(self, symbol: str) -> dict:
-        """Récupère prix + stats via Twelve Data"""
         if not TWELVE_DATA_KEY:
             return {}
         
@@ -182,7 +194,6 @@ class SmartMoneyEngine:
         return {}
     
     def _fetch_profile(self, symbol: str) -> dict:
-        """Récupère le profil (secteur, industry) via Twelve Data"""
         if not TWELVE_DATA_KEY:
             return {}
         
@@ -202,7 +213,6 @@ class SmartMoneyEngine:
         return {}
     
     def _fetch_technicals(self, symbol: str) -> dict:
-        """Récupère RSI via Twelve Data"""
         if not TWELVE_DATA_KEY:
             return {}
         
@@ -222,7 +232,6 @@ class SmartMoneyEngine:
         return {}
     
     def _fetch_time_series(self, symbol: str, outputsize: int = 900) -> list:
-        """Récupère l'historique de prix via Twelve Data (ordre chronologique ASC)"""
         if not TWELVE_DATA_KEY:
             return []
         
@@ -233,9 +242,9 @@ class SmartMoneyEngine:
                 params={
                     "symbol": symbol,
                     "interval": "1day",
-                    "outputsize": outputsize,  # 900 jours -> > 3 ans
-                    "order": "ASC",            # plus ancien → plus récent
-                    "adjusted": "true",        # propre pour gérer les splits
+                    "outputsize": outputsize,
+                    "order": "ASC",
+                    "adjusted": "true",
                     "apikey": TWELVE_DATA_KEY
                 },
                 timeout=15
@@ -250,7 +259,6 @@ class SmartMoneyEngine:
     
     @with_credit_retry(max_retries=3, base_wait=65)
     def _fetch_statistics(self, symbol: str) -> dict:
-        """Récupère les statistiques via Twelve Data"""
         if not TWELVE_DATA_KEY:
             return {}
         
@@ -273,10 +281,6 @@ class SmartMoneyEngine:
     
     @with_credit_retry(max_retries=3, base_wait=65)
     def _fetch_balance_sheet(self, symbol: str) -> dict:
-        """
-        Récupère le bilan via Twelve Data.
-        Endpoint: /balance_sheet (sans /consolidated)
-        """
         if not TWELVE_DATA_KEY:
             return {}
         
@@ -300,10 +304,6 @@ class SmartMoneyEngine:
     
     @with_credit_retry(max_retries=3, base_wait=65)
     def _fetch_income_statement(self, symbol: str) -> dict:
-        """
-        Récupère le compte de résultat via Twelve Data.
-        Endpoint: /income_statement (sans /consolidated)
-        """
         if not TWELVE_DATA_KEY:
             return {}
         
@@ -327,10 +327,6 @@ class SmartMoneyEngine:
     
     @with_credit_retry(max_retries=3, base_wait=65)
     def _fetch_cash_flow(self, symbol: str) -> dict:
-        """
-        Récupère le cash flow via Twelve Data.
-        Endpoint: /cash_flow (sans /consolidated)
-        """
         if not TWELVE_DATA_KEY:
             return {}
         
@@ -353,22 +349,17 @@ class SmartMoneyEngine:
         return {}
     
     def _calculate_perf_vol(self, prices: list) -> dict:
-        """
-        Calcule perf 3M, YTD et vol 30j à partir d'une série ASC (plus ancien → plus récent),
-        comme dans stock-advanced-filter.js.
-        """
         result = {"perf_3m": None, "perf_ytd": None, "vol_30d": None}
         
         if not prices or len(prices) < 2:
             return result
 
         try:
-            # Normalisation des données
             closes = []
             dates = []
             for p in prices:
                 c = self._safe_float(p.get("close"))
-                d = p.get("datetime", "")[:10]   # "YYYY-MM-DD"
+                d = p.get("datetime", "")[:10]
                 if c is not None and d:
                     closes.append(c)
                     dates.append(d)
@@ -376,35 +367,30 @@ class SmartMoneyEngine:
             if len(closes) < 2:
                 return result
 
-            # Dernier cours (série ASC)
             current_price = closes[-1]
 
-            # Helper pour récupérer un cours "n jours de bourse" avant
             def price_n_days_ago(n: int):
                 idx = len(closes) - 1 - n
                 if idx >= 0:
                     return closes[idx]
                 return None
 
-            # === Perf 3M (~63 séances) ===
             price_3m = price_n_days_ago(63)
             if price_3m and price_3m > 0:
                 result["perf_3m"] = round((current_price / price_3m - 1) * 100, 2)
 
-            # === Perf YTD (premier cours >= 1er janvier) ===
             current_year = datetime.now().year
             year_start = f"{current_year}-01-01"
 
             price_ytd = None
             for c, d in zip(closes, dates):
-                if d >= year_start:        # premier jour de cotation de l'année
+                if d >= year_start:
                     price_ytd = c
                     break
 
             if price_ytd and price_ytd > 0 and current_price > 0 and price_ytd != current_price:
                 result["perf_ytd"] = round((current_price / price_ytd - 1) * 100, 2)
 
-            # === Volatilité 30 jours ===
             if len(closes) >= 30:
                 recent = closes[-30:]
                 returns = []
@@ -422,22 +408,12 @@ class SmartMoneyEngine:
         return result
     
     def _extract_fundamentals(self, stats: dict, balance: dict, income: dict, cashflow: dict) -> dict:
-        """
-        Extrait les ratios fondamentaux à partir des réponses réelles Twelve Data.
-        
-        Structure Twelve Data:
-        - income_statement[0] -> champs au premier niveau (sales, net_income, etc.)
-        - balance_sheet[0] -> structure IMBRIQUÉE (assets.total_assets, etc.)
-        - cash_flow[0] -> structure IMBRIQUÉE (operating_activities.operating_cash_flow, etc.)
-        - statistics -> stats["statistics"]["financials"]["balance_sheet"]["current_ratio_mrq"], etc.
-        """
         result = {
             "roe": None, "roa": None, "debt_equity": None, "current_ratio": None,
             "gross_margin": None, "operating_margin": None, "net_margin": None,
             "capex_ratio": None, "fcf": None, "revenue": None, "net_income": None
         }
 
-        # === INCOME STATEMENT (structure plate) ===
         if income:
             revenue = self._safe_float(
                 income.get("sales")
@@ -465,19 +441,16 @@ class SmartMoneyEngine:
                 if net_inc is not None:
                     result["net_margin"] = round(net_inc / revenue * 100, 2)
 
-        # === BALANCE SHEET (structure IMBRIQUÉE) ===
         if balance:
             assets = balance.get("assets", {}) or {}
             liabilities = balance.get("liabilities", {}) or {}
             equity = balance.get("shareholders_equity", {}) or {}
 
-            # Total Assets
             total_assets = self._safe_float(
                 assets.get("total_assets")
                 or balance.get("total_assets")
             )
 
-            # Total Equity (plusieurs variantes possibles)
             total_equity = self._safe_float(
                 equity.get("total_shareholders_equity")
                 or equity.get("total_stockholders_equity")
@@ -486,7 +459,6 @@ class SmartMoneyEngine:
                 or balance.get("total_equity")
             )
 
-            # Current Assets
             current_assets_block = assets.get("current_assets", {}) or {}
             current_assets = self._safe_float(
                 current_assets_block.get("total_current_assets")
@@ -494,7 +466,6 @@ class SmartMoneyEngine:
                 or balance.get("total_current_assets")
             )
 
-            # Current Liabilities
             current_liab_block = liabilities.get("current_liabilities", {}) or {}
             current_liabilities = self._safe_float(
                 current_liab_block.get("total_current_liabilities")
@@ -502,7 +473,6 @@ class SmartMoneyEngine:
                 or balance.get("total_current_liabilities")
             )
 
-            # Dette = short_term_debt + long_term_debt
             non_current_liab_block = liabilities.get("non_current_liabilities", {}) or {}
             short_term_debt = self._safe_float(current_liab_block.get("short_term_debt"))
             long_term_debt = self._safe_float(non_current_liab_block.get("long_term_debt"))
@@ -511,7 +481,6 @@ class SmartMoneyEngine:
             if short_term_debt is not None or long_term_debt is not None:
                 total_debt = (short_term_debt or 0) + (long_term_debt or 0)
 
-            # Calcul des ratios
             if current_assets is not None and current_liabilities and current_liabilities > 0:
                 result["current_ratio"] = round(current_assets / current_liabilities, 2)
 
@@ -524,7 +493,6 @@ class SmartMoneyEngine:
             if total_assets and total_assets > 0 and result["net_income"] is not None:
                 result["roa"] = round(result["net_income"] / total_assets * 100, 2)
 
-        # === CASH FLOW (structure IMBRIQUÉE) ===
         if cashflow:
             op = cashflow.get("operating_activities", {}) or {}
             inv = cashflow.get("investing_activities", {}) or {}
@@ -544,7 +512,6 @@ class SmartMoneyEngine:
                 or inv.get("free_cash_flow")
             )
 
-            # Cas normal : CAPEX explicite dans l'API
             if capex is not None:
                 capex_abs = abs(capex)
                 if result["revenue"] and result["revenue"] > 0:
@@ -556,7 +523,6 @@ class SmartMoneyEngine:
                     result["fcf"] = round(operating_cf - capex_abs, 0)
 
             else:
-                # Fallback: CAPEX implicite via OCF - FCF si les données sont propres
                 if (
                     result["capex_ratio"] is None
                     and result["revenue"] and result["revenue"] > 0
@@ -571,12 +537,10 @@ class SmartMoneyEngine:
                 if fcf_direct is not None:
                     result["fcf"] = fcf_direct
 
-        # === STATISTICS (fallback complet si certains ratios manquent) ===
         if stats:
             stats_root = stats.get("statistics") or stats.get("data") or stats
             fin = stats_root.get("financials", {}) or {}
             fin_bs = fin.get("balance_sheet", {}) or {}
-            fin_is = fin.get("income_statement", {}) or {}
 
             if result["roe"] is None:
                 roe_raw = self._safe_float(
@@ -624,12 +588,12 @@ class SmartMoneyEngine:
         return result
     
     def _safe_float(self, value) -> float:
-        """Convertit en float de manière sécurisée"""
+        """Convertit en float de manière sécurisée, retourne None pour NaN/Inf"""
         if value is None:
             return None
         try:
             f = float(value)
-            if np.isnan(f) or np.isinf(f):
+            if math.isnan(f) or math.isinf(f):
                 return None
             return f
         except (ValueError, TypeError):
@@ -638,10 +602,6 @@ class SmartMoneyEngine:
     # === ENRICHISSEMENT ===
     
     def enrich(self, top_n: int = 50) -> pd.DataFrame:
-        """
-        Enrichit les top N candidats avec Twelve Data (quote, profil, RSI,
-        historique, fondamentaux) pour TOUS les tickers.
-        """
         if self.universe.empty:
             self.load_data()
 
@@ -663,7 +623,6 @@ class SmartMoneyEngine:
             symbol = row["symbol"]
             print(f"\n  [{idx}/{len(candidates)}] {symbol}")
 
-            # 1. Quote
             quote = self._fetch_quote(symbol)
             row["td_price"] = float(quote.get("close", row.get("current_price", 0)) or 0)
             row["td_change_pct"] = float(quote.get("percent_change", 0) or 0)
@@ -674,18 +633,15 @@ class SmartMoneyEngine:
             row["td_low_52w"] = float(ftw.get("low", row.get("low_52w", 0)) or 0)
             print(f"    ✓ Quote: ${row['td_price']:.2f}")
 
-            # 2. Profile
             profile = self._fetch_profile(symbol)
             row["sector"] = profile.get("sector") or "Unknown"
             row["industry"] = profile.get("industry") or "Unknown"
             print(f"    ✓ Profile: {row['sector']}")
 
-            # 3. RSI
             tech = self._fetch_technicals(symbol)
             row["rsi"] = tech.get("rsi", 50.0)
             print(f"    ✓ RSI: {row['rsi']:.1f}")
 
-            # 4. Time series (900 jours pour avoir YTD correct)
             prices = self._fetch_time_series(symbol, 900)
             perf_vol = self._calculate_perf_vol(prices)
             row["perf_3m"] = perf_vol["perf_3m"]
@@ -694,7 +650,6 @@ class SmartMoneyEngine:
             ytd_str = f"{row['perf_ytd']}%" if row.get("perf_ytd") is not None else "N/A"
             print(f"    ✓ Perf 3M: {row['perf_3m']}% | YTD: {ytd_str} | Vol: {row['vol_30d']}%")
 
-            # 5-8. Fondamentaux
             stats = self._fetch_statistics(symbol)
             balance = self._fetch_balance_sheet(symbol)
             income = self._fetch_income_statement(symbol)
@@ -714,7 +669,6 @@ class SmartMoneyEngine:
 
         self.universe = pd.DataFrame(enriched)
 
-        # === Validation coverage fondamentaux ===
         fundamentals_cols = ["roe", "debt_equity", "net_margin", "current_ratio"]
         existing_cols = [c for c in fundamentals_cols if c in self.universe.columns]
         if existing_cols:
@@ -731,10 +685,9 @@ class SmartMoneyEngine:
         print(f"\n✅ Enrichissement terminé")
         return self.universe
     
-    # === NETTOYAGE OPTIONNEL ===
+    # === NETTOYAGE ===
     
     def clean_universe(self, strict: bool = False):
-        """Exclut les tickers sans fondamentaux suffisants."""
         df = self.universe
         
         if not strict:
@@ -1096,15 +1049,7 @@ class SmartMoneyEngine:
     def export(self, output_dir: Path) -> dict:
         """
         Exporte le portefeuille directement dans le dossier spécifié.
-        
-        Note: Le dossier daté et le symlink 'latest' sont maintenant gérés par main.py.
-        Cette méthode écrit simplement portfolio.json et portfolio.csv dans output_dir.
-        
-        Args:
-            output_dir: Dossier où écrire les fichiers (ex: outputs/2025-11-28/)
-        
-        Returns:
-            dict: Le portefeuille au format JSON
+        Utilise NaNSafeEncoder pour garantir un JSON valide (NaN → null).
         """
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -1124,8 +1069,10 @@ class SmartMoneyEngine:
         cols = [c for c in export_cols if c in self.portfolio.columns]
         df = self.portfolio[cols].copy()
         
-        # Export JSON directement dans output_dir (pas de sous-dossier)
-        json_path = output_dir / "portfolio.json"
+        # Remplacer les NaN par None dans le DataFrame avant export
+        df = df.where(pd.notnull(df), None)
+        
+        # Construire le résultat
         result = {
             "metadata": {
                 "generated_at": datetime.now().isoformat(),
@@ -1136,10 +1083,13 @@ class SmartMoneyEngine:
             "metrics": self.portfolio_metrics,
             "portfolio": df.to_dict(orient="records")
         }
-        with open(json_path, "w") as f:
-            json.dump(result, f, indent=2, default=str)
         
-        # Export CSV directement dans output_dir
+        # Export JSON avec encodeur sécurisé pour NaN
+        json_path = output_dir / "portfolio.json"
+        with open(json_path, "w") as f:
+            json.dump(result, f, indent=2, cls=NaNSafeEncoder, default=str)
+        
+        # Export CSV
         csv_path = output_dir / "portfolio.csv"
         df.to_csv(csv_path, index=False)
         
@@ -1157,7 +1107,6 @@ if __name__ == "__main__":
     engine.optimize()
     
     from config import OUTPUTS
-    # Pour le test standalone, créer le dossier daté
     today = datetime.now().strftime("%Y-%m-%d")
     dated_dir = OUTPUTS / today
     dated_dir.mkdir(parents=True, exist_ok=True)
