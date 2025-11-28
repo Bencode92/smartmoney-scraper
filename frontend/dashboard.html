@@ -572,7 +572,22 @@
 
   <script>
     // === Configuration ===
-    const DATA_PATH = "../outputs/latest";
+    const OUTPUTS_BASE = "../outputs";
+    
+    // Liste des dossiers datés à essayer (du plus récent au plus ancien)
+    // On génère les 30 derniers jours comme fallback
+    function getRecentDates(days = 30) {
+      const dates = [];
+      const today = new Date();
+      for (let i = 0; i < days; i++) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
+        dates.push(d.toISOString().split('T')[0]); // Format YYYY-MM-DD
+      }
+      return dates;
+    }
+
+    let DATA_PATH = null;
     let portfolioData = null;
     let alertsData = [];
     let backtestData = null;
@@ -608,6 +623,39 @@
       if (score >= 0.65) return "score-high";
       if (score >= 0.5) return "score-medium";
       return "score-low";
+    }
+
+    // === Find Valid Data Path ===
+    async function findDataPath() {
+      // 1. Essayer d'abord "latest"
+      const latestPath = `${OUTPUTS_BASE}/latest`;
+      try {
+        const res = await fetch(`${latestPath}/portfolio.json`, { method: 'HEAD' });
+        if (res.ok) {
+          console.log("✅ Données trouvées dans: latest/");
+          return latestPath;
+        }
+      } catch (e) {
+        console.log("ℹ️ latest/ non disponible, recherche par date...");
+      }
+
+      // 2. Sinon, essayer les dossiers datés (30 derniers jours)
+      const dates = getRecentDates(30);
+      for (const date of dates) {
+        const datePath = `${OUTPUTS_BASE}/${date}`;
+        try {
+          const res = await fetch(`${datePath}/portfolio.json`, { method: 'HEAD' });
+          if (res.ok) {
+            console.log(`✅ Données trouvées dans: ${date}/`);
+            return datePath;
+          }
+        } catch (e) {
+          // Continue to next date
+        }
+      }
+
+      // 3. Aucun dossier trouvé
+      throw new Error("Aucun dossier de données trouvé (ni latest, ni dates récentes)");
     }
 
     // === Render Functions ===
@@ -862,6 +910,11 @@
     // === Load Data ===
     async function loadData() {
       try {
+        // 1. Trouver le bon chemin (latest ou date la plus récente)
+        DATA_PATH = await findDataPath();
+        console.log(`📂 Chargement depuis: ${DATA_PATH}`);
+
+        // 2. Charger les fichiers
         const [portfolioRes, alertsRes, backtestRes] = await Promise.all([
           fetch(`${DATA_PATH}/portfolio.json`),
           fetch(`${DATA_PATH}/alerts.json`).catch(() => ({ ok: false })),
@@ -894,7 +947,8 @@
         console.error("Erreur chargement:", err);
         document.body.innerHTML += `
           <div style="position: fixed; bottom: 20px; left: 20px; right: 20px; background: #7f1d1d; color: #fecaca; padding: 16px; border-radius: 12px; font-size: 14px;">
-            ⚠️ Erreur de chargement des données. Vérifiez que les fichiers existent dans <code>${DATA_PATH}/</code>
+            ⚠️ Erreur de chargement des données: ${err.message}<br>
+            <small>Vérifiez que les fichiers existent dans <code>outputs/latest/</code> ou <code>outputs/YYYY-MM-DD/</code></small>
           </div>
         `;
       }
