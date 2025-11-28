@@ -1,5 +1,6 @@
 """SmartMoney Engine - Scoring + Optimisation HRP"""
 import json
+import os
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -1121,8 +1122,24 @@ class SmartMoneyEngine:
     # === EXPORT ===
     
     def export(self, output_dir: Path) -> dict:
+        """
+        Exporte le portefeuille dans un sous-dossier daté.
+        
+        Structure:
+            outputs/
+                2025-11-28/
+                    portfolio.json
+                    portfolio.csv
+                latest -> 2025-11-28/  (symlink)
+        """
+        output_dir = Path(output_dir)
         output_dir.mkdir(exist_ok=True)
+        
         today = datetime.now().strftime("%Y-%m-%d")
+        
+        # Créer le sous-dossier daté
+        dated_dir = output_dir / today
+        dated_dir.mkdir(exist_ok=True)
         
         export_cols = [
             "symbol", "company", "sector", "industry", "weight",
@@ -1137,10 +1154,12 @@ class SmartMoneyEngine:
         cols = [c for c in export_cols if c in self.portfolio.columns]
         df = self.portfolio[cols].copy()
         
-        json_path = output_dir / f"portfolio_{today}.json"
+        # Export JSON (sans suffixe de date)
+        json_path = dated_dir / "portfolio.json"
         result = {
             "metadata": {
                 "generated_at": datetime.now().isoformat(),
+                "date": today,
                 "positions": len(df),
                 "total_weight": round(df["weight"].sum(), 4)
             },
@@ -1150,10 +1169,29 @@ class SmartMoneyEngine:
         with open(json_path, "w") as f:
             json.dump(result, f, indent=2, default=str)
         
-        csv_path = output_dir / f"portfolio_{today}.csv"
+        # Export CSV (sans suffixe de date)
+        csv_path = dated_dir / "portfolio.csv"
         df.to_csv(csv_path, index=False)
         
-        print(f"📁 Exporté: {json_path.name}, {csv_path.name}")
+        # Créer/mettre à jour le symlink "latest"
+        latest_link = output_dir / "latest"
+        try:
+            # Supprimer l'ancien symlink s'il existe
+            if latest_link.is_symlink() or latest_link.exists():
+                latest_link.unlink()
+            # Créer le nouveau symlink (relatif pour portabilité)
+            latest_link.symlink_to(today)
+            print(f"🔗 Symlink latest → {today}")
+        except OSError as e:
+            # Sur Windows ou si les symlinks ne sont pas supportés, copier les fichiers
+            print(f"⚠️ Symlink non supporté ({e}), copie directe dans latest/")
+            latest_dir = output_dir / "latest"
+            latest_dir.mkdir(exist_ok=True)
+            import shutil
+            shutil.copy2(json_path, latest_dir / "portfolio.json")
+            shutil.copy2(csv_path, latest_dir / "portfolio.csv")
+        
+        print(f"📁 Exporté: {dated_dir.name}/portfolio.json, portfolio.csv")
         return result
 
 
