@@ -557,38 +557,27 @@ class SmartMoneyEngine:
 
             else:
                 # Fallback: CAPEX implicite via OCF - FCF si les données sont propres
-                # (ex: UNP où capital_expenditures est null mais OCF et FCF existent)
                 if (
                     result["capex_ratio"] is None
                     and result["revenue"] and result["revenue"] > 0
                     and operating_cf is not None
                     and fcf_direct is not None
-                    and fcf_direct <= operating_cf  # garde-fou pour éviter les absurdités
+                    and fcf_direct <= operating_cf
                 ):
                     implied_capex = operating_cf - fcf_direct
                     capex_abs = abs(implied_capex)
                     result["capex_ratio"] = round(capex_abs / result["revenue"] * 100, 2)
 
-                # Dans tous les cas, si on a un FCF direct, on le garde
                 if fcf_direct is not None:
                     result["fcf"] = fcf_direct
 
         # === STATISTICS (fallback complet si certains ratios manquent) ===
-        # Structure réelle Twelve Data:
-        #   stats["statistics"]["financials"]["balance_sheet"]["current_ratio_mrq"]
-        #   stats["statistics"]["financials"]["operating_margin"]
         if stats:
-            # 1) On descend au bon niveau: "statistics"
             stats_root = stats.get("statistics") or stats.get("data") or stats
-            
-            # 2) Puis dans "financials"
             fin = stats_root.get("financials", {}) or {}
-            
-            # 3) Puis sous-blocs
             fin_bs = fin.get("balance_sheet", {}) or {}
             fin_is = fin.get("income_statement", {}) or {}
 
-            # ROE fallback (si pas calculé via bilan+P&L)
             if result["roe"] is None:
                 roe_raw = self._safe_float(
                     fin.get("return_on_equity_ttm")
@@ -597,7 +586,6 @@ class SmartMoneyEngine:
                 if roe_raw is not None:
                     result["roe"] = round(roe_raw * 100, 2) if -1 < roe_raw < 1 else round(roe_raw, 2)
 
-            # ROA fallback
             if result["roa"] is None:
                 roa_raw = self._safe_float(
                     fin.get("return_on_assets_ttm")
@@ -606,7 +594,6 @@ class SmartMoneyEngine:
                 if roa_raw is not None:
                     result["roa"] = round(roa_raw * 100, 2) if -1 < roa_raw < 1 else round(roa_raw, 2)
 
-            # Current ratio fallback (ex: BRK.B → current_ratio_mrq = 2.722)
             if result["current_ratio"] is None:
                 cr = self._safe_float(
                     fin.get("current_ratio")
@@ -616,19 +603,16 @@ class SmartMoneyEngine:
                 if cr is not None:
                     result["current_ratio"] = round(cr, 2)
 
-            # Gross margin fallback
             if result["gross_margin"] is None:
                 gm = self._safe_float(fin.get("gross_margin"))
                 if gm is not None:
                     result["gross_margin"] = round(gm * 100, 2) if -1 < gm < 1 else round(gm, 2)
 
-            # Operating margin fallback (ex: BRK.B → operating_margin = 0.41103)
             if result["operating_margin"] is None:
                 om = self._safe_float(fin.get("operating_margin"))
                 if om is not None:
                     result["operating_margin"] = round(om * 100, 2) if -1 < om < 1 else round(om, 2)
 
-            # Net margin / Profit margin fallback
             if result["net_margin"] is None:
                 pm = self._safe_float(
                     fin.get("profit_margin")
@@ -657,9 +641,6 @@ class SmartMoneyEngine:
         """
         Enrichit les top N candidats avec Twelve Data (quote, profil, RSI,
         historique, fondamentaux) pour TOUS les tickers.
-        
-        Args:
-            top_n: Nombre de tickers à enrichir
         """
         if self.universe.empty:
             self.load_data()
@@ -713,7 +694,7 @@ class SmartMoneyEngine:
             ytd_str = f"{row['perf_ytd']}%" if row.get("perf_ytd") is not None else "N/A"
             print(f"    ✓ Perf 3M: {row['perf_3m']}% | YTD: {ytd_str} | Vol: {row['vol_30d']}%")
 
-            # 5-8. Fondamentaux (toujours, avec retry géré par les fetch)
+            # 5-8. Fondamentaux
             stats = self._fetch_statistics(symbol)
             balance = self._fetch_balance_sheet(symbol)
             income = self._fetch_income_statement(symbol)
@@ -743,7 +724,6 @@ class SmartMoneyEngine:
                 missing = self.universe[self.universe[existing_cols].isna().all(axis=1)]["symbol"].tolist()
                 print(f"⚠️ Beaucoup de tickers sans fondamentaux, ex: {missing[:10]}{'...' if len(missing) > 10 else ''}")
 
-        # === Validation coverage perf_ytd ===
         if "perf_ytd" in self.universe.columns:
             ytd_coverage = self.universe["perf_ytd"].notna().mean()
             print(f"📊 Coverage perf_ytd: {ytd_coverage:.0%}")
@@ -754,20 +734,12 @@ class SmartMoneyEngine:
     # === NETTOYAGE OPTIONNEL ===
     
     def clean_universe(self, strict: bool = False):
-        """
-        Exclut les tickers sans fondamentaux suffisants.
-        
-        Args:
-            strict: Si True, exclut les tickers sans revenue/net_income.
-                   Si False, garde tous les tickers (recommandé si crédits limités).
-        """
+        """Exclut les tickers sans fondamentaux suffisants."""
         df = self.universe
         
         if not strict:
-            # Mode souple: exclure seulement les secteurs Unknown
             mask_bad = df["sector"].eq("Unknown")
         else:
-            # Mode strict: exclure aussi les tickers sans fondamentaux
             mask_bad = (
                 df["sector"].eq("Unknown") |
                 df["revenue"].isna() |
@@ -1123,23 +1095,21 @@ class SmartMoneyEngine:
     
     def export(self, output_dir: Path) -> dict:
         """
-        Exporte le portefeuille dans un sous-dossier daté.
+        Exporte le portefeuille directement dans le dossier spécifié.
         
-        Structure:
-            outputs/
-                2025-11-28/
-                    portfolio.json
-                    portfolio.csv
-                latest -> 2025-11-28/  (symlink)
+        Note: Le dossier daté et le symlink 'latest' sont maintenant gérés par main.py.
+        Cette méthode écrit simplement portfolio.json et portfolio.csv dans output_dir.
+        
+        Args:
+            output_dir: Dossier où écrire les fichiers (ex: outputs/2025-11-28/)
+        
+        Returns:
+            dict: Le portefeuille au format JSON
         """
         output_dir = Path(output_dir)
-        output_dir.mkdir(exist_ok=True)
+        output_dir.mkdir(parents=True, exist_ok=True)
         
         today = datetime.now().strftime("%Y-%m-%d")
-        
-        # Créer le sous-dossier daté
-        dated_dir = output_dir / today
-        dated_dir.mkdir(exist_ok=True)
         
         export_cols = [
             "symbol", "company", "sector", "industry", "weight",
@@ -1154,8 +1124,8 @@ class SmartMoneyEngine:
         cols = [c for c in export_cols if c in self.portfolio.columns]
         df = self.portfolio[cols].copy()
         
-        # Export JSON (sans suffixe de date)
-        json_path = dated_dir / "portfolio.json"
+        # Export JSON directement dans output_dir (pas de sous-dossier)
+        json_path = output_dir / "portfolio.json"
         result = {
             "metadata": {
                 "generated_at": datetime.now().isoformat(),
@@ -1169,29 +1139,11 @@ class SmartMoneyEngine:
         with open(json_path, "w") as f:
             json.dump(result, f, indent=2, default=str)
         
-        # Export CSV (sans suffixe de date)
-        csv_path = dated_dir / "portfolio.csv"
+        # Export CSV directement dans output_dir
+        csv_path = output_dir / "portfolio.csv"
         df.to_csv(csv_path, index=False)
         
-        # Créer/mettre à jour le symlink "latest"
-        latest_link = output_dir / "latest"
-        try:
-            # Supprimer l'ancien symlink s'il existe
-            if latest_link.is_symlink() or latest_link.exists():
-                latest_link.unlink()
-            # Créer le nouveau symlink (relatif pour portabilité)
-            latest_link.symlink_to(today)
-            print(f"🔗 Symlink latest → {today}")
-        except OSError as e:
-            # Sur Windows ou si les symlinks ne sont pas supportés, copier les fichiers
-            print(f"⚠️ Symlink non supporté ({e}), copie directe dans latest/")
-            latest_dir = output_dir / "latest"
-            latest_dir.mkdir(exist_ok=True)
-            import shutil
-            shutil.copy2(json_path, latest_dir / "portfolio.json")
-            shutil.copy2(csv_path, latest_dir / "portfolio.csv")
-        
-        print(f"📁 Exporté: {dated_dir.name}/portfolio.json, portfolio.csv")
+        print(f"📁 Exporté: portfolio.json, portfolio.csv")
         return result
 
 
@@ -1199,10 +1151,14 @@ if __name__ == "__main__":
     engine = SmartMoneyEngine()
     engine.load_data()
     engine.enrich(top_n=40)
-    engine.clean_universe(strict=False)  # Mode souple pour garder les tickers sans fondamentaux
+    engine.clean_universe(strict=False)
     engine.calculate_scores()
     engine.apply_filters()
     engine.optimize()
     
     from config import OUTPUTS
-    engine.export(OUTPUTS)
+    # Pour le test standalone, créer le dossier daté
+    today = datetime.now().strftime("%Y-%m-%d")
+    dated_dir = OUTPUTS / today
+    dated_dir.mkdir(parents=True, exist_ok=True)
+    engine.export(dated_dir)
