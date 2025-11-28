@@ -5,9 +5,16 @@ from pathlib import Path
 
 
 def generate_dashboard(portfolio: dict, output_dir: Path) -> Path:
-    """Génère un dashboard HTML autonome avec fondamentaux"""
+    """
+    Génère un dashboard HTML autonome avec fondamentaux.
     
-    today = datetime.now().strftime("%Y-%m-%d")
+    Args:
+        portfolio: Données du portefeuille
+        output_dir: Dossier daté (ex: outputs/2025-11-28/)
+    """
+    
+    # Récupère la date depuis metadata ou dossier
+    date_str = portfolio.get("metadata", {}).get("date", datetime.now().strftime("%Y-%m-%d"))
     metrics = portfolio.get("metrics", {})
     positions = portfolio.get("portfolio", [])
     sector_weights = metrics.get("sector_weights", {})
@@ -36,7 +43,7 @@ def generate_dashboard(portfolio: dict, output_dir: Path) -> Path:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SmartMoney Portfolio - {today}</title>
+    <title>SmartMoney Portfolio - {date_str}</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
@@ -154,7 +161,7 @@ def generate_dashboard(portfolio: dict, output_dir: Path) -> Path:
 </head>
 <body>
     <div class="container">
-        <h1>📊 SmartMoney Portfolio — {today}</h1>
+        <h1>📊 SmartMoney Portfolio — {date_str}</h1>
         
         <div class="metrics-grid">
             <div class="metric-card">
@@ -327,22 +334,41 @@ def generate_dashboard(portfolio: dict, output_dir: Path) -> Path:
 </html>
 """
     
-    html_path = output_dir / f"portfolio_{today}.html"
+    # Sauvegarde sans suffixe de date (le dossier parent est déjà daté)
+    html_path = output_dir / "dashboard.html"
     with open(html_path, "w", encoding="utf-8") as f:
         f.write(html)
     
-    print(f"📊 Dashboard exporté: {html_path.name}")
+    print(f"📊 Dashboard exporté: {output_dir.name}/dashboard.html")
     return html_path
 
 
 if __name__ == "__main__":
+    import sys
+    sys.path.append(str(Path(__file__).parent.parent))
     from config import OUTPUTS
     
-    portfolio_files = list(OUTPUTS.glob("portfolio_*.json"))
-    if portfolio_files:
-        latest = max(portfolio_files, key=lambda x: x.stat().st_mtime)
-        with open(latest) as f:
-            portfolio = json.load(f)
-        generate_dashboard(portfolio, OUTPUTS)
+    # Cherche d'abord dans outputs/latest/, sinon dans les sous-dossiers datés
+    latest_dir = OUTPUTS / "latest"
+    
+    if latest_dir.exists() and (latest_dir / "portfolio.json").exists():
+        portfolio_path = latest_dir / "portfolio.json"
     else:
-        print("❌ Aucun portfolio trouvé")
+        # Fallback: cherche dans les sous-dossiers datés
+        dated_dirs = sorted([d for d in OUTPUTS.iterdir() if d.is_dir() and d.name != "latest"], reverse=True)
+        if not dated_dirs:
+            print("❌ Aucun portfolio trouvé. Lance d'abord: python main.py")
+            exit(1)
+        portfolio_path = dated_dirs[0] / "portfolio.json"
+    
+    if not portfolio_path.exists():
+        print(f"❌ Portfolio non trouvé: {portfolio_path}")
+        exit(1)
+    
+    print(f"📂 Chargement: {portfolio_path}")
+    with open(portfolio_path) as f:
+        portfolio = json.load(f)
+    
+    # Exporte dans le même dossier que le portfolio
+    output_dir = portfolio_path.parent
+    generate_dashboard(portfolio, output_dir)
