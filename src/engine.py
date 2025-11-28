@@ -392,6 +392,7 @@ class SmartMoneyEngine:
         - income_statement[0] -> champs au premier niveau (sales, net_income, etc.)
         - balance_sheet[0] -> structure IMBRIQUÉE (assets.total_assets, etc.)
         - cash_flow[0] -> structure IMBRIQUÉE (operating_activities.operating_cash_flow, etc.)
+        - statistics -> financials.balance_sheet.current_ratio_mrq, financials.operating_margin, etc.
         """
         result = {
             "roe": None, "roa": None, "debt_equity": None, "current_ratio": None,
@@ -519,20 +520,61 @@ class SmartMoneyEngine:
             elif fcf_direct is not None:
                 result["fcf"] = fcf_direct
 
-        # === STATISTICS (fallback si certains ratios manquent) ===
+        # === STATISTICS (fallback complet si certains ratios manquent) ===
+        # Structure: stats["financials"]["balance_sheet"]["current_ratio_mrq"], etc.
         if stats:
             fin = stats.get("financials", {}) or stats.get("statistics", {}) or {}
+            fin_bs = fin.get("balance_sheet", {}) or {}
+            fin_is = fin.get("income_statement", {}) or {}
 
+            # ROE fallback (si pas calculé via bilan+P&L)
             if result["roe"] is None:
                 roe_raw = self._safe_float(
                     fin.get("return_on_equity_ttm")
                     or fin.get("return_on_equity")
                 )
                 if roe_raw is not None:
-                    result["roe"] = roe_raw * 100 if -1 < roe_raw < 1 else roe_raw
+                    result["roe"] = round(roe_raw * 100, 2) if -1 < roe_raw < 1 else round(roe_raw, 2)
 
+            # ROA fallback
+            if result["roa"] is None:
+                roa_raw = self._safe_float(
+                    fin.get("return_on_assets_ttm")
+                    or fin.get("return_on_assets")
+                )
+                if roa_raw is not None:
+                    result["roa"] = round(roa_raw * 100, 2) if -1 < roa_raw < 1 else round(roa_raw, 2)
+
+            # Current ratio fallback (ex: BRK.B → current_ratio_mrq = 2.722)
             if result["current_ratio"] is None:
-                result["current_ratio"] = self._safe_float(fin.get("current_ratio"))
+                cr = self._safe_float(
+                    fin.get("current_ratio")
+                    or fin_bs.get("current_ratio")
+                    or fin_bs.get("current_ratio_mrq")
+                )
+                if cr is not None:
+                    result["current_ratio"] = round(cr, 2)
+
+            # Gross margin fallback
+            if result["gross_margin"] is None:
+                gm = self._safe_float(fin.get("gross_margin"))
+                if gm is not None:
+                    result["gross_margin"] = round(gm * 100, 2) if -1 < gm < 1 else round(gm, 2)
+
+            # Operating margin fallback (ex: BRK.B → operating_margin = 0.41103)
+            if result["operating_margin"] is None:
+                om = self._safe_float(fin.get("operating_margin"))
+                if om is not None:
+                    result["operating_margin"] = round(om * 100, 2) if -1 < om < 1 else round(om, 2)
+
+            # Net margin / Profit margin fallback
+            if result["net_margin"] is None:
+                pm = self._safe_float(
+                    fin.get("profit_margin")
+                    or fin.get("net_margin")
+                )
+                if pm is not None:
+                    result["net_margin"] = round(pm * 100, 2) if -1 < pm < 1 else round(pm, 2)
 
         return result
     
