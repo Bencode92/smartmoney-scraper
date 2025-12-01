@@ -1,4 +1,12 @@
-"""SmartMoney Engine - Scoring + Optimisation HRP"""
+"""SmartMoney Engine v2.2 - Scoring + Optimisation HRP amélioré
+
+Améliorations v2.2:
+- enrich_from_history() pour backtest walk-forward
+- Corrélations réelles avec shrinkage Ledoit-Wolf
+- Z-score normalization sur les sous-scores
+- Quality sector-neutral (ranks par secteur)
+- Smart Money sans double comptage tier/buys
+"""
 import json
 import math
 import os
@@ -6,6 +14,7 @@ import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from functools import wraps
+from typing import Dict, Optional
 import requests
 import numpy as np
 import pandas as pd
@@ -18,6 +27,23 @@ from config import (
     DATA_RAW, TWELVE_DATA_KEY, TWELVE_DATA_BASE,
     TWELVE_DATA_RATE_LIMIT, WEIGHTS, CONSTRAINTS
 )
+
+# Import des nouveaux paramètres de config (avec fallback)
+try:
+    from config import SCORING, CORRELATION
+except ImportError:
+    SCORING = {
+        "use_zscore": True,
+        "sector_neutral_quality": True,
+        "smart_money_dedup": True,
+    }
+    CORRELATION = {
+        "use_real_correlation": True,
+        "lookback_days": 252,
+        "shrinkage": 0.2,
+        "fallback_intra_sector": 0.7,
+        "fallback_inter_sector": 0.4,
+    }
 
 
 # === CUSTOM JSON ENCODER ===
@@ -77,7 +103,15 @@ def with_credit_retry(max_retries: int = 3, base_wait: int = 65):
 
 
 class SmartMoneyEngine:
-    """Moteur principal: charge données → enrichit → score → optimise"""
+    """Moteur principal: charge données → enrichit → score → optimise
+    
+    Version 2.2 avec:
+    - Support backtest walk-forward (enrich_from_history)
+    - Corrélations réelles avec shrinkage
+    - Z-score normalization
+    - Quality sector-neutral
+    - Smart Money sans double comptage
+    """
     
     def __init__(self):
         self.universe = pd.DataFrame()
@@ -85,6 +119,10 @@ class SmartMoneyEngine:
         self.portfolio_metrics = {}
         self._last_api_call = 0
         self._last_api_error = None
+        
+        # Cache pour corrélations réelles (utilisé par backtest)
+        self._real_correlation = None
+        self._returns_history = None
     
     # === DATA LOADING ===
     
@@ -602,6 +640,7 @@ class SmartMoneyEngine:
     # === ENRICHISSEMENT ===
     
     def enrich(self, top_n: int = 50) -> pd.DataFrame:
+        """Enrichissement via API Twelve Data (mode live)"""
         if self.universe.empty:
             self.load_data()
 
@@ -685,6 +724,97 @@ class SmartMoneyEngine:
         print(f"\n✅ Enrichissement terminé")
         return self.universe
     
+    def enrich_from_history(self, 
+                            prices_history: pd.DataFrame,
+                            fundamentals_cache: Dict[str, dict] = None) -> pd.DataFrame:
+        """
+        Enrichit l'univers à partir d'un historique de prix pré-chargé.
+        Utilisé pour le backtest walk-forward (pas d'appels API).
+        
+        Args:
+            prices_history: DataFrame [date x symbol] avec prix de clôture
+            fundamentals_cache: Dict {symbol: {roe, debt_equity, ...}} optionnel
+            
+        Returns:
+            DataFrame univers enrichi
+        """
+        if self.universe.empty:
+            self.load_data()
+        
+        print(f"📊 Enrichissement depuis historique de prix ({len(prices_history)} jours)...")
+        
+        # Stocker les returns pour corrélations réelles
+        self._returns_history = prices_history.pct_change().dropna()
+        
+        enriched = []
+        valid_symbols = prices_history.columns.tolist()
+        
+        for _, row in self.universe.iterrows():
+            symbol = row["symbol"]
+            
+            # Skip si pas de prix
+            if symbol not in valid_symbols:
+                continue
+            
+            prices = prices_history[symbol].dropna()
+            if len(prices) < 30:
+                continue
+            
+            # Prix actuel
+            row["td_price"] = prices.iloc[-1]
+            
+            # Range 52 semaines
+            if len(prices) >= 252:
+                row["td_high_52w"] = prices.iloc[-252:].max()
+                row["td_low_52w"] = prices.iloc[-252:].min()
+            else:
+                row["td_high_52w"] = prices.max()
+                row["td_low_52w"] = prices.min()
+            
+            # Performance 3M
+            if len(prices) >= 63:
+                row["perf_3m"] = round((prices.iloc[-1] / prices.iloc[-63] - 1) * 100, 2)
+            
+            # Performance YTD
+            current_year = prices.index[-1].year
+            year_start = f"{current_year}-01-01"
+            ytd_prices = prices.loc[year_start:]
+            if len(ytd_prices) > 1:
+                row["perf_ytd"] = round((ytd_prices.iloc[-1] / ytd_prices.iloc[0] - 1) * 100, 2)
+            
+            # Volatilité 30j
+            if len(prices) >= 30:
+                returns_30d = prices.pct_change().iloc[-30:]
+                row["vol_30d"] = round(returns_30d.std() * np.sqrt(252) * 100, 2)
+            
+            # RSI approximatif (14 jours)
+            if len(prices) >= 15:
+                delta = prices.diff()
+                gain = delta.where(delta > 0, 0).rolling(14).mean()
+                loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
+                rs = gain.iloc[-1] / loss.iloc[-1] if loss.iloc[-1] != 0 else 100
+                row["rsi"] = round(100 - (100 / (1 + rs)), 1)
+            else:
+                row["rsi"] = 50.0
+            
+            # Fondamentaux depuis cache
+            if fundamentals_cache and symbol in fundamentals_cache:
+                for k, v in fundamentals_cache[symbol].items():
+                    row[k] = v
+            
+            # Secteur par défaut si non défini
+            if "sector" not in row or pd.isna(row.get("sector")):
+                row["sector"] = "Unknown"
+            if "industry" not in row or pd.isna(row.get("industry")):
+                row["industry"] = "Unknown"
+            
+            enriched.append(row)
+        
+        self.universe = pd.DataFrame(enriched)
+        
+        print(f"✅ {len(self.universe)} tickers enrichis depuis historique")
+        return self.universe
+    
     # === NETTOYAGE ===
     
     def clean_universe(self, strict: bool = False):
@@ -706,16 +836,58 @@ class SmartMoneyEngine:
         self.universe = df[~mask_bad].reset_index(drop=True)
         print(f"✅ Univers nettoyé: {len(self.universe)} tickers restants")
     
+    # === PRÉPARATION DES RANKS ===
+    
+    def _prepare_ranks(self):
+        """Prépare les ranks pour scoring (Smart Money + Quality sector-neutral)."""
+        
+        # Rank des achats Smart Money (évite double comptage avec tier)
+        if "gp_buys" in self.universe.columns:
+            self.universe["gp_buys_rank"] = self.universe["gp_buys"].rank(pct=True)
+        
+        # Ranks sectoriels pour Quality (sector-neutral)
+        if SCORING.get("sector_neutral_quality", True):
+            quality_cols = ["roe", "net_margin", "debt_equity", "current_ratio"]
+            for col in quality_cols:
+                if col in self.universe.columns:
+                    # Pour debt_equity, on inverse (moins = mieux)
+                    if col == "debt_equity":
+                        self.universe[f"{col}_rank"] = 1 - self.universe.groupby("sector")[col].rank(pct=True)
+                    else:
+                        self.universe[f"{col}_rank"] = self.universe.groupby("sector")[col].rank(pct=True)
+    
     # === SCORING ===
     
     def score_smart_money(self, row) -> float:
+        """
+        Score Smart Money.
+        Si smart_money_dedup=True: réduit le poids du tier (corrélé aux buys).
+        """
         score = 0
         tier_map = {"A": 1.0, "B": 0.75, "C": 0.5, "D": 0.25}
-        score += tier_map.get(row.get("gp_tier", "D"), 0.25) * 0.4
-        buys = min(row.get("gp_buys", 0) / 10, 1.0)
-        score += buys * 0.4
-        weight = min(row.get("gp_weight", 0) / 0.2, 1.0)
-        score += weight * 0.2
+        
+        if SCORING.get("smart_money_dedup", True):
+            # Version sans double comptage
+            # Tier: 25% (réduit de 40%)
+            score += tier_map.get(row.get("gp_tier", "D"), 0.25) * 0.25
+            
+            # Buys rank: 50% (principal signal)
+            buys_rank = row.get("gp_buys_rank", 0.5)
+            if pd.isna(buys_rank):
+                buys_rank = min(row.get("gp_buys", 0) / 10, 1.0)
+            score += buys_rank * 0.50
+            
+            # Weight: 25%
+            weight = min(row.get("gp_weight", 0) / 0.2, 1.0)
+            score += weight * 0.25
+        else:
+            # Version originale
+            score += tier_map.get(row.get("gp_tier", "D"), 0.25) * 0.4
+            buys = min(row.get("gp_buys", 0) / 10, 1.0)
+            score += buys * 0.4
+            weight = min(row.get("gp_weight", 0) / 0.2, 1.0)
+            score += weight * 0.2
+        
         return round(score, 3)
     
     def score_insider(self, row) -> float:
@@ -737,6 +909,8 @@ class SmartMoneyEngine:
         score = 0
         
         rsi = row.get("rsi", 50)
+        if pd.isna(rsi):
+            rsi = 50
         if 40 <= rsi <= 60:
             rsi_score = 1.0
         elif 30 <= rsi < 40 or 60 < rsi <= 70:
@@ -759,7 +933,9 @@ class SmartMoneyEngine:
             range_score = 0.5
         score += range_score * 0.3
         
-        perf_3m = row.get("perf_3m", 0) or 0
+        perf_3m = row.get("perf_3m", 0)
+        if pd.isna(perf_3m):
+            perf_3m = 0
         if perf_3m > 15:
             score += 0.3
         elif perf_3m > 5:
@@ -772,52 +948,108 @@ class SmartMoneyEngine:
         return round(min(score, 1.0), 3)
     
     def score_quality(self, row) -> float:
+        """
+        Score Quality.
+        Si sector_neutral_quality=True: utilise les ranks sectoriels.
+        """
         score = 0.5
         has_fundamentals = False
         
-        roe = row.get("roe")
-        if roe is not None:
-            has_fundamentals = True
-            if roe >= 25:
-                score += 0.20
-            elif roe >= 15:
-                score += 0.15
-            elif roe >= 10:
-                score += 0.10
-            elif roe >= 0:
-                score += 0.05
-            else:
-                score -= 0.15
+        if SCORING.get("sector_neutral_quality", True):
+            # Version sector-neutral (basée sur ranks)
+            roe_rank = row.get("roe_rank")
+            if roe_rank is not None and not pd.isna(roe_rank):
+                has_fundamentals = True
+                if roe_rank >= 0.8:
+                    score += 0.20
+                elif roe_rank >= 0.6:
+                    score += 0.10
+                elif roe_rank < 0.2:
+                    score -= 0.15
+            
+            margin_rank = row.get("net_margin_rank")
+            if margin_rank is not None and not pd.isna(margin_rank):
+                has_fundamentals = True
+                if margin_rank >= 0.8:
+                    score += 0.15
+                elif margin_rank >= 0.6:
+                    score += 0.10
+                elif margin_rank < 0.2:
+                    score -= 0.10
+            
+            # Debt/Equity rank (inversé: moins de dette = meilleur rank)
+            de_rank = row.get("debt_equity_rank")
+            if de_rank is not None and not pd.isna(de_rank):
+                has_fundamentals = True
+                if de_rank >= 0.8:
+                    score += 0.15
+                elif de_rank >= 0.6:
+                    score += 0.10
+                elif de_rank < 0.2:
+                    score -= 0.10
+            
+            # Current ratio rank
+            cr_rank = row.get("current_ratio_rank")
+            if cr_rank is not None and not pd.isna(cr_rank):
+                has_fundamentals = True
+                if cr_rank >= 0.8:
+                    score += 0.05
+                elif cr_rank < 0.2:
+                    score -= 0.05
+        else:
+            # Version originale avec seuils absolus
+            roe = row.get("roe")
+            if roe is not None and not pd.isna(roe):
+                has_fundamentals = True
+                if roe >= 25:
+                    score += 0.20
+                elif roe >= 15:
+                    score += 0.15
+                elif roe >= 10:
+                    score += 0.10
+                elif roe >= 0:
+                    score += 0.05
+                else:
+                    score -= 0.15
+            
+            debt_eq = row.get("debt_equity")
+            if debt_eq is not None and not pd.isna(debt_eq):
+                has_fundamentals = True
+                if debt_eq < 0.3:
+                    score += 0.15
+                elif debt_eq < 0.7:
+                    score += 0.10
+                elif debt_eq < 1.5:
+                    score += 0.05
+                elif debt_eq > 3:
+                    score -= 0.15
+                else:
+                    score -= 0.05
+            
+            net_margin = row.get("net_margin")
+            if net_margin is not None and not pd.isna(net_margin):
+                has_fundamentals = True
+                if net_margin >= 20:
+                    score += 0.15
+                elif net_margin >= 10:
+                    score += 0.10
+                elif net_margin >= 5:
+                    score += 0.05
+                elif net_margin < 0:
+                    score -= 0.10
+            
+            current_ratio = row.get("current_ratio")
+            if current_ratio is not None and not pd.isna(current_ratio):
+                has_fundamentals = True
+                if current_ratio >= 1.5:
+                    score += 0.05
+                elif current_ratio < 1:
+                    score -= 0.05
         
-        debt_eq = row.get("debt_equity")
-        if debt_eq is not None:
-            has_fundamentals = True
-            if debt_eq < 0.3:
-                score += 0.15
-            elif debt_eq < 0.7:
-                score += 0.10
-            elif debt_eq < 1.5:
-                score += 0.05
-            elif debt_eq > 3:
-                score -= 0.15
-            else:
-                score -= 0.05
-        
-        net_margin = row.get("net_margin")
-        if net_margin is not None:
-            has_fundamentals = True
-            if net_margin >= 20:
-                score += 0.15
-            elif net_margin >= 10:
-                score += 0.10
-            elif net_margin >= 5:
-                score += 0.05
-            elif net_margin < 0:
-                score -= 0.10
-        
+        # Capex ratio (toujours absolu, dépend du secteur)
         capex_ratio = row.get("capex_ratio")
         sector = row.get("sector", "Unknown")
-        if capex_ratio is not None:
+        if capex_ratio is not None and not pd.isna(capex_ratio):
             has_fundamentals = True
             if sector in ["Technology", "Industrials", "Communication Services"]:
                 if 5 <= capex_ratio <= 15:
@@ -830,34 +1062,29 @@ class SmartMoneyEngine:
                 elif capex_ratio < 10:
                     score += 0.05
         
-        current_ratio = row.get("current_ratio")
-        if current_ratio is not None:
-            has_fundamentals = True
-            if current_ratio >= 1.5:
-                score += 0.05
-            elif current_ratio < 1:
-                score -= 0.05
-        
+        # FCF (toujours absolu)
         fcf = row.get("fcf")
-        if fcf is not None:
+        if fcf is not None and not pd.isna(fcf):
             has_fundamentals = True
             if fcf > 0:
                 score += 0.05
             else:
                 score -= 0.05
         
+        # Fallback si pas de fondamentaux
         if not has_fundamentals:
             price = row.get("td_price", row.get("current_price", 0))
-            if price >= 50:
-                score += 0.10
-            elif price >= 20:
-                score += 0.05
-            elif price < 10:
-                score -= 0.10
+            if price and not pd.isna(price):
+                if price >= 50:
+                    score += 0.10
+                elif price >= 20:
+                    score += 0.05
+                elif price < 10:
+                    score -= 0.10
             
             vol = row.get("td_volume", 0)
             avg_vol = row.get("td_avg_volume", 1)
-            if avg_vol > 0:
+            if avg_vol and avg_vol > 0 and vol:
                 vol_ratio = vol / avg_vol
                 if vol_ratio > 1.5:
                     score += 0.05
@@ -867,11 +1094,19 @@ class SmartMoneyEngine:
         return round(max(0, min(1, score)), 3)
     
     def calculate_scores(self) -> pd.DataFrame:
+        """
+        Calcule les scores composites.
+        Si use_zscore=True: normalise les sous-scores avant combinaison.
+        """
         if self.universe.empty:
             self.load_data()
         
         print("📈 Calcul des scores...")
         
+        # Préparer les ranks
+        self._prepare_ranks()
+        
+        # Calcul des scores bruts
         scores = []
         for _, row in self.universe.iterrows():
             sm = self.score_smart_money(row)
@@ -879,21 +1114,42 @@ class SmartMoneyEngine:
             mom = self.score_momentum(row)
             qual = self.score_quality(row)
             
-            composite = (
-                WEIGHTS["smart_money"] * sm +
-                WEIGHTS["insider"] * ins +
-                WEIGHTS["momentum"] * mom +
-                WEIGHTS["quality"] * qual
-            )
-            
             row["score_sm"] = sm
             row["score_insider"] = ins
             row["score_momentum"] = mom
             row["score_quality"] = qual
-            row["score_composite"] = round(composite, 3)
             scores.append(row)
         
         self.universe = pd.DataFrame(scores)
+        
+        # Normalisation z-score si activée
+        if SCORING.get("use_zscore", True):
+            print("   📊 Normalisation z-score des sous-scores...")
+            
+            for col in ["score_sm", "score_insider", "score_momentum", "score_quality"]:
+                mean = self.universe[col].mean()
+                std = self.universe[col].std()
+                if std > 0:
+                    self.universe[f"{col}_z"] = (self.universe[col] - mean) / std
+                else:
+                    self.universe[f"{col}_z"] = 0
+            
+            # Composite sur z-scores
+            self.universe["score_composite"] = (
+                WEIGHTS["smart_money"] * self.universe["score_sm_z"] +
+                WEIGHTS["insider"] * self.universe["score_insider_z"] +
+                WEIGHTS["momentum"] * self.universe["score_momentum_z"] +
+                WEIGHTS["quality"] * self.universe["score_quality_z"]
+            ).round(3)
+        else:
+            # Composite sur scores bruts
+            self.universe["score_composite"] = (
+                WEIGHTS["smart_money"] * self.universe["score_sm"] +
+                WEIGHTS["insider"] * self.universe["score_insider"] +
+                WEIGHTS["momentum"] * self.universe["score_momentum"] +
+                WEIGHTS["quality"] * self.universe["score_quality"]
+            ).round(3)
+        
         self.universe = self.universe.sort_values("score_composite", ascending=False)
         
         print(f"✅ Scores calculés pour {len(self.universe)} tickers")
@@ -916,20 +1172,85 @@ class SmartMoneyEngine:
     
     # === HRP ===
     
-    def _get_correlation_matrix(self) -> pd.DataFrame:
+    def _get_correlation_matrix(self, 
+                                returns: pd.DataFrame = None,
+                                shrinkage: float = None) -> pd.DataFrame:
+        """
+        Calcule la matrice de corrélation.
+        
+        Args:
+            returns: DataFrame de rendements [date x symbol].
+                    Si None et _returns_history existe, l'utilise.
+                    Sinon, fallback sur approximation sectorielle.
+            shrinkage: Coefficient de shrinkage Ledoit-Wolf (0 = aucun, 1 = identité)
+                      Si None, utilise CORRELATION["shrinkage"]
+        
+        Returns:
+            Matrice de corrélation (DataFrame)
+        """
+        n = len(self.universe)
+        symbols = self.universe["symbol"].tolist()
+        
+        # Utiliser les corrélations réelles si disponibles
+        use_real = CORRELATION.get("use_real_correlation", True)
+        
+        if returns is None and self._returns_history is not None:
+            returns = self._returns_history
+        
+        if use_real and returns is not None:
+            # Filtrer sur les symboles de l'univers
+            valid_cols = [s for s in symbols if s in returns.columns]
+            
+            if len(valid_cols) >= 2:
+                ret_subset = returns[valid_cols]
+                
+                # Calculer la corrélation
+                corr_real = ret_subset.corr()
+                
+                # Appliquer le shrinkage Ledoit-Wolf
+                if shrinkage is None:
+                    shrinkage = CORRELATION.get("shrinkage", 0.2)
+                
+                if shrinkage > 0:
+                    identity = np.eye(len(corr_real))
+                    corr_real = (1 - shrinkage) * corr_real.values + shrinkage * identity
+                    corr_real = pd.DataFrame(corr_real, index=corr_real.index if hasattr(corr_real, 'index') else valid_cols, columns=valid_cols)
+                
+                # Compléter avec fallback pour les symboles manquants
+                full_corr = self._get_sector_correlation_fallback()
+                
+                for i, s1 in enumerate(valid_cols):
+                    for j, s2 in enumerate(valid_cols):
+                        if s1 in full_corr.index and s2 in full_corr.columns:
+                            if isinstance(corr_real, pd.DataFrame):
+                                full_corr.loc[s1, s2] = corr_real.loc[s1, s2]
+                            else:
+                                full_corr.loc[s1, s2] = corr_real[i, j]
+                
+                print(f"   📊 Corrélations réelles calculées ({len(valid_cols)} tickers, shrinkage={shrinkage})")
+                return full_corr
+        
+        # Fallback: approximation sectorielle
+        return self._get_sector_correlation_fallback()
+    
+    def _get_sector_correlation_fallback(self) -> pd.DataFrame:
+        """Retourne la matrice de corrélation approximée par secteur (fallback)."""
         n = len(self.universe)
         symbols = self.universe["symbol"].tolist()
         sectors = self.universe["sector"].tolist() if "sector" in self.universe.columns else ["Unknown"] * n
+        
+        intra = CORRELATION.get("fallback_intra_sector", 0.7)
+        inter = CORRELATION.get("fallback_inter_sector", 0.4)
         
         corr = np.eye(n)
         for i in range(n):
             for j in range(i+1, n):
                 if sectors[i] == sectors[j] and sectors[i] != "Unknown":
-                    corr[i, j] = 0.7
-                    corr[j, i] = 0.7
+                    corr[i, j] = intra
+                    corr[j, i] = intra
                 else:
-                    corr[i, j] = 0.4
-                    corr[j, i] = 0.4
+                    corr[i, j] = inter
+                    corr[j, i] = inter
         
         return pd.DataFrame(corr, index=symbols, columns=symbols)
     
@@ -988,16 +1309,28 @@ class SmartMoneyEngine:
         else:
             vols = np.full(n, 0.25)
         
+        # Corrélations (réelles si disponibles, sinon sectorielles)
         corr = self._get_correlation_matrix().values
         cov = np.outer(vols, vols) * corr
         
         weights = self._hrp_weights(cov, corr)
         
+        # Tilt par score composite
         scores = self.universe["score_composite"].values
-        score_tilt = scores / scores.mean()
+        
+        if SCORING.get("use_zscore", True):
+            # Tilt exponentiel (plus propre avec z-scores)
+            alpha = 0.5  # Force du tilt
+            scores_z = (scores - scores.mean()) / (scores.std() or 1)
+            score_tilt = np.exp(alpha * scores_z)
+        else:
+            # Tilt linéaire (original)
+            score_tilt = scores / (scores.mean() or 1)
+        
         weights = weights * score_tilt
         weights = weights / weights.sum()
         
+        # Appliquer les caps
         weights = np.minimum(weights, CONSTRAINTS["max_weight"])
         weights = weights / weights.sum()
         
@@ -1078,7 +1411,14 @@ class SmartMoneyEngine:
                 "generated_at": datetime.now().isoformat(),
                 "date": today,
                 "positions": len(df),
-                "total_weight": round(df["weight"].sum(), 4)
+                "total_weight": round(df["weight"].sum(), 4),
+                "engine_version": "2.2",
+                "config": {
+                    "use_zscore": SCORING.get("use_zscore", True),
+                    "sector_neutral_quality": SCORING.get("sector_neutral_quality", True),
+                    "smart_money_dedup": SCORING.get("smart_money_dedup", True),
+                    "use_real_correlation": CORRELATION.get("use_real_correlation", True),
+                }
             },
             "metrics": self.portfolio_metrics,
             "portfolio": df.to_dict(orient="records")
