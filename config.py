@@ -1,4 +1,4 @@
-"""Configuration SmartMoney Engine"""
+"""Configuration SmartMoney Engine v2.2"""
 import os
 from pathlib import Path
 
@@ -13,11 +13,20 @@ TWELVE_DATA_KEY = os.getenv("API_TWELVEDATA", "")
 OPENAI_KEY = os.getenv("API_OPENAI", "")
 
 # === SCORING WEIGHTS ===
+# Pondération des facteurs dans le score composite
+# Total doit faire 1.0
 WEIGHTS = {
-    "smart_money": 0.45,
-    "insider": 0.15,
-    "momentum": 0.25,
-    "quality": 0.15
+    "smart_money": 0.45,    # Signal Dataroma (13F, 45j de retard)
+    "insider": 0.15,        # Achats/ventes insiders
+    "momentum": 0.25,       # RSI + Perf 3M + Position dans range 52w
+    "quality": 0.15         # ROE, D/E, Marges, FCF
+}
+
+# === SCORING OPTIONS ===
+SCORING = {
+    "use_zscore": True,         # Normaliser les sous-scores en z-score avant composite
+    "sector_neutral_quality": True,  # Quality basé sur ranks sectoriels (vs seuils absolus)
+    "smart_money_dedup": True,  # Réduire le double comptage tier/buys
 }
 
 # === CONTRAINTES PORTEFEUILLE ===
@@ -31,10 +40,39 @@ CONSTRAINTS = {
     "min_buys": 2              # Minimum 2 achats smart money
 }
 
-# === TWELVE DATA ===
+# === CORRELATION / RISQUE ===
+CORRELATION = {
+    "use_real_correlation": True,   # Utiliser vraies corrélations (vs approx sectorielle)
+    "lookback_days": 252,           # Fenêtre historique pour calcul corrélations
+    "shrinkage": 0.2,               # Coefficient shrinkage Ledoit-Wolf (0=aucun, 1=identité)
+    "fallback_intra_sector": 0.7,   # Corrélation fallback intra-secteur
+    "fallback_inter_sector": 0.4,   # Corrélation fallback inter-secteur
+}
+
+# === BACKTEST WALK-FORWARD ===
+BACKTEST = {
+    "enabled": True,                # Activer le backtest walk-forward
+    "rebal_freq": "M",              # Fréquence rebalancement: "W", "M", "Q"
+    "tc_bps": 10.0,                 # Coûts de transaction en basis points
+    "lookback_days": 252,           # Historique pour calcul métriques
+    "risk_free_rate": 0.045,        # Taux sans risque annualisé (4.5%)
+    "benchmarks": ["SPY", "CAC"],   # Benchmarks de comparaison
+    "cache_prices": True,           # Cacher les prix en local
+    "cache_path": "price_cache.parquet",  # Fichier cache
+}
+
+# === VALIDATION ===
+VALIDATION = {
+    "require_outperformance": False,  # Échouer si sous-performance
+    "strict_benchmark": True,         # Doit battre SPY ET CAC (vs un seul)
+    "min_sharpe": 0.5,                # Sharpe minimum acceptable
+    "max_drawdown": -0.25,            # Drawdown max acceptable (-25%)
+}
+
+# === TWELVE DATA API ===
 TWELVE_DATA_BASE = "https://api.twelvedata.com"
 # Rate limit réduit pour éviter les erreurs de crédits (marge de sécurité)
-TWELVE_DATA_RATE_LIMIT = 60  # calls per minute (conservatif, évite les pauses crédits)
+TWELVE_DATA_RATE_LIMIT = 60  # calls per minute (conservatif)
 
 # === OPENAI ===
 OPENAI_MODEL = "gpt-4o"
