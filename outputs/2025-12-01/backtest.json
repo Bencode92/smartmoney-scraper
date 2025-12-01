@@ -1,19 +1,15 @@
 {
-  "generated_at": "2025-12-01T11:59:29.057802",
+  "generated_at": "2025-12-01T15:53:48.791704",
   "benchmark_comparison": {
     "period_days": 90,
-    "generated_at": "2025-12-01T11:59:29.057213",
+    "generated_at": "2025-12-01T15:53:48.791107",
     "benchmarks": {
       "SPY": {
-        "return_pct": 7.72,
+        "return_pct": 6.95,
         "volatility_pct": 11.88,
-        "sharpe": 0.56,
+        "sharpe": 0.49,
         "max_drawdown_pct": -5.07,
         "prices": [
-          {
-            "datetime": "2025-07-24 00:00:00",
-            "close": 634.41998
-          },
           {
             "datetime": "2025-07-25 00:00:00",
             "close": 637.099976
@@ -369,6 +365,10 @@
           {
             "datetime": "2025-11-28 00:00:00",
             "close": 683.39001
+          },
+          {
+            "datetime": "2025-12-01 00:00:00",
+            "close": 681.35
           }
         ],
         "name": "S&P 500",
@@ -376,15 +376,11 @@
         "symbol": "SPY"
       },
       "CAC": {
-        "return_pct": -1.25,
-        "volatility_pct": 33.75,
-        "sharpe": -0.07,
+        "return_pct": -1.95,
+        "volatility_pct": 33.76,
+        "sharpe": -0.09,
         "max_drawdown_pct": -14.62,
         "prices": [
-          {
-            "datetime": "2025-07-24 00:00:00",
-            "close": 40.95
-          },
           {
             "datetime": "2025-07-25 00:00:00",
             "close": 41.0
@@ -740,6 +736,10 @@
           {
             "datetime": "2025-11-28 00:00:00",
             "close": 40.44
+          },
+          {
+            "datetime": "2025-12-01 00:00:00",
+            "close": 40.2
           }
         ],
         "name": "CAC 40",
@@ -748,24 +748,24 @@
       }
     },
     "portfolio": {
-      "return_pct": 4.49,
-      "volatility_pct": 9.63,
-      "sharpe": 0.35,
-      "max_drawdown_pct": -4.82,
-      "positions": 11
+      "return_pct": 5.02,
+      "volatility_pct": 8.59,
+      "sharpe": 0.45,
+      "max_drawdown_pct": -4.29,
+      "positions": 12
     },
     "comparisons": {
       "SPY": {
-        "alpha_pct": -3.23,
+        "alpha_pct": -1.93,
         "outperformance": "False",
-        "sharpe_diff": -0.21,
-        "vol_diff": -2.25
+        "sharpe_diff": -0.04,
+        "vol_diff": -3.29
       },
       "CAC": {
-        "alpha_pct": 5.74,
+        "alpha_pct": 6.97,
         "outperformance": "True",
-        "sharpe_diff": 0.42,
-        "vol_diff": -24.12
+        "sharpe_diff": 0.54,
+        "vol_diff": -25.17
       }
     }
   },
@@ -774,39 +774,40 @@
     "beats_spy": "False",
     "beats_cac": "True",
     "beats_all": "False",
-    "portfolio_return": 4.49,
-    "spy_return": 7.72,
-    "cac_return": -1.25,
-    "alpha_spy": -3.23,
-    "alpha_cac": 5.74,
-    "message": "\u274c Portefeuille sous-performe les benchmarks (+4.49% vs SPY +7.72% vs CAC -1.25%)",
+    "portfolio_return": 5.02,
+    "spy_return": 6.95,
+    "cac_return": -1.95,
+    "alpha_spy": -1.93,
+    "alpha_cac": 6.97,
+    "message": "\u274c Portefeuille sous-performe les benchmarks (+5.02% vs SPY +6.95% vs CAC -1.95%)",
     "strict_mode": true
   },
   "turnover": {
-    "turnover_pct": 57.11,
+    "turnover_pct": 52.91,
     "entries": [
+      "DIS",
       "AMZN",
       "FISV"
     ],
     "exits": [
-      "PG",
-      "CP",
+      "ASML",
       "KD",
+      "GOOGL",
+      "SCHW",
+      "ADBE",
+      "MDB",
+      "UPS",
+      "FERG",
+      "PG",
+      "SPGI",
+      "CP",
+      "PBH",
       "BN",
       "INTU",
       "AMAT",
-      "GOOGL",
-      "FERG",
-      "CPRT",
-      "ASML",
-      "MDB",
-      "ADBE",
-      "PBH",
-      "UPS",
-      "SCHW",
-      "SPGI"
+      "CPRT"
     ],
-    "entries_count": 2,
+    "entries_count": 3,
     "exits_count": 16,
     "unchanged_count": 9
   },
@@ -818,8 +819,8 @@
     },
     {
       "date": "2025-12-01",
-      "positions": 11,
-      "perf_3m": 4.49
+      "positions": 12,
+      "perf_3m": 5.02
     }
   ]
 }
