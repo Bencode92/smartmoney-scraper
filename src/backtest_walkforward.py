@@ -538,28 +538,24 @@ class PriceDataLoader:
         return prices
     
     def load_from_cache(self, cache_path: Path) -> pd.DataFrame:
-        """Charge les prix depuis un fichier cache."""
+        """Charge les prix depuis un fichier cache (CSV uniquement)."""
         cache_path = Path(cache_path)
         
-        if cache_path.suffix == ".parquet":
-            return pd.read_parquet(cache_path)
-        elif cache_path.suffix == ".csv":
+        if cache_path.suffix == ".csv":
             df = pd.read_csv(cache_path, index_col=0, parse_dates=True)
             return df
         else:
-            raise ValueError(f"Format non supporté: {cache_path.suffix}")
+            raise ValueError(f"Format non supporté: {cache_path.suffix}. Utilisez .csv")
     
     def save_to_cache(self, prices: pd.DataFrame, cache_path: Path):
-        """Sauvegarde les prix dans un fichier cache."""
+        """Sauvegarde les prix dans un fichier cache (CSV uniquement)."""
         cache_path = Path(cache_path)
         cache_path.parent.mkdir(parents=True, exist_ok=True)
         
-        if cache_path.suffix == ".parquet":
-            prices.to_parquet(cache_path)
-        elif cache_path.suffix == ".csv":
+        if cache_path.suffix == ".csv":
             prices.to_csv(cache_path)
         else:
-            raise ValueError(f"Format non supporté: {cache_path.suffix}")
+            raise ValueError(f"Format non supporté: {cache_path.suffix}. Utilisez .csv")
         
         print(f"💾 Cache sauvegardé: {cache_path}")
 
@@ -677,23 +673,30 @@ def run_walkforward_backtest():
     print(f"📂 Portfolio: {portfolio_file}")
     print(f"📊 {len(symbols)} tickers à backtester")
     
-    # Vérifier si on a un cache de prix
-    cache_path = OUTPUTS / "price_cache.parquet"
+    # Vérifier si on a un cache de prix (CSV uniquement)
+    cache_path = OUTPUTS / "price_cache.csv"
     loader = PriceDataLoader()
     
     if cache_path.exists():
         print(f"\n💾 Chargement du cache: {cache_path}")
-        prices = loader.load_from_cache(cache_path)
-        
-        # Vérifier qu'on a tous les symboles
-        missing = set(symbols) - set(prices.columns)
-        if missing:
-            print(f"⚠️ Symboles manquants dans le cache: {missing}")
-            print("   Téléchargement des données manquantes...")
-            new_prices = loader.fetch_prices(list(missing))
-            prices = pd.concat([prices, new_prices], axis=1)
-            loader.save_to_cache(prices, cache_path)
+        try:
+            prices = loader.load_from_cache(cache_path)
+            
+            # Vérifier qu'on a tous les symboles
+            missing = set(symbols) - set(prices.columns)
+            if missing:
+                print(f"⚠️ Symboles manquants dans le cache: {missing}")
+                print("   Téléchargement des données manquantes...")
+                new_prices = loader.fetch_prices(list(missing))
+                prices = pd.concat([prices, new_prices], axis=1)
+                loader.save_to_cache(prices, cache_path)
+        except Exception as e:
+            print(f"⚠️ Erreur chargement prix: {e}")
+            prices = None
     else:
+        prices = None
+    
+    if prices is None:
         print(f"\n📥 Téléchargement des prix historiques...")
         # Ajouter les benchmarks
         all_symbols = symbols + ["SPY", "CAC"]
