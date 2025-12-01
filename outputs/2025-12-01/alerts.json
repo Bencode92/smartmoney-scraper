@@ -1,0 +1,26 @@
+[
+  {
+    "level": "warning",
+    "type": "concentration",
+    "symbol": "null",
+    "message": "Concentration excessive dans le portefeuille."
+  },
+  {
+    "level": "warning",
+    "type": "quality",
+    "symbol": "CPRT",
+    "message": "Score composite de la position inf\u00e9rieur \u00e0 0.4."
+  },
+  {
+    "level": "warning",
+    "type": "momentum",
+    "symbol": "CPRT",
+    "message": "RSI inf\u00e9rieur \u00e0 30, indiquant un momentum extr\u00eame."
+  },
+  {
+    "level": "warning",
+    "type": "sector",
+    "symbol": "null",
+    "message": "Plus de 3 positions dans le secteur technologique."
+  }
+]
