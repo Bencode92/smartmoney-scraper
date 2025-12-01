@@ -199,12 +199,22 @@
       color: var(--success);
     }
 
+    .topbar-badge.warning {
+      background: var(--danger-soft);
+      border-color: rgba(239, 68, 68, 0.3);
+      color: var(--danger);
+    }
+
     .topbar-badge-dot {
       width: 8px;
       height: 8px;
       background: var(--success);
       border-radius: 50%;
       animation: pulse 2s infinite;
+    }
+
+    .topbar-badge.warning .topbar-badge-dot {
+      background: var(--danger);
     }
 
     @keyframes pulse {
@@ -235,6 +245,67 @@
       font-size: 14px;
       font-weight: 600;
       font-family: "JetBrains Mono", monospace;
+    }
+
+    /* === OUTPERFORMANCE BANNER === */
+    .outperformance-banner {
+      padding: 16px 24px;
+      border-radius: var(--radius);
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .outperformance-banner.success {
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.05));
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .outperformance-banner.danger {
+      background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(239, 68, 68, 0.05));
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .outperformance-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+    }
+
+    .outperformance-banner.success .outperformance-icon {
+      background: rgba(16, 185, 129, 0.2);
+    }
+
+    .outperformance-banner.danger .outperformance-icon {
+      background: rgba(239, 68, 68, 0.2);
+    }
+
+    .outperformance-content {
+      flex: 1;
+    }
+
+    .outperformance-title {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .outperformance-banner.success .outperformance-title {
+      color: var(--success);
+    }
+
+    .outperformance-banner.danger .outperformance-title {
+      color: var(--danger);
+    }
+
+    .outperformance-details {
+      font-size: 13px;
+      color: var(--text-secondary);
     }
 
     /* === CONTENT === */
@@ -362,25 +433,18 @@
       letter-spacing: 0.05em;
     }
 
-    .kpi-trend {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      font-size: 12px;
-      margin-top: 8px;
-      padding: 4px 8px;
-      border-radius: 6px;
+    .kpi-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 6px;
     }
 
-    .kpi-trend.up {
-      background: var(--success-soft);
-      color: var(--success);
+    .kpi-sub span {
+      font-family: "JetBrains Mono", monospace;
     }
 
-    .kpi-trend.down {
-      background: var(--danger-soft);
-      color: var(--danger);
-    }
+    .kpi-sub .positive { color: var(--success); }
+    .kpi-sub .negative { color: var(--danger); }
 
     /* === BENCHMARK TABLE === */
     .bench-table {
@@ -769,7 +833,7 @@
       color: var(--text);
       font-size: 16px;
       font-family: "JetBrains Mono", monospace;
-      width: 140px;
+      width: 160px;
     }
 
     .simulator-select {
@@ -785,37 +849,43 @@
       background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.05));
       border: 1px solid rgba(59, 130, 246, 0.3);
       border-radius: var(--radius-sm);
-      padding: 16px 20px;
-      margin-bottom: 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 16px;
+      padding: 20px 24px;
+      margin-bottom: 24px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
     }
 
-    .simulator-total {
-      font-size: 24px;
+    .simulator-stat {
+      text-align: center;
+    }
+
+    .simulator-stat-value {
+      font-size: 28px;
       font-weight: 700;
       font-family: "JetBrains Mono", monospace;
       color: var(--accent);
     }
 
-    .simulator-cash {
-      font-size: 14px;
-      color: var(--text-secondary);
+    .simulator-stat-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-top: 4px;
     }
 
     .simulator-list {
-      max-height: 400px;
+      max-height: 500px;
       overflow-y: auto;
     }
 
     .simulator-row {
-      display: flex;
-      justify-content: space-between;
+      display: grid;
+      grid-template-columns: 100px 1fr 120px 120px;
+      gap: 16px;
       align-items: center;
-      padding: 12px 0;
+      padding: 14px 0;
       border-bottom: 1px solid var(--border-light);
     }
 
@@ -824,29 +894,49 @@
     }
 
     .simulator-ticker {
-      font-weight: 600;
+      font-weight: 700;
       font-family: "JetBrains Mono", monospace;
       color: var(--accent);
     }
 
-    .simulator-weight {
-      font-size: 12px;
-      color: var(--text-muted);
-      margin-left: 8px;
+    .simulator-company {
+      font-size: 13px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
-    .simulator-amount {
+    .simulator-weight {
+      font-size: 13px;
+      font-family: "JetBrains Mono", monospace;
+      color: var(--text-muted);
       text-align: right;
     }
 
-    .simulator-shares {
-      font-size: 14px;
+    .simulator-amount {
+      font-size: 15px;
       font-family: "JetBrains Mono", monospace;
+      font-weight: 600;
+      text-align: right;
     }
 
-    .simulator-value {
-      font-size: 12px;
+    .simulator-header {
+      display: grid;
+      grid-template-columns: 100px 1fr 120px 120px;
+      gap: 16px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
       color: var(--text-muted);
+    }
+
+    .simulator-header span:nth-child(3),
+    .simulator-header span:nth-child(4) {
+      text-align: right;
     }
 
     /* === CONCENTRATION CHART === */
@@ -969,6 +1059,18 @@
       .topbar {
         padding: 0 16px;
       }
+
+      .simulator-summary {
+        grid-template-columns: 1fr;
+      }
+
+      .simulator-row {
+        grid-template-columns: 80px 1fr 80px;
+      }
+
+      .simulator-row .simulator-company {
+        display: none;
+      }
     }
 
     @media (max-width: 640px) {
@@ -1048,9 +1150,9 @@
         <div class="topbar-left">
           <button class="menu-toggle" id="menu-toggle">☰</button>
           <h1 class="topbar-title" id="page-title">Overview</h1>
-          <div class="topbar-badge">
+          <div class="topbar-badge" id="outperformance-badge">
             <span class="topbar-badge-dot"></span>
-            <span id="portfolio-date">Chargement...</span>
+            <span id="outperformance-text">Chargement...</span>
           </div>
         </div>
         <div class="topbar-right">
@@ -1059,7 +1161,7 @@
             <span class="topbar-stat-value" id="topbar-positions">--</span>
           </div>
           <div class="topbar-stat">
-            <span class="topbar-stat-label">Perf YTD</span>
+            <span class="topbar-stat-label">Perf 3M</span>
             <span class="topbar-stat-value positive" id="topbar-perf">--%</span>
           </div>
         </div>
@@ -1069,12 +1171,31 @@
       <div class="content">
         <!-- OVERVIEW TAB -->
         <section class="tab-panel active" data-panel="overview">
+          <!-- Outperformance Banner -->
+          <div class="outperformance-banner success" id="outperformance-banner">
+            <div class="outperformance-icon">🏆</div>
+            <div class="outperformance-content">
+              <div class="outperformance-title" id="banner-title">Portefeuille surperforme le marché</div>
+              <div class="outperformance-details" id="banner-details">
+                Perf 3M: <strong id="banner-port">--</strong> vs SPY <strong id="banner-spy">--</strong> vs CAC <strong id="banner-cac">--</strong>
+              </div>
+            </div>
+          </div>
+
           <!-- KPIs -->
           <div class="grid grid-4" style="margin-bottom: 24px;">
             <div class="card kpi-card">
               <div class="kpi-icon">📈</div>
               <div class="kpi-value" id="kpi-positions">--</div>
               <div class="kpi-label">Positions</div>
+            </div>
+            <div class="card kpi-card">
+              <div class="kpi-icon">🎯</div>
+              <div class="kpi-value" id="kpi-perf-3m">--%</div>
+              <div class="kpi-label">Performance 3M</div>
+              <div class="kpi-sub">
+                SPY: <span id="kpi-spy-3m">--</span> | CAC: <span id="kpi-cac-3m">--</span>
+              </div>
             </div>
             <div class="card kpi-card">
               <div class="kpi-icon">💰</div>
@@ -1085,11 +1206,6 @@
               <div class="kpi-icon">⚡</div>
               <div class="kpi-value" id="kpi-vol">--%</div>
               <div class="kpi-label">Volatilité 30j</div>
-            </div>
-            <div class="card kpi-card">
-              <div class="kpi-icon">🎯</div>
-              <div class="kpi-value" id="kpi-alpha">--%</div>
-              <div class="kpi-label">Alpha vs SPY</div>
             </div>
           </div>
 
@@ -1274,11 +1390,12 @@
           <div class="card">
             <div class="card-header">
               <span class="card-title">Simulateur d'Allocation</span>
+              <span class="card-badge">Budget × Poids = Montant</span>
             </div>
 
             <div class="simulator-controls">
               <div class="simulator-input-group">
-                <span class="simulator-label">Budget:</span>
+                <span class="simulator-label">💰 Budget total:</span>
                 <input type="number" class="simulator-input" id="sim-budget" value="10000" step="1000" min="100" />
               </div>
               <div class="simulator-input-group">
@@ -1290,15 +1407,26 @@
               </div>
             </div>
 
-            <div class="simulator-summary" id="sim-summary">
-              <div>
-                <div class="simulator-total" id="sim-total">€0</div>
-                <div class="simulator-cash" id="sim-cash">Cash restant: €0</div>
+            <div class="simulator-summary">
+              <div class="simulator-stat">
+                <div class="simulator-stat-value" id="sim-total">€0</div>
+                <div class="simulator-stat-label">Total Alloué</div>
               </div>
-              <div style="text-align: right;">
-                <div style="font-size: 14px; color: var(--text-secondary);">Positions investies</div>
-                <div style="font-size: 24px; font-weight: 700;" id="sim-positions">0</div>
+              <div class="simulator-stat">
+                <div class="simulator-stat-value" id="sim-positions">0</div>
+                <div class="simulator-stat-label">Positions</div>
               </div>
+              <div class="simulator-stat">
+                <div class="simulator-stat-value" id="sim-avg">€0</div>
+                <div class="simulator-stat-label">Montant Moyen</div>
+              </div>
+            </div>
+
+            <div class="simulator-header">
+              <span>Ticker</span>
+              <span>Entreprise</span>
+              <span>Poids</span>
+              <span>Montant</span>
             </div>
 
             <div class="simulator-list" id="sim-list"></div>
@@ -1377,7 +1505,7 @@
     function fmtMoney(val, currency = "EUR") {
       if (val == null) return "--";
       const symbol = currency === "USD" ? "$" : "€";
-      return symbol + Number(val).toLocaleString("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+      return symbol + Number(val).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
     function fmtDate(iso) {
@@ -1431,6 +1559,22 @@
       });
     }
 
+    // === CHECK OUTPERFORMANCE ===
+    function checkOutperformance() {
+      const comp = DATA.backtest?.benchmark_comparison;
+      if (!comp) return { beats: false, portReturn: 0, spyReturn: 0, cacReturn: 0 };
+
+      const portReturn = comp.portfolio?.return_pct || 0;
+      const spyReturn = comp.benchmarks?.SPY?.return_pct || 0;
+      const cacReturn = comp.benchmarks?.CAC?.return_pct || 0;
+
+      const beatsSpy = portReturn > spyReturn;
+      const beatsCac = portReturn > cacReturn;
+      const beatsAll = beatsSpy && beatsCac;
+
+      return { beatsAll, beatsSpy, beatsCac, portReturn, spyReturn, cacReturn };
+    }
+
     // === RENDER OVERVIEW ===
     function renderOverview() {
       const portfolio = DATA.portfolio?.portfolio || [];
@@ -1439,29 +1583,75 @@
       const backtest = DATA.backtest;
       const alerts = DATA.alerts || [];
 
+      // Check outperformance
+      const perf = checkOutperformance();
+
+      // Update topbar badge
+      const badge = document.getElementById('outperformance-badge');
+      const badgeText = document.getElementById('outperformance-text');
+      if (perf.beatsAll) {
+        badge.classList.remove('warning');
+        badgeText.textContent = "✓ Bat le marché";
+      } else {
+        badge.classList.add('warning');
+        badgeText.textContent = "✗ Sous-performe";
+      }
+
+      // Update banner
+      const banner = document.getElementById('outperformance-banner');
+      const bannerTitle = document.getElementById('banner-title');
+      if (perf.beatsAll) {
+        banner.classList.remove('danger');
+        banner.classList.add('success');
+        banner.querySelector('.outperformance-icon').textContent = '🏆';
+        bannerTitle.textContent = "Portefeuille surperforme SPY et CAC sur 3 mois";
+      } else {
+        banner.classList.remove('success');
+        banner.classList.add('danger');
+        banner.querySelector('.outperformance-icon').textContent = '⚠️';
+        if (!perf.beatsSpy && !perf.beatsCac) {
+          bannerTitle.textContent = "Portefeuille sous-performe SPY et CAC - Revoir la stratégie";
+        } else if (!perf.beatsSpy) {
+          bannerTitle.textContent = "Portefeuille sous-performe SPY - Alpha négatif vs US";
+        } else {
+          bannerTitle.textContent = "Portefeuille sous-performe CAC - Alpha négatif vs Europe";
+        }
+      }
+
+      document.getElementById('banner-port').textContent = fmtPct(perf.portReturn, 1, true);
+      document.getElementById('banner-spy').textContent = fmtPct(perf.spyReturn, 1, true);
+      document.getElementById('banner-cac').textContent = fmtPct(perf.cacReturn, 1, true);
+
       // Update topbar
-      document.getElementById('portfolio-date').textContent = fmtDate(meta.generated_at);
       document.getElementById('topbar-positions').textContent = portfolio.length;
       document.getElementById('last-update').textContent = `MAJ: ${fmtDate(meta.generated_at)}`;
 
-      const perfYtd = metrics.perf_ytd;
       const topbarPerf = document.getElementById('topbar-perf');
-      topbarPerf.textContent = fmtPct(perfYtd, 1, true);
-      topbarPerf.className = `topbar-stat-value ${perfYtd >= 0 ? 'positive' : 'negative'}`;
+      topbarPerf.textContent = fmtPct(perf.portReturn, 1, true);
+      topbarPerf.className = `topbar-stat-value ${perf.portReturn >= 0 ? 'positive' : 'negative'}`;
 
       // KPIs
       document.getElementById('kpi-positions').textContent = portfolio.length;
 
+      // Perf 3M with comparison
+      const kpiPerf3m = document.getElementById('kpi-perf-3m');
+      kpiPerf3m.textContent = fmtPct(perf.portReturn, 1, true);
+      kpiPerf3m.className = `kpi-value ${perf.beatsAll ? 'positive' : 'negative'}`;
+
+      const spySub = document.getElementById('kpi-spy-3m');
+      spySub.textContent = fmtPct(perf.spyReturn, 1, true);
+      spySub.className = perf.beatsSpy ? 'positive' : 'negative';
+
+      const cacSub = document.getElementById('kpi-cac-3m');
+      cacSub.textContent = fmtPct(perf.cacReturn, 1, true);
+      cacSub.className = perf.beatsCac ? 'positive' : 'negative';
+
+      const perfYtd = metrics.perf_ytd;
       const kpiPerfYtd = document.getElementById('kpi-perf-ytd');
       kpiPerfYtd.textContent = fmtPct(perfYtd, 1, true);
       kpiPerfYtd.className = `kpi-value ${perfYtd >= 0 ? 'positive' : 'negative'}`;
 
       document.getElementById('kpi-vol').textContent = fmtPct(metrics.vol_30d, 1);
-
-      const alphaSpy = backtest?.benchmark_comparison?.comparisons?.SPY?.alpha_pct;
-      const kpiAlpha = document.getElementById('kpi-alpha');
-      kpiAlpha.textContent = fmtPct(alphaSpy, 1, true);
-      kpiAlpha.className = `kpi-value ${alphaSpy >= 0 ? 'positive' : 'negative'}`;
 
       // Benchmarks
       renderBenchmarks(backtest);
@@ -1788,7 +1978,7 @@
       document.getElementById('memo-date').textContent = fmtDate(DATA.portfolio?.metadata?.generated_at);
     }
 
-    // === RENDER SIMULATOR ===
+    // === RENDER SIMULATOR (SIMPLIFIED) ===
     function renderSimulator() {
       const portfolio = DATA.portfolio?.portfolio || [];
       const budgetInput = document.getElementById('sim-budget');
@@ -1797,42 +1987,32 @@
       function calculate() {
         const budget = parseFloat(budgetInput.value) || 0;
         const currency = currencySelect.value;
-        const rate = currency === 'USD' ? 1 : 1.08;
+        const symbol = currency === 'USD' ? '$' : '€';
 
-        let totalInvested = 0;
-        let positionsInvested = 0;
-
+        // Simple calculation: Budget × Weight = Amount
         const rows = portfolio.map(pos => {
           const amount = budget * pos.weight;
-          const amountUSD = amount * rate;
-          const price = pos.td_price || 100;
-          const shares = Math.floor(amountUSD / price);
-          const invested = shares * price / rate;
+          return { 
+            symbol: pos.symbol, 
+            company: pos.company || '',
+            weight: pos.weight, 
+            amount 
+          };
+        }).sort((a, b) => b.amount - a.amount);
 
-          if (shares > 0) {
-            totalInvested += invested;
-            positionsInvested++;
-          }
+        const totalAllocated = rows.reduce((sum, r) => sum + r.amount, 0);
+        const avgAmount = totalAllocated / rows.length;
 
-          return { symbol: pos.symbol, weight: pos.weight, shares, price, invested };
-        }).filter(r => r.shares > 0);
-
-        const cashLeft = budget - totalInvested;
-
-        document.getElementById('sim-total').textContent = fmtMoney(totalInvested, currency);
-        document.getElementById('sim-cash').textContent = `Cash restant: ${fmtMoney(cashLeft, currency)}`;
-        document.getElementById('sim-positions').textContent = positionsInvested;
+        document.getElementById('sim-total').textContent = fmtMoney(totalAllocated, currency);
+        document.getElementById('sim-positions').textContent = rows.length;
+        document.getElementById('sim-avg').textContent = fmtMoney(avgAmount, currency);
 
         document.getElementById('sim-list').innerHTML = rows.map(r => `
           <div class="simulator-row">
-            <div>
-              <span class="simulator-ticker">${r.symbol}</span>
-              <span class="simulator-weight">${(r.weight * 100).toFixed(1)}%</span>
-            </div>
-            <div class="simulator-amount">
-              <div class="simulator-shares">${r.shares} × $${r.price.toFixed(0)}</div>
-              <div class="simulator-value">${fmtMoney(r.invested, currency)}</div>
-            </div>
+            <span class="simulator-ticker">${r.symbol}</span>
+            <span class="simulator-company">${r.company}</span>
+            <span class="simulator-weight">${(r.weight * 100).toFixed(2)}%</span>
+            <span class="simulator-amount">${fmtMoney(r.amount, currency)}</span>
           </div>
         `).join('');
       }
