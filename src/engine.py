@@ -30,7 +30,7 @@ from config import (
 
 # Import des nouveaux paramètres de config (avec fallback)
 try:
-    from config import SCORING, CORRELATION
+    from config import SCORING, CORRELATION, TWELVE_DATA_TICKER_PAUSE
 except ImportError:
     SCORING = {
         "use_zscore": True,
@@ -44,6 +44,7 @@ except ImportError:
         "fallback_intra_sector": 0.7,
         "fallback_inter_sector": 0.4,
     }
+TWELVE_DATA_TICKER_PAUSE = 3  # secondes entre chaque ticker
 
 
 # === CUSTOM JSON ENCODER ===
@@ -651,10 +652,14 @@ class SmartMoneyEngine:
 
         print(f"📊 Enrichissement de {len(candidates)} tickers via Twelve Data...")
         print(f"   (Quote + Profile + RSI + TimeSeries + Statistics + Balance + Income + CashFlow)")
-        estimated_time = len(candidates) * 8 / TWELVE_DATA_RATE_LIMIT
+         # Estimation du temps avec pause inter-tickers
+        calls_per_ticker = 8
+        time_per_call = 60 / TWELVE_DATA_RATE_LIMIT
+        time_per_ticker = calls_per_ticker * time_per_call + TWELVE_DATA_TICKER_PAUSE
+        estimated_time = len(candidates) * time_per_ticker / 60
         print(
-            f"   ⏱️  Temps estimé théorique: ~{estimated_time:.1f} minutes "
-            f"(hors pauses liées aux crédits, rate limit {TWELVE_DATA_RATE_LIMIT}/min)"
+            f"   ⏱️  Temps estimé: ~{estimated_time:.1f} minutes "
+            f"(rate limit {TWELVE_DATA_RATE_LIMIT}/min + pause {TWELVE_DATA_TICKER_PAUSE}s/ticker)"
         )
 
         enriched = []
