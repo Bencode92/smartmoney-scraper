@@ -71,8 +71,23 @@ VALIDATION = {
 
 # === TWELVE DATA API ===
 TWELVE_DATA_BASE = "https://api.twelvedata.com"
-# Rate limit réduit pour éviter les erreurs de crédits (marge de sécurité)
-TWELVE_DATA_RATE_LIMIT = 60  # calls per minute (conservatif)
+
+# Rate limit TRÈS conservatif pour éviter les erreurs de crédits
+# Twelve Data compte différemment les crédits selon les endpoints:
+# - Quote, Profile, RSI = 1 crédit chacun
+# - TimeSeries = 1-10 crédits selon la taille
+# - Statistics, Balance Sheet, Income Statement, Cash Flow = ~10 crédits chacun
+# 
+# Avec 8 appels/ticker dont 4 endpoints coûteux (~40 crédits/ticker),
+# et un quota de ~2584 crédits/minute, on peut traiter ~6 tickers/minute max.
+# 
+# On met 20 appels/minute pour avoir de la marge (= ~2-3 tickers/minute).
+# Temps estimé: 40 tickers × 8 appels ÷ 20/min = ~16 minutes
+TWELVE_DATA_RATE_LIMIT = 20  # calls per minute (très conservatif)
+
+# Pause additionnelle entre chaque ticker (en secondes)
+# Permet d'espacer les appels coûteux
+TWELVE_DATA_TICKER_PAUSE = 3  # pause de 3s entre chaque ticker
 
 # === OPENAI ===
 OPENAI_MODEL = "gpt-4o"
