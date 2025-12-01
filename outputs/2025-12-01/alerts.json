@@ -1,26 +1,37 @@
 [
   {
-    "level": "warning",
-    "type": "concentration",
-    "symbol": "null",
-    "message": "Concentration excessive dans le portefeuille."
+    "type": "benchmark_legacy",
+    "severity": "high",
+    "symbol": null,
+    "message": "\u274c Portefeuille sous-performe les benchmarks (+4.49% vs SPY +7.72% vs CAC -1.25%)",
+    "details": {
+      "portfolio_return": 4.49,
+      "spy_return": 7.72,
+      "cac_return": -1.25
+    }
   },
   {
     "level": "warning",
+    "type": "concentration",
+    "symbol": null,
+    "message": "Concentration \u00e9lev\u00e9e avec plusieurs positions d\u00e9passant 5.5% du portefeuille."
+  },
+  {
+    "level": "critical",
     "type": "quality",
-    "symbol": "CPRT",
-    "message": "Score composite de la position inf\u00e9rieur \u00e0 0.4."
+    "symbol": "FISV",
+    "message": "Score composite de Fiserv Inc. en dessous de 0.4."
   },
   {
     "level": "warning",
     "type": "momentum",
-    "symbol": "CPRT",
-    "message": "RSI inf\u00e9rieur \u00e0 30, indiquant un momentum extr\u00eame."
+    "symbol": "FISV",
+    "message": "RSI de Fiserv Inc. est inf\u00e9rieur \u00e0 30, indiquant un momentum extr\u00eame."
   },
   {
     "level": "warning",
     "type": "sector",
-    "symbol": "null",
+    "symbol": null,
     "message": "Plus de 3 positions dans le secteur technologique."
   }
 ]

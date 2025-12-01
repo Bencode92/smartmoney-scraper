@@ -1,48 +1,49 @@
 # Investment Memo - 2025-12-01
 
-## Investment Memo
+# Investment Memo
 
-### 1. Vue Globale
-Le portefeuille actuel est diversifié avec une forte orientation vers les services financiers et la technologie, représentant une approche équilibrée entre croissance et stabilité. Les principaux biais incluent un engagement significatif envers des titres de haute qualité avec des marges élevées et une exposition modérée aux actions à forte volatilité.
+## 1. Vue Globale
+Le portefeuille est principalement orienté vers les secteurs de la technologie, des soins de santé et des services financiers, avec un poids significatif sur les actions de haute qualité. Il présente un biais de qualité et de momentum, tout en maintenant un beta moyen estimé de 1.00, ce qui suggère une exposition équilibrée par rapport au marché global.
 
-### 2. Top 5 Convictions
+## 2. Positionnement vs Marché
+Le portefeuille a enregistré une performance de 4.49% sur les trois derniers mois, se situant en deçà de celle du SPY (+7.72%) mais surperformant le CAC 40 (-1.25%). La sous-performance par rapport au SPY peut être attribuée à un biais vers la qualité qui tend à offrir moins de beta, impactant la captation de la récente rotation sectorielle en faveur de segments plus cycliques. Le ratio rendement/risque, avec un Sharpe de 0.35 contre 0.56 pour le SPY, indique un rendement ajusté au risque moins favorable. Cependant, il est important de noter que cette sous-performance est temporaire et typique des portefeuilles axés sur des facteurs spécifiques comme la qualité et le momentum, qui peuvent parfois diverger des mouvements de marché à court terme.
 
-- **VISA (V) 6.89%**
-  - Signaux: SmartMoney: Fort / Insider: Neutre / Momentum: Positif
-  - Thèse: Visa, avec sa marge opérationnelle exceptionnelle de 66.39% et son rendement sur fonds propres (ROE) élevé, continue de démontrer une solidité financière robuste malgré une performance trimestrielle récente négative.
+## 3. Top 5 Convictions
 
-- **UNITED HEALTH GROUP (UNH) 6.89%**
-  - Signaux: SmartMoney: Fort / Insider: Neutre / Momentum: Positif
-  - Thèse: Bien que la performance annuelle soit en baisse, le retournement récent (+6.42% sur 3 mois) et la solide capacité de flux de trésorerie libre de United Health témoignent de sa résilience dans le secteur de la santé.
+- **V (14.13%)**: 
+  - Signaux: SmartMoney (score 0.873) / Momentum (score 0.778)
+  - Thèse: Visa, avec sa solide marge opérationnelle de 66.39%, demeure une valeur sûre dans les services financiers malgré une récente baisse trimestrielle.
 
-- **BERKSHIRE HATHAWAY CL B (BRK.B) 6.89%**
-  - Signaux: SmartMoney: Modéré / Insider: Neutre / Momentum: Positif
-  - Thèse: Avec un modèle d'affaires diversifié et une faible dette (ratio dette/capitaux propres de 0.19), Berkshire Hathaway offre une protection contre les fluctuations du marché.
+- **UNH (14.13%)**: 
+  - Signaux: SmartMoney (score 0.84) / Momentum (score 0.797)
+  - Thèse: United Health Group, malgré une performance YTD négative, montre un potentiel de reprise avec des marges stables et l’appui des investisseurs institutionnels.
 
-- **UNION PACIFIC (UNP) 6.89%**
-  - Signaux: SmartMoney: Faible / Insider: Neutre / Momentum: Fort
-  - Thèse: Union Pacific montre une performance stable avec un rendement sur fonds propres élevé, malgré un ratio de dette à capital élevé, soutenu par son rôle clé dans le transport ferroviaire.
+- **NVDA (14.13%)**: 
+  - Signaux: SmartMoney (score 0.789) / Momentum (score 0.768)
+  - Thèse: NVIDIA continue de bénéficier de sa position dominante dans les semi-conducteurs, avec un retour sur fonds propres impressionnant de 91.87%.
 
-- **CHARLES SCHWAB CORP. (SCHW) 6.89%**
-  - Signaux: SmartMoney: Faible / Insider: Neutre / Momentum: Neutre
-  - Thèse: Bien que la performance soit en baisse, Schwab maintient une marge opérationnelle solide, ce qui suggère une capacité à résister aux pressions du marché.
+- **UNP (14.13%)**: 
+  - Signaux: SmartMoney (score 0.69) / Momentum (score 0.768)
+  - Thèse: Union Pacific capitalise sur des marges solides dans l'industrie ferroviaire, malgré des contraintes sectorielles.
 
-### 3. Risques Identifiés
-- Concentration sectorielle: Forte concentration dans le secteur des services financiers, ce qui pourrait exposer le portefeuille aux risques systémiques.
-- Corrélations dangereuses: Exposition significative à la volatilité du marché technologique, susceptible d'accroître le risque global.
-- Points d'attention: La volatilité des marchés émergents pourrait affecter les positions dans des entreprises à forte croissance mondiale.
+- **MSFT (14.13%)**: 
+  - Signaux: SmartMoney (score 0.78) / Momentum (score 0.681)
+  - Thèse: Microsoft maintient sa position de leader dans le secteur technologique grâce à des marges élevées et une capacité d'innovation continue.
 
-### 4. Scénarios de Stress
-- **Scénario 1: Impact si Tech -15%**
-  - Risque élevé de baisse pour les positions dans MSFT, NVDA, et autre tech, potentiellement réduisant la valeur globale du portefeuille de manière significative.
+## 4. Risques Identifiés
+- **Concentration sectorielle**: 42.4% du portefeuille est exposé à la technologie, ce qui peut augmenter le risque en cas de retournement sectoriel.
+- **Corrélations dangereuses**: Une forte corrélation entre les positions technologiques peut amplifier les pertes potentielles.
+- **Points d'attention**: Surveillance des valorisations technologiques et des changements réglementaires dans le secteur de la santé.
 
-- **Scénario 2: Impact si taux +50bps**
-  - Les positions à forte dette relative, comme UNP, pourraient subir une pression accrue sur les marges en raison de l'augmentation des coûts d'emprunt.
+## 5. Scénarios de Stress
 
-- **Scénario 3: Flight to quality**
-  - Les actions à forte capitalisation et à haute qualité, telles que BRK.B et V, pourraient bénéficier de flux de capitaux entrants cherchant la sécurité.
+- **Scénario 1: Impact si Tech -15%**: Une baisse de 15% dans le secteur technologique pourrait entraîner une réduction significative de la valeur du portefeuille, compte tenu de l'exposition sectorielle élevée.
+  
+- **Scénario 2: Impact si taux +50bps**: Une augmentation des taux d'intérêt pourrait affecter les valorisations des actions à forte croissance, notamment dans la technologie et la santé.
+  
+- **Scénario 3: Flight to quality**: Un mouvement vers des actifs de qualité pourrait bénéficier au portefeuille en raison de son biais de qualité et de ses positions dans des entreprises à marges élevées.
 
-### 5. Actions Recommandées
-- Surveiller de près les développements macroéconomiques qui pourraient influencer les secteurs des services financiers et de la technologie.
-- Triggers de sortie potentiels: Détérioration continue des marges opérationnelles, augmentation significative de la volatilité, et changements défavorables dans les politiques de taux d'intérêt.
-- Considérer la réduction de l'exposition à des positions avec des scores de qualité inférieurs pour réallouer vers des titres plus résilients.
+## 6. Actions Recommandées
+- **Surveillances**: Suivre de près les évolutions réglementaires dans le secteur de la santé et les tendances de valorisation dans la technologie.
+- **Triggers de sortie potentiels**: Réévaluer les positions si les marges ou les fondamentaux se détériorent significativement.
+- **Ajustements suggérés**: Considérer une diversification sectorielle accrue pour réduire la concentration en technologie et améliorer la résilience du portefeuille face aux variations de marché.

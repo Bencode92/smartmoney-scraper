@@ -1,8 +1,8 @@
 {
-  "generated_at": "2025-12-01T08:43:41.260739",
+  "generated_at": "2025-12-01T11:59:29.057802",
   "benchmark_comparison": {
     "period_days": 90,
-    "generated_at": "2025-12-01T08:43:41.260137",
+    "generated_at": "2025-12-01T11:59:29.057213",
     "benchmarks": {
       "SPY": {
         "return_pct": 7.72,
@@ -748,40 +748,67 @@
       }
     },
     "portfolio": {
-      "return_pct": 1.5,
-      "volatility_pct": 5.3,
-      "sharpe": 0.07,
-      "max_drawdown_pct": -2.65,
-      "positions": 25
+      "return_pct": 4.49,
+      "volatility_pct": 9.63,
+      "sharpe": 0.35,
+      "max_drawdown_pct": -4.82,
+      "positions": 11
     },
     "comparisons": {
       "SPY": {
-        "alpha_pct": -6.22,
+        "alpha_pct": -3.23,
         "outperformance": "False",
-        "sharpe_diff": -0.49,
-        "vol_diff": -6.58
+        "sharpe_diff": -0.21,
+        "vol_diff": -2.25
       },
       "CAC": {
-        "alpha_pct": 2.75,
+        "alpha_pct": 5.74,
         "outperformance": "True",
-        "sharpe_diff": 0.14,
-        "vol_diff": -28.45
+        "sharpe_diff": 0.42,
+        "vol_diff": -24.12
       }
     }
   },
+  "validation": {
+    "valid": "False",
+    "beats_spy": "False",
+    "beats_cac": "True",
+    "beats_all": "False",
+    "portfolio_return": 4.49,
+    "spy_return": 7.72,
+    "cac_return": -1.25,
+    "alpha_spy": -3.23,
+    "alpha_cac": 5.74,
+    "message": "\u274c Portefeuille sous-performe les benchmarks (+4.49% vs SPY +7.72% vs CAC -1.25%)",
+    "strict_mode": true
+  },
   "turnover": {
-    "turnover_pct": 7.41,
+    "turnover_pct": 57.11,
     "entries": [
-      "LULU",
-      "FICO"
+      "AMZN",
+      "FISV"
     ],
     "exits": [
+      "PG",
+      "CP",
+      "KD",
       "BN",
-      "AMAT"
+      "INTU",
+      "AMAT",
+      "GOOGL",
+      "FERG",
+      "CPRT",
+      "ASML",
+      "MDB",
+      "ADBE",
+      "PBH",
+      "UPS",
+      "SCHW",
+      "SPGI"
     ],
     "entries_count": 2,
-    "exits_count": 2,
-    "unchanged_count": 23
+    "exits_count": 16,
+    "unchanged_count": 9
   },
   "portfolio_history": [
     {
@@ -791,8 +818,8 @@
     },
     {
       "date": "2025-12-01",
-      "positions": 25,
-      "perf_3m": 1.5
+      "positions": 11,
+      "perf_3m": 4.49
     }
   ]
 }
