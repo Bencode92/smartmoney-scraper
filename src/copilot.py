@@ -24,12 +24,61 @@ class Copilot:
             model=model,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7,
-            max_tokens=2000
+            max_tokens=2500
         )
         return response.choices[0].message.content
     
-    def generate_memo(self, portfolio: dict) -> str:
-        """Génère un Investment Memo complet"""
+    def _load_backtest(self, output_dir: Path) -> dict:
+        """Charge les données de backtest si disponibles"""
+        backtest_path = output_dir / "backtest.json"
+        if backtest_path.exists():
+            try:
+                with open(backtest_path) as f:
+                    return json.load(f)
+            except:
+                pass
+        return {}
+    
+    def _format_benchmark_context(self, backtest: dict) -> str:
+        """Formate le contexte benchmark pour le prompt"""
+        if not backtest:
+            return "Données de backtest non disponibles."
+        
+        comparison = backtest.get("benchmark_comparison", {})
+        if "error" in comparison:
+            return "Erreur lors de la récupération des benchmarks."
+        
+        portfolio = comparison.get("portfolio", {})
+        benchmarks = comparison.get("benchmarks", {})
+        validation = backtest.get("validation", {})
+        
+        spy = benchmarks.get("SPY", {})
+        cac = benchmarks.get("CAC", {})
+        
+        context = f"""
+**Performance 3 mois**:
+- Portefeuille: {portfolio.get('return_pct', 'N/A')}%
+- SPY (S&P 500): {spy.get('return_pct', 'N/A')}%
+- CAC 40: {cac.get('return_pct', 'N/A')}%
+
+**Alpha**:
+- vs SPY: {validation.get('alpha_spy', 'N/A')}%
+- vs CAC: {validation.get('alpha_cac', 'N/A')}%
+
+**Risque**:
+- Volatilité portefeuille: {portfolio.get('volatility_pct', 'N/A')}%
+- Volatilité SPY: {spy.get('volatility_pct', 'N/A')}%
+- Sharpe portefeuille: {portfolio.get('sharpe', 'N/A')}
+- Sharpe SPY: {spy.get('sharpe', 'N/A')}
+
+**Statut**:
+- Bat SPY: {'Oui' if validation.get('beats_spy') else 'Non'}
+- Bat CAC: {'Oui' if validation.get('beats_cac') else 'Non'}
+"""
+        return context
+    
+    def generate_memo(self, portfolio: dict, backtest: dict = None) -> str:
+        """Génère un Investment Memo complet avec analyse benchmark"""
         
         positions = portfolio.get("portfolio", [])
         n = len(positions)
@@ -37,18 +86,34 @@ class Copilot:
         # Top 5 pour analyse détaillée
         top5 = positions[:5] if len(positions) >= 5 else positions
         
+        # Contexte benchmark
+        benchmark_context = self._format_benchmark_context(backtest) if backtest else "Données benchmark non disponibles."
+        
+        # Calcul des biais du portefeuille
+        avg_beta = sum(p.get("beta", 1.0) or 1.0 for p in positions) / len(positions) if positions else 1.0
+        sectors = {}
+        for p in positions:
+            sector = p.get("sector", "Unknown")
+            sectors[sector] = sectors.get(sector, 0) + p.get("weight", 0)
+        top_sectors = sorted(sectors.items(), key=lambda x: -x[1])[:3]
+        
         prompt = f"""Tu es un analyste senior en gestion d'actifs. Génère un Investment Memo professionnel.
 
 ## DONNÉES DU PORTEFEUILLE
 
 **Date**: {datetime.now().strftime("%Y-%m-%d")}
 **Nombre de positions**: {n}
+**Beta moyen estimé**: {avg_beta:.2f}
+**Top 3 secteurs**: {', '.join([f"{s[0]} ({s[1]*100:.1f}%)" for s in top_sectors])}
 
 **Top 5 positions**:
 {json.dumps(top5, indent=2)}
 
 **Toutes les positions (résumé)**:
-{json.dumps([{"symbol": p["symbol"], "weight": p["weight"], "score": p.get("score_composite", 0)} for p in positions], indent=2)}
+{json.dumps([{"symbol": p["symbol"], "weight": p["weight"], "score": p.get("score_composite", 0), "perf_3m": p.get("perf_3m")} for p in positions], indent=2)}
+
+## DONNÉES BENCHMARK
+{benchmark_context}
 
 ## FORMAT ATTENDU
 
@@ -56,29 +121,40 @@ Génère un memo structuré avec:
 
 ### 1. Vue Globale (3-4 lignes)
 - Orientation du portefeuille
-- Biais principaux
+- Biais principaux (quality, momentum, low-beta, etc.)
 
-### 2. Top 5 Convictions
+### 2. Positionnement vs Marché
+**SECTION IMPORTANTE** - Analyse la performance relative:
+- Compare factuellement au SPY et CAC
+- Si sous-performance: explique POURQUOI (biais quality = moins de beta, rotation sectorielle défavorable, etc.)
+- Si surperformance: identifie les facteurs qui ont contribué
+- Mentionne le ratio rendement/risque (Sharpe, volatilité)
+- Rappelle qu'une sous-performance temporaire est NORMALE pour un portefeuille factor-based
+- Évite le ton alarmiste, reste factuel et pédagogique
+
+### 3. Top 5 Convictions
 Pour chaque position:
 - **TICKER** (poids%)
 - Signaux: SmartMoney / Insider / Momentum
 - Thèse en 2 phrases max
 
-### 3. Risques Identifiés
+### 4. Risques Identifiés
 - Concentration sectorielle
 - Corrélations dangereuses
 - Points d'attention
 
-### 4. Scénarios de Stress
+### 5. Scénarios de Stress
 - Scénario 1: Impact si Tech -15%
 - Scénario 2: Impact si taux +50bps
 - Scénario 3: Flight to quality
 
-### 5. Actions Recommandées
+### 6. Actions Recommandées
 - Surveillances
 - Triggers de sortie potentiels
+- Ajustements suggérés si sous-performance prolongée
 
 Sois factuel, concis, pas de langue de bois. Style institutionnel.
+IMPORTANT: La section "Positionnement vs Marché" doit être détaillée et pédagogique, c'est le cœur du diagnostic.
 """
         
         return self._call(prompt)
@@ -152,7 +228,13 @@ Réponds de façon concise et factuelle. Si tu ne peux pas répondre avec les do
             output_dir: Dossier daté (ex: outputs/2025-11-28/)
         """
         print("🤖 Génération du memo IA...")
-        memo = self.generate_memo(portfolio)
+        
+        # Charge les données de backtest pour le contexte benchmark
+        backtest = self._load_backtest(output_dir)
+        if backtest:
+            print("   📊 Données benchmark chargées")
+        
+        memo = self.generate_memo(portfolio, backtest)
         
         # Sauvegarde (sans suffixe de date, le dossier parent est déjà daté)
         memo_path = output_dir / "memo.md"
