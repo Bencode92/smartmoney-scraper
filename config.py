@@ -83,7 +83,7 @@ TWELVE_DATA_BASE = "https://api.twelvedata.com"
 # 
 # On met 20 appels/minute pour avoir de la marge (= ~2-3 tickers/minute).
 # Temps estimé: 40 tickers × 8 appels ÷ 20/min = ~16 minutes
-TWELVE_DATA_RATE_LIMIT = 20  # calls per minute (très conservatif)
+TWELVE_DATA_RATE_LIMIT = 40  # calls per minute (très conservatif)
 
 # Pause additionnelle entre chaque ticker (en secondes)
 # Permet d'espacer les appels coûteux
