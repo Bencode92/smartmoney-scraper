@@ -22,6 +22,7 @@ class Backtester:
             "CAC": {"name": "CAC 40", "currency": "EUR"}  # Twelve Data symbol for CAC 40
         }
         self.results = {}
+        self.validation_result = None
     
     def _rate_limit(self):
         """Respecte le rate limit Twelve Data"""
@@ -204,6 +205,70 @@ class Backtester:
         self.results = results
         return results
     
+    def validate_outperformance(self, strict: bool = False) -> dict:
+        """
+        Valide que le portefeuille bat les benchmarks.
+        
+        Args:
+            strict: Si True, exige de battre SPY ET CAC. Si False, un seul suffit.
+        
+        Returns:
+            dict avec:
+                - valid: bool - portefeuille valide ou non
+                - beats_spy: bool
+                - beats_cac: bool
+                - portfolio_return: float
+                - spy_return: float
+                - cac_return: float
+                - message: str - explication
+        """
+        if not self.results or "error" in self.results:
+            return {
+                "valid": False,
+                "message": "Pas de données de backtest disponibles",
+                "beats_spy": False,
+                "beats_cac": False
+            }
+        
+        portfolio_return = self.results.get("portfolio", {}).get("return_pct", 0)
+        spy_return = self.results.get("benchmarks", {}).get("SPY", {}).get("return_pct", 0)
+        cac_return = self.results.get("benchmarks", {}).get("CAC", {}).get("return_pct", 0)
+        
+        beats_spy = portfolio_return > spy_return
+        beats_cac = portfolio_return > cac_return
+        
+        if strict:
+            valid = beats_spy and beats_cac
+        else:
+            valid = beats_spy or beats_cac
+        
+        # Message explicatif
+        if valid:
+            if beats_spy and beats_cac:
+                message = f"✅ Portefeuille bat SPY ET CAC sur 3M ({portfolio_return:+.2f}% vs SPY {spy_return:+.2f}% vs CAC {cac_return:+.2f}%)"
+            elif beats_spy:
+                message = f"⚠️ Portefeuille bat SPY mais pas CAC ({portfolio_return:+.2f}% vs SPY {spy_return:+.2f}% vs CAC {cac_return:+.2f}%)"
+            else:
+                message = f"⚠️ Portefeuille bat CAC mais pas SPY ({portfolio_return:+.2f}% vs SPY {spy_return:+.2f}% vs CAC {cac_return:+.2f}%)"
+        else:
+            message = f"❌ Portefeuille sous-performe les benchmarks ({portfolio_return:+.2f}% vs SPY {spy_return:+.2f}% vs CAC {cac_return:+.2f}%)"
+        
+        self.validation_result = {
+            "valid": valid,
+            "beats_spy": beats_spy,
+            "beats_cac": beats_cac,
+            "beats_all": beats_spy and beats_cac,
+            "portfolio_return": portfolio_return,
+            "spy_return": spy_return,
+            "cac_return": cac_return,
+            "alpha_spy": round(portfolio_return - spy_return, 2),
+            "alpha_cac": round(portfolio_return - cac_return, 2),
+            "message": message,
+            "strict_mode": strict
+        }
+        
+        return self.validation_result
+    
     def calculate_drawdown(self, returns: pd.Series) -> dict:
         """Calcule le drawdown maximum"""
         cumulative = (1 + returns).cumprod()
@@ -218,19 +283,36 @@ class Backtester:
             "max_drawdown_date": str(max_dd_date) if max_dd_date else None
         }
     
-    def generate_report(self, portfolio: list, output_dir: Path) -> Path:
+    def generate_report(self, portfolio: list, output_dir: Path, validate: bool = True, strict: bool = True) -> dict:
         """
         Génère un rapport de backtest complet avec multi-benchmarks.
         
         Args:
             portfolio: Liste des positions
             output_dir: Dossier daté (ex: outputs/2025-11-28/)
+            validate: Si True, valide la surperformance
+            strict: Si True, exige de battre SPY ET CAC
+            
+        Returns:
+            dict avec le rapport et la validation
         """
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
         
         # Compare aux benchmarks (SPY + CAC40)
         comparison = self.compare_to_benchmarks(portfolio)
+        
+        # Valide la surperformance
+        validation = None
+        if validate and "error" not in comparison:
+            validation = self.validate_outperformance(strict=strict)
+            print("\n" + "-"*60)
+            print("🎯 VALIDATION SURPERFORMANCE")
+            print("-"*60)
+            print(validation["message"])
+            if not validation["valid"]:
+                print("⚠️  Le portefeuille ne bat pas les benchmarks!")
+                print("   Recommandation: Revoir la stratégie de sélection")
         
         # Charge l'historique pour calculer le turnover
         history = self.load_portfolio_history()
@@ -244,6 +326,7 @@ class Backtester:
         report = {
             "generated_at": datetime.now().isoformat(),
             "benchmark_comparison": comparison,
+            "validation": validation,
             "turnover": turnover,
             "portfolio_history": [
                 {
@@ -289,7 +372,12 @@ class Backtester:
             print(f"   Entrées: {turnover['entries_count']} | Sorties: {turnover['exits_count']}")
         
         print(f"\n📁 Rapport exporté: {output_dir.name}/{report_path.name}")
-        return report_path
+        
+        return {
+            "report": report,
+            "report_path": report_path,
+            "validation": validation
+        }
 
 
 def run_backtest():
@@ -317,9 +405,14 @@ def run_backtest():
     
     portfolio = data.get("portfolio", [])
     
-    # Lance le backtest
+    # Lance le backtest avec validation stricte
     backtester = Backtester()
-    backtester.generate_report(portfolio, latest_dir)
+    result = backtester.generate_report(portfolio, latest_dir, validate=True, strict=True)
+    
+    # Retourne le statut de validation
+    if result.get("validation"):
+        return result["validation"]["valid"]
+    return True
 
 
 if __name__ == "__main__":
