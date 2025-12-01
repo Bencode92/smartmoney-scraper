@@ -44,7 +44,7 @@ except ImportError:
         "fallback_intra_sector": 0.7,
         "fallback_inter_sector": 0.4,
     }
-TWELVE_DATA_TICKER_PAUSE = 3  # secondes entre chaque ticker
+    TWELVE_DATA_TICKER_PAUSE = 3  # secondes entre chaque ticker
 
 
 # === CUSTOM JSON ENCODER ===
