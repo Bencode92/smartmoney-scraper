@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-12-02T15:27:38.986970",
+  "generated_at": "2025-12-02T21:28:21.526891",
   "type": "estimated",
   "note": "Backtest estim\u00e9 (pas de cl\u00e9 API ou erreur). Relancer avec --with-backtest pour donn\u00e9es r\u00e9elles.",
   "period": {
@@ -7,10 +7,10 @@
     "end": "2025-12-02"
   },
   "portfolio": {
-    "return_pct": 3.83,
-    "return_ytd_pct": 7.75,
-    "volatility_pct": 8.15,
-    "sharpe_estimate": 0.4,
+    "return_pct": 3.74,
+    "return_ytd_pct": 7.11,
+    "volatility_pct": 8.11,
+    "sharpe_estimate": 0.32,
     "max_drawdown_estimate": -12.2,
     "positions": 10
   },
@@ -29,45 +29,45 @@
   "top_performers": [
     {
       "symbol": "GOOGL",
-      "perf_ytd": 67.44
+      "perf_ytd": 66.68
     },
     {
       "symbol": "ASML",
-      "perf_ytd": 57.44
+      "perf_ytd": 58.29
     },
     {
       "symbol": "TSM",
-      "perf_ytd": 45.11
+      "perf_ytd": 44.89
     },
     {
       "symbol": "NVDA",
-      "perf_ytd": 33.11
+      "perf_ytd": 31.1
     },
     {
       "symbol": "MSFT",
-      "perf_ytd": 17.22
+      "perf_ytd": 17.04
     }
   ],
   "worst_performers": [
     {
       "symbol": "LULU",
-      "perf_ytd": -51.28
+      "perf_ytd": -51.0
     },
     {
       "symbol": "CPRT",
-      "perf_ytd": -30.66
+      "perf_ytd": -30.84
     },
     {
       "symbol": "ADBE",
-      "perf_ytd": -27.09
+      "perf_ytd": -26.79
     },
     {
       "symbol": "PG",
-      "perf_ytd": -13.21
+      "perf_ytd": -12.09
     },
     {
       "symbol": "V",
-      "perf_ytd": 4.93
+      "perf_ytd": 4.84
     }
   ]
 }

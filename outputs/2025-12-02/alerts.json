@@ -1,12 +1,18 @@
 {
-  "generated_at": "2025-12-02T15:27:38.980076",
-  "count": 2,
+  "generated_at": "2025-12-02T21:28:21.518562",
+  "count": 3,
   "by_severity": {
     "high": 2,
-    "medium": 0,
+    "medium": 1,
     "low": 0
   },
   "alerts": [
+    {
+      "type": "opportunity",
+      "ticker": "CPRT",
+      "message": "RSI survente (30) - opportunit\u00e9 potentielle",
+      "severity": "medium"
+    },
     {
       "type": "warning",
       "ticker": "CPRT",
