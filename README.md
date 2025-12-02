@@ -6,6 +6,56 @@
 
 📊 **Scraper Python robuste et intelligent pour données hedge funds et superinvestors**
 
+---
+
+## 🆕 Version 2.3 — Buffett-Style Scoring
+
+### Changements clés vs v2.2
+
+| Aspect | v2.2 (Legacy) | v2.3 (Buffett-Style) |
+|--------|---------------|----------------------|
+| Score smart_money | **45%** (dominant) | **15%** (signal secondaire) |
+| Score value | ❌ | **30%** (FCF Yield, EV/EBIT, MoS) |
+| Score quality | 15% (basique) | **25%** (ROIC, FCF growth, stability) |
+| Score risk | Implicite | **15%** (inversé : leverage, coverage) |
+| Filtres | Min price + score | Liquidité + Hard filters + Score |
+| Univers final | ~60-80 tickers | ~25-35 tickers (plus strict) |
+
+### Usage rapide
+
+```bash
+# Nouveau pipeline v2.3 (défaut)
+python main.py --engine v23
+
+# Legacy pipeline v2.2
+python main.py --engine v22
+
+# Options avancées
+python main.py --engine v23 --top-n 50 --dry-run --verbose
+```
+
+### Architecture des Engines
+
+```
+src/
+├── engine_base.py        # Tronc commun (ABC)
+│   ├── load_data()       # Chargement JSON
+│   ├── enrich()          # API Twelve Data
+│   ├── optimize()        # HRP
+│   └── export()          # JSON/CSV
+│
+├── engine_v22.py         # Legacy (smart money dominant)
+│   ├── calculate_scores()
+│   └── apply_filters()
+│
+└── engine_v23.py         # Buffett-style
+    ├── apply_filters_v23()     # Liquidité + Hard filters
+    ├── calculate_scores_v23()  # Value + Quality + Risk
+    └── get_top_buffett()       # Top N par Buffett score
+```
+
+---
+
 ## 🎯 Objectif
 
 Système de scraping professionnel avec anti-détection pour récupérer et consolider les données de :
@@ -38,212 +88,210 @@ cp .env.example .env
 
 ## 🚀 Usage
 
-### Utilisation Simple
-
-```python
-from src.hedgefollow.funds import get_top_n_funds
-
-# Récupérer les top 10 hedge funds
-funds = get_top_n_funds(
-    n=10,
-    min_aum=1_000_000_000,  # Minimum 1B$ AUM
-    min_perf_3y=10.0         # Minimum 10% perf 3 ans
-)
-print(funds[['name', 'aum_usd', 'perf_3y']])
-```
-
-### Pipeline Complet
+### Pipeline Portfolio (v2.3)
 
 ```bash
-# Mise à jour complète avec monitoring
-python -m src.hedgefollow.funds
+# Génération complète du portefeuille
+python main.py --engine v23
 
-# Ou via les scripts
-./scripts/run_pipeline.sh
+# Dry-run (pas d'export)
+python main.py --engine v23 --dry-run
+
+# Comparer v2.2 vs v2.3
+python main.py --engine v22 --output-dir outputs/v22
+python main.py --engine v23 --output-dir outputs/v23
+```
+
+### Utilisation Programmatique
+
+```python
+from src.engine_v23 import SmartMoneyEngineV23
+
+engine = SmartMoneyEngineV23()
+engine.load_data()
+engine.enrich(top_n=50)
+engine.clean_universe(strict=False)
+engine.apply_filters_v23()      # Filtres liquidité + hard
+engine.calculate_scores_v23()   # Scoring Buffett-style
+engine.apply_filters()          # Filtre score minimum
+engine.optimize()               # HRP
+engine.export(output_dir)
+
+# Top 10 par Buffett score
+print(engine.get_top_buffett(10))
 ```
 
 ### Tests de Validation
 
 ```bash
-# Lancer tous les tests
+# Tous les tests
 pytest tests/ -v
 
-# Test spécifique avec coverage
-pytest tests/test_hedgefollow_scraper.py -v --cov=src
+# Tests spécifiques v2.3
+pytest tests/test_v23_sprint1.py tests/test_v23_sprint2.py tests/test_v23_sprint3.py -v
+
+# Tests d'isolation architecture (guard)
+pytest tests/test_v23_guard.py -v
+
+# Smoke test complet
+python scripts/smoke_test_v23_full.py
 ```
 
-## 📊 Architecture Améliorée
+## 📊 Architecture Complète
 
 ```
-src/
-├── config.py           # Configuration globale
-├── validators.py       # 🆕 Validation robuste des données
-├── utils/
-│   ├── http.py        # 🔥 Anti-détection avancée
-│   ├── monitoring.py  # 🆕 Métriques et alertes
-│   ├── parsing.py     # Parsing HTML normalisé
-│   └── io.py          # I/O optimisé
-├── hedgefollow/       # Scrapers HedgeFollow
-├── dataroma/          # Scrapers Dataroma
-└── pipelines/         # Consolidation intelligente
-
-tests/
-└── test_hedgefollow_scraper.py  # 🆕 Tests complets
+smartmoney-scraper/
+├── config.py              # Configuration v2.2
+├── config_v23.py          # Configuration v2.3 (poids, contraintes)
+├── main.py                # Point d'entrée avec switch --engine
+│
+├── src/
+│   ├── engine_base.py     # Classe abstraite commune
+│   ├── engine_v22.py      # Engine legacy
+│   ├── engine_v23.py      # Engine Buffett-style
+│   │
+│   ├── filters/           # 🆕 Filtres v2.3
+│   │   ├── liquidity.py   # Market cap, ADV
+│   │   ├── hard_filters.py # D/E, Interest Coverage
+│   │   └── look_ahead.py  # Contrôle publication lag
+│   │
+│   ├── scoring/           # 🆕 Scoring v2.3
+│   │   ├── value_composite.py   # FCF Yield, EV/EBIT, MoS
+│   │   ├── quality_composite.py # ROIC, FCF growth, stability
+│   │   ├── risk_score.py        # Leverage, coverage (inversé)
+│   │   └── composite.py         # Agrégation + Buffett score
+│   │
+│   ├── backtest/          # 🆕 Backtest v2.3
+│   │   ├── backtest_v23.py # Walk-forward
+│   │   ├── metrics.py      # Sharpe, Max DD, etc.
+│   │   ├── stress_tests.py # Régimes de marché
+│   │   └── reports.py      # Export HTML/CSV
+│   │
+│   └── validation/        # Validation données
+│       └── data_validator.py
+│
+├── tests/
+│   ├── test_v23_sprint1.py  # Tests filtres
+│   ├── test_v23_sprint2.py  # Tests scoring
+│   ├── test_v23_sprint3.py  # Tests backtest
+│   └── test_v23_guard.py    # 🆕 Tests isolation architecture
+│
+└── scripts/
+    ├── smoke_test_v23.py       # Sprint 1
+    ├── smoke_test_v23_scoring.py # Sprint 2
+    ├── smoke_test_v23_full.py    # Sprint 3
+    └── run_backtest_v23.py       # Backtest complet
 ```
 
-## 🛡️ Fonctionnalités de Sécurité
+## 🔧 Configuration v2.3
 
-### Anti-Détection
-- **Rotation User-Agent** : 12+ navigateurs différents
-- **Headers dynamiques** : Accept-Language, Referer variés
-- **Throttling intelligent** : Délais aléatoires et adaptatifs
-- **Support proxy** : Rotation de proxies (optionnel)
+### Poids (config_v23.py)
 
-### Validation des Données
 ```python
-from src.validators import DataValidator
-
-# Validation automatique
-DataValidator.validate_funds(df, min_funds=5)
-DataValidator.check_data_freshness(df, max_days=7)
+WEIGHTS_V23 = {
+    "smart_money": 0.15,  # Réduit de 45%
+    "insider": 0.10,
+    "momentum": 0.05,
+    "value": 0.30,        # Nouveau
+    "quality": 0.25,      # Nouveau
+    "risk": 0.15,         # Nouveau (inversé)
+}
 ```
 
-### Monitoring en Temps Réel
+### Contraintes
+
 ```python
-from src.utils.monitoring import track_performance, alerts
-
-@track_performance("my_function")
-def scrape_data():
-    # Votre code
-    pass
-
-# Alertes automatiques
-alerts.send_alert(
-    "Scraping échoué",
-    "Erreur critique détectée",
-    level="CRITICAL"
-)
+CONSTRAINTS_V23 = {
+    "min_positions": 12,
+    "max_positions": 20,
+    "max_weight": 0.12,
+    "min_score": 0.40,
+}
 ```
 
-## 📈 Métriques et KPIs
+### Filtres de liquidité
 
-Le système track automatiquement :
-- ⏱️ Temps d'exécution par module
-- 📊 Taux de remplissage des colonnes
-- ⚠️ Détection d'anomalies (outliers)
-- ❌ Taux d'erreur et retry
-- 📉 Volume de données scrapées
+```python
+LIQUIDITY_FILTERS = {
+    "min_market_cap": 2_000_000_000,  # $2B
+    "min_avg_volume": 5_000_000,      # $5M ADV
+}
+```
 
-## 🔧 Configuration Avancée
+## 📈 Outputs v2.3
 
-### Variables d'Environnement
+### portfolio.json
 
-```bash
-# API Keys (enrichissement futur)
-TWELVE_DATA_API_KEY=your_key_here
-
-# HTTP Settings
-HTTP_USER_AGENT="Mozilla/5.0..."  # Optionnel, rotation auto
-REQUESTS_SLEEP_SECONDS=2           # Délai entre requêtes
-
-# Scraping Parameters
-HEDGEFOLLOW_TOP_N_FUNDS=15
-DATAROMA_TOP_N_MANAGERS=10
-INSIDER_MIN_VALUE_USD=5000000
-
-# Alerting (optionnel)
-DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
+```json
+{
+  "metadata": {
+    "generated_at": "2025-12-02T14:00:00",
+    "engine_version": "2.3",
+    "positions": 18
+  },
+  "portfolio": [
+    {
+      "symbol": "AAPL",
+      "weight": 0.0823,
+      "score_composite": 0.682,
+      "buffett_score": 0.715,
+      "score_value": 0.68,
+      "score_quality": 0.75,
+      "score_risk": 0.72
+    }
+  ]
+}
 ```
 
 ## 🧪 Tests et Validation
 
-### Structure des Tests
-
-```python
-# Tests unitaires
-test_validate_funds_success()      # Validation réussie
-test_validate_funds_missing_data() # Gestion données manquantes
-test_scraping_with_fallback()      # Stratégies de fallback
-
-# Tests d'intégration
-test_full_pipeline()                # Pipeline complet
-test_network_resilience()           # Résilience réseau
-```
-
-### Lancer les Tests
+### Structure des Tests v2.3
 
 ```bash
-# Tests rapides
-pytest tests/ -v -m "not integration"
+# Tests d'isolation (CRITIQUE)
+pytest tests/test_v23_guard.py -v
+# ✅ v2.3 hérite de Base, pas de v2.2
+# ✅ Méthodes de scoring locales
+# ✅ Poids différents de v2.2
 
-# Tests complets avec rapport
-pytest tests/ -v --cov=src --cov-report=html
+# Tests fonctionnels
+pytest tests/test_v23_sprint1.py -v  # Filtres
+pytest tests/test_v23_sprint2.py -v  # Scoring
+pytest tests/test_v23_sprint3.py -v  # Backtest
 ```
 
-## 📊 Données Générées
+## 📊 Backtest v2.3
 
-### Structure des Données
+```bash
+# Backtest complet
+python scripts/run_backtest_v23.py
 
-```
-data/
-├── raw/
-│   ├── hedgefollow/
-│   │   ├── funds_top.csv          # Top hedge funds
-│   │   ├── holdings_20241124.csv  # Positions détaillées
-│   │   └── insiders_20241124.csv  # Trades insiders
-│   └── dataroma/
-│       ├── managers.csv           # Superinvestors
-│       └── holdings_20241124.csv  # Positions
-├── processed/
-│   └── universe_smartmoney_20241124.csv  # Consolidé
-└── metrics.jsonl                  # 🆕 Métriques de monitoring
+# Options
+python scripts/run_backtest_v23.py \
+    --start 2015-01-01 \
+    --end 2024-12-31 \
+    --rebalance quarterly \
+    --output outputs/backtest_v23
 ```
 
-### Format des Données
+### Métriques générées
 
-| Colonne | Type | Description |
-|---------|------|-------------|
-| fund_id | str | Identifiant unique |
-| name | str | Nom du fond |
-| aum_usd | float | Assets Under Management |
-| perf_3y | float | Performance 3 ans (%) |
-| num_holdings | int | Nombre de positions |
-| scraped_at | datetime | Timestamp du scraping |
-
-## 🚀 CI/CD avec GitHub Actions
-
-### Workflows Automatisés
-
-- **Daily Scraping** : Mise à jour quotidienne à 6h UTC
-- **Weekly Full** : Scraping complet hebdomadaire
-- **On Push** : Tests automatiques sur chaque commit
-
-## 📈 Monitoring et Alertes
-
-### Dashboard de Santé
-
-```python
-from src.utils.monitoring import check_scraping_health
-
-health = check_scraping_health()
-print(f"Status: {health['status']}")
-# Output: Status: HEALTHY ✅
-```
-
-### Webhook Discord/Slack
-
-Configuration automatique des alertes critiques via webhooks.
+- **Sharpe Ratio** (cible ≥ 0.55)
+- **Max Drawdown** (cible ≤ -25%)
+- **CAGR** (vs S&P 500)
+- **Turnover** annualisé
+- **Stress tests** par régime (bull, bear, recovery, sideways)
 
 ## 🔄 Prochaines Étapes
 
-- [x] Validation robuste des données
-- [x] Anti-détection avancée
-- [x] Monitoring et métriques
-- [x] Tests automatisés
-- [ ] Enrichissement Twelve Data API
-- [ ] Support Parquet/SQLite
+- [x] v2.3 Sprint 1 : Filtres (liquidité, hard, look-ahead)
+- [x] v2.3 Sprint 2 : Scoring (value, quality, risk)
+- [x] v2.3 Sprint 3 : Backtest (walk-forward, stress tests)
+- [x] Architecture propre (BaseEngine)
+- [ ] Validation sur données réelles
+- [ ] Comparaison backtest v2.2 vs v2.3
+- [ ] Intégration API enrichissement
 - [ ] Dashboard Streamlit
-- [ ] ML pour détection de patterns
 
 ## 🤝 Contribution
 
