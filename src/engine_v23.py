@@ -1,4 +1,4 @@
-"""SmartMoney Engine v2.3 — Buffett-Style Scoring
+"""SmartMoney Engine v2.3.1 — Buffett-Style Scoring
 
 Hérite de SmartMoneyEngineBase (tronc commun) et implémente:
 - calculate_scores(): Scoring v2.3 (value/quality/risk + signaux)
@@ -9,6 +9,8 @@ Changements vs v2.2:
 - Filtres de liquidité et hard filters
 - Scoring Buffett-style (value, quality, risk inversé)
 - Contrôle look-ahead
+
+v2.3.1: Ajout overlay Buffett (score_buffett séparé, filtres Buffett)
 
 Architecture:
     SmartMoneyEngineBase (tronc commun)
@@ -22,7 +24,7 @@ Usage:
     engine.load_data()
     engine.enrich(top_n=50)
     engine.apply_filters_v23()      # Filtres liquidité + hard
-    engine.calculate_scores_v23()   # Nouveaux scores
+    engine.calculate_scores_v23()   # Nouveaux scores + Buffett overlay
     engine.apply_filters()          # Filtre score minimum
     engine.optimize()
     engine.export(output_dir)
@@ -65,32 +67,44 @@ from src.filters.hard_filters import apply_hard_filters
 from src.scoring.value_composite import score_value
 from src.scoring.quality_composite import score_quality
 from src.scoring.risk_score import score_risk
-from src.scoring.composite import calculate_composite_score
+from src.scoring.composite import calculate_composite_score, calculate_buffett_score
+
+# Import Buffett filters v2.3.1
+try:
+    from src.filters.buffett_filters import (
+        apply_buffett_filters,
+        compute_buffett_features,
+        get_buffett_universe_stats,
+    )
+    BUFFETT_AVAILABLE = True
+except ImportError:
+    BUFFETT_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
 
 class SmartMoneyEngineV23(SmartMoneyEngineBase):
     """
-    Moteur SmartMoney v2.3 — Buffett-Style.
+    Moteur SmartMoney v2.3.1 — Buffett-Style.
     
     Hérite de SmartMoneyEngineBase (PAS de v2.2) et ajoute:
     - Filtres de liquidité et hard filters
     - Scoring Value, Quality, Risk
     - Poids v2.3 (smart_money réduit de 45% à 15%)
-    - Buffett score (moyenne value + quality + risk)
+    - Buffett score (60% qualité + 40% valorisation)
+    - Overlay Buffett (filtres et score séparés)
     
     Example:
         >>> engine = SmartMoneyEngineV23()
         >>> engine.load_data()
         >>> engine.enrich(top_n=50)
         >>> engine.apply_filters_v23()      # Nouveaux filtres
-        >>> engine.calculate_scores_v23()   # Nouveaux scores
+        >>> engine.calculate_scores_v23()   # Nouveaux scores + Buffett overlay
         >>> engine.apply_filters()          # Score minimum
         >>> engine.optimize()
     """
     
-    version = "2.3"
+    version = "2.3.1"
     
     def __init__(self):
         super().__init__()
@@ -276,14 +290,15 @@ class SmartMoneyEngineV23(SmartMoneyEngineBase):
         historical_data_map: Optional[Dict[str, Dict]] = None,
     ) -> pd.DataFrame:
         """
-        Calcule les scores v2.3 (value, quality, risk + composite).
+        Calcule les scores v2.3.1 (value, quality, risk + composite + Buffett overlay).
         
         Pipeline:
         1. Scores de signaux (smart_money, insider, momentum) - méthodes locales
         2. Score Value (FCF yield, EV/EBIT, MoS)
         3. Score Quality (ROIC, stabilité, FCF growth)
         4. Score Risk inversé (leverage, coverage, volatility)
-        5. Composite v2.3 + Buffett Score
+        5. Composite v2.3 + Buffett Score legacy
+        6. BUFFETT OVERLAY v2.3.1 (features + score Buffett séparé + univers Buffett)
         
         Args:
             sector_medians: Médianes EV/EBIT par secteur (optionnel)
@@ -296,7 +311,7 @@ class SmartMoneyEngineV23(SmartMoneyEngineBase):
             raise ValueError("Univers vide après filtres. Vérifier les données ou relaxer les filtres.")
         
         print("\n" + "=" * 50)
-        print("SCORING v2.3 (Buffett-Style)")
+        print("SCORING v2.3.1 (Buffett-Style)")
         print("=" * 50)
         
         # 1. Scores de signaux (méthodes LOCALES, pas v2.2)
@@ -350,34 +365,93 @@ class SmartMoneyEngineV23(SmartMoneyEngineBase):
             else:
                 self.universe["score_composite"] = 0.5
         
+        # =====================================================================
+        # 6. BUFFETT OVERLAY v2.3.1
+        # =====================================================================
+        print("6. Buffett overlay v2.3.1...")
+        
+        if BUFFETT_AVAILABLE:
+            try:
+                # 6a. Calculer les features Buffett (accruals, fcf_ni_ratio)
+                self.universe = compute_buffett_features(self.universe)
+                features_added = []
+                if "accruals" in self.universe.columns:
+                    features_added.append("accruals")
+                if "fcf_ni_ratio" in self.universe.columns:
+                    features_added.append("fcf_ni_ratio")
+                print(f"   ✓ Features calculées: {features_added}")
+                
+                # 6b. Calculer le score Buffett (indépendant de score_composite)
+                self.universe = calculate_buffett_score(self.universe)
+                buffett_mean = self.universe["score_buffett"].mean()
+                print(f"   ✓ Score Buffett calculé: mean={buffett_mean:.3f}")
+                
+                # 6c. Identifier l'univers Buffett (filtres Buffett sans exclusion)
+                df_buffett, rejected = apply_buffett_filters(
+                    self.universe.copy(), 
+                    verbose=False
+                )
+                self.universe["in_buffett_universe"] = self.universe.index.isin(df_buffett.index)
+                buffett_count = self.universe["in_buffett_universe"].sum()
+                print(f"   ✓ Univers Buffett: {buffett_count}/{len(self.universe)} tickers éligibles")
+                
+                # 6d. Stats Buffett (optionnel, pour debug)
+                if buffett_count > 0:
+                    stats = get_buffett_universe_stats(df_buffett)
+                    if "accruals_median" in stats:
+                        print(f"   ✓ Accruals médian: {stats['accruals_median']:.3f}")
+                
+            except Exception as e:
+                logger.warning(f"Erreur Buffett overlay: {e}")
+                self.universe["score_buffett"] = self.universe.get("buffett_score", 0.5)
+                self.universe["in_buffett_universe"] = True
+                print(f"   ⚠️ Fallback Buffett overlay: {e}")
+        else:
+            # Buffett filters non disponibles → fallback
+            print("   ⚠️ Module buffett_filters non disponible")
+            self.universe["score_buffett"] = self.universe.get("buffett_score", 0.5)
+            self.universe["in_buffett_universe"] = True
+        
         # Tri par score
         self.universe = self.universe.sort_values("score_composite", ascending=False)
         
         print("\n" + "=" * 50)
-        print("SCORING v2.3 TERMINÉ")
+        print("SCORING v2.3.1 TERMINÉ")
         print(f"  Univers: {len(self.universe)} tickers")
-        print(f"  Composite: mean={self.universe['score_composite'].mean():.3f}")
-        if "buffett_score" in self.universe.columns:
-            print(f"  Buffett:   mean={self.universe['buffett_score'].mean():.3f}")
+        print(f"  Composite:  mean={self.universe['score_composite'].mean():.3f}")
+        if "score_buffett" in self.universe.columns:
+            print(f"  Buffett:    mean={self.universe['score_buffett'].mean():.3f}")
+        if "in_buffett_universe" in self.universe.columns:
+            buffett_pct = self.universe["in_buffett_universe"].mean() * 100
+            print(f"  Buffett U:  {buffett_pct:.0f}% éligibles")
         print("=" * 50)
         
         return self.universe
     
     def get_top_buffett(self, n: int = 20) -> pd.DataFrame:
         """
-        Retourne les top N par Buffett score (value + quality + risk).
+        Retourne les top N par Buffett score (score_buffett v2.3.1).
         
         Args:
             n: Nombre de positions
         
         Returns:
-            DataFrame trié par buffett_score
+            DataFrame trié par score_buffett
         """
-        sort_col = "buffett_score" if "buffett_score" in self.universe.columns else "score_composite"
+        # Préférer score_buffett v2.3.1, sinon buffett_score legacy
+        if "score_buffett" in self.universe.columns:
+            sort_col = "score_buffett"
+        elif "buffett_score" in self.universe.columns:
+            sort_col = "buffett_score"
+        else:
+            sort_col = "score_composite"
         
         cols = [
             "symbol", "company", "sector",
-            "buffett_score", "score_composite",
+            "score_buffett", "buffett_score", "score_composite",
+            "score_quality_buffett", "score_valo_buffett",
+            "score_moat_buffett", "score_cash_buffett",
+            "in_buffett_universe",
             "score_value", "score_quality_v23", "score_risk",
             "score_sm", "score_insider", "score_momentum",
         ]
@@ -389,6 +463,19 @@ class SmartMoneyEngineV23(SmartMoneyEngineBase):
             .head(n)
             .reset_index(drop=True)
         )
+    
+    def get_buffett_universe(self) -> pd.DataFrame:
+        """
+        Retourne uniquement les titres qui passent les filtres Buffett.
+        
+        Returns:
+            DataFrame filtré sur in_buffett_universe == True
+        """
+        if "in_buffett_universe" not in self.universe.columns:
+            logger.warning("Colonne in_buffett_universe absente. Appeler calculate_scores_v23() d'abord.")
+            return self.universe
+        
+        return self.universe[self.universe["in_buffett_universe"] == True].copy()
     
     def summary(self) -> Dict:
         """
@@ -406,8 +493,15 @@ class SmartMoneyEngineV23(SmartMoneyEngineBase):
         if "score_composite" in self.universe.columns:
             summary["score_composite_mean"] = round(self.universe["score_composite"].mean(), 3)
         
+        if "score_buffett" in self.universe.columns:
+            summary["score_buffett_mean"] = round(self.universe["score_buffett"].mean(), 3)
+        
         if "buffett_score" in self.universe.columns:
-            summary["buffett_score_mean"] = round(self.universe["buffett_score"].mean(), 3)
+            summary["buffett_score_legacy_mean"] = round(self.universe["buffett_score"].mean(), 3)
+        
+        if "in_buffett_universe" in self.universe.columns:
+            summary["buffett_universe_count"] = int(self.universe["in_buffett_universe"].sum())
+            summary["buffett_universe_pct"] = round(self.universe["in_buffett_universe"].mean() * 100, 1)
         
         if "sector" in self.universe.columns:
             summary["sectors"] = self.universe["sector"].value_counts().to_dict()
@@ -437,7 +531,7 @@ if __name__ == "__main__":
     # 4. Filtres v2.3
     engine.apply_filters_v23()
     
-    # 5. Scores v2.3
+    # 5. Scores v2.3.1 (avec Buffett overlay)
     engine.calculate_scores_v23()
     
     # 6. Filtres finaux
@@ -458,6 +552,12 @@ if __name__ == "__main__":
     
     # 9. Afficher top Buffett
     print("\n" + "=" * 60)
-    print("TOP 10 BUFFETT SCORE")
+    print("TOP 10 BUFFETT SCORE v2.3.1")
     print("=" * 60)
     print(engine.get_top_buffett(10).to_string())
+    
+    # 10. Résumé
+    print("\n" + "=" * 60)
+    print("SUMMARY")
+    print("=" * 60)
+    print(engine.summary())
