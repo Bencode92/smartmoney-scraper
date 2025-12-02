@@ -1,4 +1,4 @@
-"""SmartMoney v2.3 — Composite Scorer
+"""SmartMoney v2.3.1 — Composite Scorer
 
 Agrégation finale de tous les scores avec les poids v2.3.
 
@@ -11,6 +11,8 @@ Poids v2.3:
 - risk: 15% (NOUVEAU, inversé)
 
 TOTAL = 100%
+
+v2.3.1: Ajout score_buffett séparé (60% qualité + 40% valorisation)
 
 Date: Décembre 2025
 """
@@ -26,7 +28,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 try:
-    from config_v23 import WEIGHTS_V23
+    from config_v23 import WEIGHTS_V23, BUFFETT_SCORING
 except ImportError:
     WEIGHTS_V23 = {
         "smart_money": 0.15,
@@ -35,6 +37,14 @@ except ImportError:
         "value": 0.30,
         "quality": 0.25,
         "risk": 0.15,
+    }
+    BUFFETT_SCORING = {
+        "quality_weight": 0.60,
+        "valuation_weight": 0.40,
+        "moat_weight": 0.40,
+        "cash_quality_weight": 0.25,
+        "solidity_weight": 0.20,
+        "cap_alloc_weight": 0.15,
     }
 
 logger = logging.getLogger(__name__)
@@ -288,3 +298,284 @@ def calculate_all_scores(
     logger.info("=" * 50)
     
     return df
+
+
+# =============================================================================
+# BUFFETT SCORING v2.3.1 — Score séparé style Warren Buffett
+# =============================================================================
+
+def calculate_buffett_score(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Calcule le score Buffett séparé (indépendant de score_composite).
+    
+    Formule:
+        score_buffett = 60% × score_quality_buffett + 40% × score_valo_buffett
+    
+    Où score_quality_buffett =
+        40% × moat (ROIC + ROE + stabilité)
+        25% × cash_quality (FCF/NI + accruals bas)
+        20% × solidity (réutilise score_risk existant)
+        15% × cap_alloc (réutilise capital_discipline existant)
+    
+    Et score_valo_buffett = score_value existant (pas de recalcul).
+    
+    Colonnes requises (optionnelles avec fallback):
+        - roic_avg ou roic
+        - roe_avg ou roe
+        - margin_stability ou score_quality
+        - fcf_ni_ratio (calculé par compute_buffett_features)
+        - accruals (calculé par compute_buffett_features)
+        - score_risk (calculé par score_risk)
+        - capital_discipline ou score_quality
+        - score_value
+    
+    Colonnes ajoutées:
+        - score_moat_buffett
+        - score_cash_buffett
+        - score_quality_buffett
+        - score_valo_buffett
+        - score_buffett
+        - rank_buffett_v2
+    
+    Args:
+        df: DataFrame avec métriques et scores existants
+    
+    Returns:
+        DataFrame avec colonnes Buffett ajoutées
+    
+    Example:
+        >>> from src.filters.buffett_filters import compute_buffett_features
+        >>> df = compute_buffett_features(df)  # Calcule accruals, fcf_ni_ratio
+        >>> df = calculate_buffett_score(df)
+        >>> print(df[["symbol", "score_buffett", "score_composite"]].head())
+    """
+    df = df.copy()
+    
+    # Récupérer les poids depuis config
+    quality_weight = BUFFETT_SCORING.get("quality_weight", 0.60)
+    valo_weight = BUFFETT_SCORING.get("valuation_weight", 0.40)
+    
+    moat_w = BUFFETT_SCORING.get("moat_weight", 0.40)
+    cash_w = BUFFETT_SCORING.get("cash_quality_weight", 0.25)
+    solid_w = BUFFETT_SCORING.get("solidity_weight", 0.20)
+    cap_w = BUFFETT_SCORING.get("cap_alloc_weight", 0.15)
+    
+    # =========================================================================
+    # QUALITÉ BUFFETT (60%)
+    # =========================================================================
+    
+    # 1. Moat Score (40% de qualité)
+    df["score_moat_buffett"] = _score_moat(df)
+    
+    # 2. Cash Quality Score (25% de qualité)
+    df["score_cash_buffett"] = _score_cash_quality(df)
+    
+    # 3. Solidity Score (20% de qualité) — réutilise score_risk existant
+    if "score_risk" in df.columns:
+        solidity = df["score_risk"].fillna(0.5)
+    else:
+        solidity = pd.Series(0.5, index=df.index)
+        logger.debug("score_risk absent → solidity = 0.5")
+    
+    # 4. Capital Allocation Score (15% de qualité)
+    cap_alloc = _get_cap_alloc_score(df)
+    
+    # Agrégation qualité
+    df["score_quality_buffett"] = (
+        moat_w * df["score_moat_buffett"] +
+        cash_w * df["score_cash_buffett"] +
+        solid_w * solidity +
+        cap_w * cap_alloc
+    ).clip(0, 1).round(3)
+    
+    # =========================================================================
+    # VALORISATION BUFFETT (40%)
+    # =========================================================================
+    # Réutilise score_value existant (pas de recalcul)
+    
+    if "score_value" in df.columns:
+        df["score_valo_buffett"] = df["score_value"].fillna(0.5)
+    else:
+        df["score_valo_buffett"] = 0.5
+        logger.warning("score_value absent → score_valo_buffett = 0.5")
+    
+    # =========================================================================
+    # SCORE BUFFETT TOTAL
+    # =========================================================================
+    
+    df["score_buffett"] = (
+        quality_weight * df["score_quality_buffett"] +
+        valo_weight * df["score_valo_buffett"]
+    ).round(3)
+    
+    # Ranking
+    df["rank_buffett_v2"] = df["score_buffett"].rank(ascending=False).astype(int)
+    
+    # Stats
+    mean_score = df["score_buffett"].mean()
+    std_score = df["score_buffett"].std()
+    
+    logger.info(
+        f"Score Buffett v2.3.1 calculé: "
+        f"mean={mean_score:.3f}, std={std_score:.3f}, "
+        f"min={df['score_buffett'].min():.3f}, max={df['score_buffett'].max():.3f}"
+    )
+    
+    return df
+
+
+def _score_moat(df: pd.DataFrame) -> pd.Series:
+    """
+    Calcule le score Moat (avantage concurrentiel durable).
+    
+    Composantes:
+    - ROIC niveau (40%): ROIC > 15% = excellent
+    - ROE niveau (30%): ROE > 20% = excellent
+    - Stabilité marges (30%): Marges stables sur le temps
+    
+    Args:
+        df: DataFrame avec roic, roe, margin_stability
+    
+    Returns:
+        Series score moat [0, 1]
+    """
+    scores = pd.DataFrame(index=df.index)
+    
+    # --- ROIC (40%) ---
+    # Seuils: < 5% = 0, 5-10% = 0.3-0.6, 10-15% = 0.6-0.8, > 15% = 0.8-1.0
+    roic = df.get("roic_avg")
+    if roic is None:
+        roic = df.get("roic")
+    if roic is None:
+        roic = pd.Series(0.10, index=df.index)  # Neutre
+        logger.debug("ROIC absent → valeur neutre 10%")
+    
+    # Normalisation: ROIC clippé à [0, 25%] puis mappé à [0, 1]
+    scores["roic"] = (roic.clip(0, 0.25) / 0.25).fillna(0.5)
+    
+    # --- ROE (30%) ---
+    roe = df.get("roe_avg")
+    if roe is None:
+        roe = df.get("roe")
+    if roe is None:
+        roe = pd.Series(0.12, index=df.index)  # Neutre
+        logger.debug("ROE absent → valeur neutre 12%")
+    
+    # Normalisation: ROE clippé à [0, 30%] puis mappé à [0, 1]
+    scores["roe"] = (roe.clip(0, 0.30) / 0.30).fillna(0.5)
+    
+    # --- Stabilité marges (30%) ---
+    if "margin_stability" in df.columns:
+        # margin_stability devrait déjà être en [0, 1]
+        scores["stability"] = df["margin_stability"].fillna(0.5)
+    elif "score_quality" in df.columns:
+        # Fallback sur score_quality global
+        scores["stability"] = df["score_quality"].fillna(0.5)
+    else:
+        scores["stability"] = 0.5
+        logger.debug("margin_stability absent → valeur neutre 0.5")
+    
+    # Agrégation
+    moat_score = (
+        0.40 * scores["roic"] +
+        0.30 * scores["roe"] +
+        0.30 * scores["stability"]
+    ).clip(0, 1)
+    
+    return moat_score
+
+
+def _score_cash_quality(df: pd.DataFrame) -> pd.Series:
+    """
+    Calcule le score Cash Quality (qualité des bénéfices).
+    
+    Composantes:
+    - FCF/NI ratio (60%): > 1 = excellent (profits convertis en cash)
+    - Accruals bas (40%): < 5% = excellent (bénéfices = cash réel)
+    
+    Pré-requis: Appeler compute_buffett_features() avant pour calculer
+    les colonnes fcf_ni_ratio et accruals.
+    
+    Args:
+        df: DataFrame avec fcf_ni_ratio, accruals
+    
+    Returns:
+        Series score cash quality [0, 1]
+    """
+    scores = pd.DataFrame(index=df.index)
+    
+    # --- FCF/NI Ratio (60%) ---
+    # Seuils: < 0.5 = 0-0.3, 0.5-1.0 = 0.3-0.7, > 1.0 = 0.7-1.0
+    if "fcf_ni_ratio" in df.columns:
+        ratio = df["fcf_ni_ratio"].clip(0.3, 1.5)
+        # Mapping: 0.3 → 0, 1.5 → 1
+        scores["fcf_ni"] = ((ratio - 0.3) / 1.2).fillna(0.5)
+    else:
+        scores["fcf_ni"] = 0.5
+        logger.debug("fcf_ni_ratio absent → valeur neutre 0.5")
+    
+    # --- Accruals (40%) ---
+    # Plus c'est bas, mieux c'est: < 5% = 1.0, > 15% = 0.0
+    if "accruals" in df.columns:
+        # Inverser: accruals bas = score haut
+        accruals_clipped = df["accruals"].clip(0, 0.20)
+        scores["accruals"] = (1 - accruals_clipped / 0.20).fillna(0.5)
+    else:
+        scores["accruals"] = 0.5
+        logger.debug("accruals absent → valeur neutre 0.5")
+    
+    # Agrégation
+    cash_score = (
+        0.60 * scores["fcf_ni"] +
+        0.40 * scores["accruals"]
+    ).clip(0, 1)
+    
+    return cash_score
+
+
+def _get_cap_alloc_score(df: pd.DataFrame) -> pd.Series:
+    """
+    Récupère le score Capital Allocation.
+    
+    Utilise capital_discipline s'il existe, sinon fallback sur score_quality
+    ou valeur neutre.
+    
+    Args:
+        df: DataFrame
+    
+    Returns:
+        Series score cap alloc [0, 1]
+    """
+    if "capital_discipline" in df.columns:
+        return df["capital_discipline"].fillna(0.5)
+    elif "score_quality" in df.columns:
+        # Approximation via score qualité global
+        return df["score_quality"].fillna(0.5)
+    else:
+        logger.debug("capital_discipline absent → valeur neutre 0.5")
+        return pd.Series(0.5, index=df.index)
+
+
+def get_buffett_score_breakdown(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Retourne le détail du score Buffett pour analyse.
+    
+    Args:
+        df: DataFrame avec scores Buffett calculés
+    
+    Returns:
+        DataFrame avec colonnes de breakdown
+    """
+    cols = [
+        "symbol",
+        "score_buffett",
+        "score_quality_buffett",
+        "score_valo_buffett",
+        "score_moat_buffett",
+        "score_cash_buffett",
+        "rank_buffett_v2",
+    ]
+    
+    available = [c for c in cols if c in df.columns]
+    
+    return df[available].sort_values("score_buffett", ascending=False)
