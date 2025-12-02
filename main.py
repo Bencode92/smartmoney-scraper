@@ -5,6 +5,7 @@ Usage:
     python main.py --engine v23      # Buffett-style (default)
     python main.py --engine v22      # Legacy smart-money dominant
     python main.py --engine v23 --top-n 50 --dry-run
+    python main.py --engine v23 --with-backtest
 """
 import argparse
 import json
@@ -24,11 +25,12 @@ def parse_args():
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument("--output-dir", type=str, default=None)
     parser.add_argument("--skip-extras", action="store_true", help="Skip dashboard, memo, alerts")
+    parser.add_argument("--with-backtest", action="store_true", help="Run backtest (requires price data)")
     return parser.parse_args()
 
 
 def generate_extras(portfolio_data: dict, output_dir: Path, engine_version: str):
-    """Génère dashboard, memo et alerts."""
+    """Génère dashboard, memo Buffett et alerts."""
     
     # 1. Dashboard HTML
     try:
@@ -38,13 +40,13 @@ def generate_extras(portfolio_data: dict, output_dir: Path, engine_version: str)
     except Exception as e:
         print(f"   ⚠️ Dashboard: {e}")
     
-    # 2. Memo markdown
+    # 2. Memo Buffett style
     try:
-        from src.memo import generate_memo
-        generate_memo(portfolio_data, output_dir)
-        print("   ✓ memo.md")
+        from src.memo_buffett import generate_buffett_memo
+        generate_buffett_memo(portfolio_data, output_dir)
+        print("   ✓ memo.md (Buffett style)")
     except ImportError:
-        # Générer un memo basique si le module n'existe pas
+        # Fallback basique
         try:
             generate_basic_memo(portfolio_data, output_dir, engine_version)
             print("   ✓ memo.md (basic)")
@@ -55,34 +57,24 @@ def generate_extras(portfolio_data: dict, output_dir: Path, engine_version: str)
     
     # 3. Alerts JSON
     try:
-        from src.alerts import generate_alerts
         generate_alerts(portfolio_data, output_dir)
         print("   ✓ alerts.json")
-    except ImportError:
-        # Générer des alertes basiques si le module n'existe pas
-        try:
-            generate_basic_alerts(portfolio_data, output_dir)
-            print("   ✓ alerts.json (basic)")
-        except Exception as e:
-            print(f"   ⚠️ Alerts: {e}")
     except Exception as e:
         print(f"   ⚠️ Alerts: {e}")
 
 
 def generate_basic_memo(portfolio_data: dict, output_dir: Path, engine_version: str):
-    """Génère un memo markdown basique."""
+    """Génère un memo markdown basique (fallback)."""
     metrics = portfolio_data.get("metrics", {})
     positions = portfolio_data.get("portfolio", [])
     date_str = portfolio_data.get("metadata", {}).get("date", datetime.now().strftime("%Y-%m-%d"))
     
-    # Top 5 positions
     top5 = sorted(positions, key=lambda x: x.get("weight", 0), reverse=True)[:5]
     top5_str = "\n".join([
         f"| {p.get('symbol', 'N/A')} | {p.get('sector', 'N/A')[:15]} | {p.get('weight', 0)*100:.1f}% | {p.get('score_composite', 0):.3f} |"
         for p in top5
     ])
     
-    # Secteurs
     sector_weights = metrics.get("sector_weights", {})
     sectors_str = ", ".join([f"{k}: {v}%" for k, v in sorted(sector_weights.items(), key=lambda x: -x[1])[:5]])
     
@@ -97,8 +89,6 @@ def generate_basic_memo(portfolio_data: dict, output_dir: Path, engine_version: 
 | Perf 3M | {metrics.get('perf_3m', 'N/A')}% |
 | Perf YTD | {metrics.get('perf_ytd', 'N/A')}% |
 | Volatilité 30j | {metrics.get('vol_30d', 'N/A')}% |
-| ROE moyen | {metrics.get('avg_roe', 'N/A')}% |
-| D/E moyen | {metrics.get('avg_debt_equity', 'N/A')} |
 
 ## Top 5 Positions
 
@@ -110,10 +100,8 @@ def generate_basic_memo(portfolio_data: dict, output_dir: Path, engine_version: 
 
 {sectors_str}
 
-## Notes
-
-- Généré automatiquement par SmartMoney Engine v{engine_version}
-- Date: {datetime.now().isoformat()}
+---
+_Généré par SmartMoney Engine v{engine_version}_
 """
     
     memo_path = output_dir / "memo.md"
@@ -121,8 +109,8 @@ def generate_basic_memo(portfolio_data: dict, output_dir: Path, engine_version: 
         f.write(memo)
 
 
-def generate_basic_alerts(portfolio_data: dict, output_dir: Path):
-    """Génère des alertes basiques."""
+def generate_alerts(portfolio_data: dict, output_dir: Path):
+    """Génère des alertes basées sur les métriques."""
     positions = portfolio_data.get("portfolio", [])
     alerts = []
     
@@ -135,14 +123,14 @@ def generate_basic_alerts(portfolio_data: dict, output_dir: Path):
             alerts.append({
                 "type": "opportunity",
                 "ticker": symbol,
-                "message": f"RSI survente ({rsi:.0f})",
+                "message": f"RSI survente ({rsi:.0f}) - opportunité potentielle",
                 "severity": "medium"
             })
         elif rsi and rsi > 70:
             alerts.append({
                 "type": "warning",
                 "ticker": symbol,
-                "message": f"RSI surachat ({rsi:.0f})",
+                "message": f"RSI surachat ({rsi:.0f}) - prudence",
                 "severity": "medium"
             })
         
@@ -162,7 +150,7 @@ def generate_basic_alerts(portfolio_data: dict, output_dir: Path):
             alerts.append({
                 "type": "warning",
                 "ticker": symbol,
-                "message": f"Forte baisse YTD ({perf_ytd:.0f}%)",
+                "message": f"Forte baisse YTD ({perf_ytd:.0f}%) - vérifier les fondamentaux",
                 "severity": "high"
             })
         
@@ -175,16 +163,154 @@ def generate_basic_alerts(portfolio_data: dict, output_dir: Path):
                 "message": f"Endettement élevé (D/E={de:.1f})",
                 "severity": "medium"
             })
+        
+        # ROE négatif
+        roe = pos.get("roe")
+        if roe and roe < 0:
+            alerts.append({
+                "type": "warning",
+                "ticker": symbol,
+                "message": f"ROE négatif ({roe:.1f}%) - business en difficulté?",
+                "severity": "high"
+            })
+        
+        # FCF négatif (si disponible)
+        fcf = pos.get("fcf")
+        if fcf and fcf < 0:
+            alerts.append({
+                "type": "warning",
+                "ticker": symbol,
+                "message": "FCF négatif - cash burn",
+                "severity": "medium"
+            })
+    
+    # Alertes portfolio level
+    metrics = portfolio_data.get("metrics", {})
+    vol_port = metrics.get("vol_30d")
+    if vol_port and vol_port > 25:
+        alerts.append({
+            "type": "risk",
+            "ticker": "PORTFOLIO",
+            "message": f"Volatilité portefeuille élevée ({vol_port:.1f}%)",
+            "severity": "medium"
+        })
     
     alerts_data = {
         "generated_at": datetime.now().isoformat(),
         "count": len(alerts),
+        "by_severity": {
+            "high": len([a for a in alerts if a["severity"] == "high"]),
+            "medium": len([a for a in alerts if a["severity"] == "medium"]),
+            "low": len([a for a in alerts if a["severity"] == "low"])
+        },
         "alerts": alerts
     }
     
     alerts_path = output_dir / "alerts.json"
     with open(alerts_path, "w", encoding="utf-8") as f:
         json.dump(alerts_data, f, indent=2)
+
+
+def run_backtest(portfolio_data: dict, output_dir: Path, engine_version: str):
+    """Lance le backtest walk-forward."""
+    print("\n📈 Backtest walk-forward...")
+    
+    try:
+        from src.backtest import run_simple_backtest
+        
+        # Extraire les symboles du portefeuille
+        positions = portfolio_data.get("portfolio", [])
+        symbols = [p.get("symbol") for p in positions if p.get("symbol")]
+        weights = {p.get("symbol"): p.get("weight", 0) for p in positions}
+        
+        if not symbols:
+            print("   ⚠️ Pas de symboles pour le backtest")
+            return
+        
+        # Lancer le backtest
+        results = run_simple_backtest(
+            symbols=symbols,
+            weights=weights,
+            lookback_days=252,
+            benchmark="SPY"
+        )
+        
+        # Sauvegarder les résultats
+        backtest_path = output_dir / "backtest.json"
+        with open(backtest_path, "w") as f:
+            json.dump(results, f, indent=2, default=str)
+        
+        print(f"   ✓ backtest.json")
+        
+        # Afficher résumé
+        if results:
+            print(f"\n   📊 Résultats Backtest (1 an):")
+            print(f"      Return: {results.get('total_return', 'N/A')}%")
+            print(f"      Sharpe: {results.get('sharpe_ratio', 'N/A')}")
+            print(f"      Max DD: {results.get('max_drawdown', 'N/A')}%")
+            print(f"      vs SPY: {results.get('alpha_vs_spy', 'N/A')}%")
+        
+    except ImportError as e:
+        print(f"   ⚠️ Module backtest non disponible: {e}")
+        # Générer un backtest placeholder
+        generate_backtest_placeholder(portfolio_data, output_dir)
+    except Exception as e:
+        print(f"   ⚠️ Erreur backtest: {e}")
+        generate_backtest_placeholder(portfolio_data, output_dir)
+
+
+def generate_backtest_placeholder(portfolio_data: dict, output_dir: Path):
+    """Génère un placeholder backtest basé sur les perfs historiques."""
+    positions = portfolio_data.get("portfolio", [])
+    metrics = portfolio_data.get("metrics", {})
+    
+    # Calculer des métriques approximatives
+    perf_3m = metrics.get("perf_3m", 0) or 0
+    perf_ytd = metrics.get("perf_ytd", 0) or 0
+    vol = metrics.get("vol_30d", 20) or 20
+    
+    # Estimation Sharpe (simplifié)
+    rf_rate = 4.5  # Taux sans risque
+    excess_return = perf_ytd - rf_rate
+    sharpe_estimate = excess_return / vol if vol > 0 else 0
+    
+    backtest = {
+        "generated_at": datetime.now().isoformat(),
+        "type": "estimated",
+        "note": "Backtest estimé basé sur les métriques actuelles (pas de données historiques complètes)",
+        "period": {
+            "start": "N/A",
+            "end": datetime.now().strftime("%Y-%m-%d")
+        },
+        "metrics": {
+            "total_return_ytd": perf_ytd,
+            "return_3m": perf_3m,
+            "volatility_annualized": vol,
+            "sharpe_ratio_estimate": round(sharpe_estimate, 2),
+            "max_drawdown_estimate": round(-vol * 1.5, 1),  # Rule of thumb
+        },
+        "positions_count": len(positions),
+        "top_performers": [
+            {
+                "symbol": p.get("symbol"),
+                "perf_ytd": p.get("perf_ytd")
+            }
+            for p in sorted(positions, key=lambda x: x.get("perf_ytd") or -999, reverse=True)[:5]
+        ],
+        "worst_performers": [
+            {
+                "symbol": p.get("symbol"),
+                "perf_ytd": p.get("perf_ytd")
+            }
+            for p in sorted(positions, key=lambda x: x.get("perf_ytd") or 999)[:5]
+        ]
+    }
+    
+    backtest_path = output_dir / "backtest.json"
+    with open(backtest_path, "w") as f:
+        json.dump(backtest, f, indent=2)
+    
+    print("   ✓ backtest.json (estimated)")
 
 
 def main():
@@ -264,15 +390,27 @@ def main():
             portfolio_data = engine.export(output_dir)
             print(f"\n✅ Portfolio exporté vers: {output_dir}")
             
-            # Extras (dashboard, memo, alerts)
+            # Extras (dashboard, memo Buffett, alerts)
             if not args.skip_extras:
                 print("\n📦 Génération des extras...")
                 generate_extras(portfolio_data, output_dir, args.engine.replace("v", ""))
             
+            # Backtest (optionnel ou par défaut)
+            if args.with_backtest or not args.skip_extras:
+                run_backtest(portfolio_data, output_dir, args.engine.replace("v", ""))
+            
         except ImportError:
             print("⚠️ Config OUTPUTS non trouvé")
     
-    print("\n✅ TERMINÉ")
+    print("\n" + "="*60)
+    print("✅ TERMINÉ — Fichiers générés:")
+    print("   • portfolio.json / portfolio.csv")
+    print("   • dashboard.html")
+    print("   • memo.md (Buffett style)")
+    print("   • alerts.json")
+    print("   • backtest.json")
+    print("="*60)
+    
     return 0
 
 
