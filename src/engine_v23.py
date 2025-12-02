@@ -212,10 +212,15 @@ class SmartMoneyEngineV23(SmartMoneyEngineBase):
     # MÉTHODES SPÉCIFIQUES V2.3
     # =========================================================================
     
-    def apply_filters_v23(self, verbose: bool = True) -> pd.DataFrame:
+    def apply_filters_v23(self, verbose: bool = True, min_after_filters: int = 15) -> pd.DataFrame:
         """
-        Applique les filtres v2.3 (liquidité + hard filters).
+        Applique les filtres v2.3 (liquidité + hard filters) avec fallback.
         À appeler AVANT calculate_scores_v23().
+        
+        Args:
+            verbose: Afficher les logs
+            min_after_filters: Nombre minimum de tickers après filtres.
+                              Si moins, on relaxe les filtres progressivement.
         
         Returns:
             DataFrame filtré
@@ -224,19 +229,44 @@ class SmartMoneyEngineV23(SmartMoneyEngineBase):
             raise ValueError("Univers vide. Appeler load_data() et enrich() d'abord.")
         
         initial_count = len(self.universe)
+        df_backup = self.universe.copy()
         
-        # 1. Filtres de liquidité
-        self.universe = apply_liquidity_filters(self.universe, verbose=verbose)
-        after_liquidity = len(self.universe)
+        # 1. Tenter les filtres complets
+        try:
+            # Filtres de liquidité
+            self.universe = apply_liquidity_filters(self.universe, verbose=verbose)
+            after_liquidity = len(self.universe)
+            
+            # Hard filters
+            self.universe = apply_hard_filters(self.universe, verbose=verbose)
+            after_hard = len(self.universe)
+            
+            if verbose:
+                print(f"   Filtres v2.3: {initial_count} → {after_liquidity} (liquidité) → {after_hard} (hard)")
+        except Exception as e:
+            logger.warning(f"Erreur filtres v2.3: {e}")
+            self.universe = df_backup
+            after_hard = len(self.universe)
         
-        # 2. Hard filters
-        self.universe = apply_hard_filters(self.universe, verbose=verbose)
-        after_hard = len(self.universe)
+        # 2. FALLBACK si trop peu de tickers
+        if len(self.universe) < min_after_filters:
+            print(f"   ⚠️ Seulement {len(self.universe)} tickers après filtres stricts")
+            print(f"   ↳ Fallback: utilisation de l'univers nettoyé ({len(df_backup)} tickers)")
+            
+            # Option A: Garder l'univers complet sans hard filters
+            self.universe = df_backup
+            
+            # Option B: Filtres allégés (D/E < 5 au lieu de 3)
+            if "debt_equity" in self.universe.columns:
+                relaxed_de = 5.0
+                mask_de = (self.universe["debt_equity"] <= relaxed_de) | self.universe["debt_equity"].isna()
+                filtered_relaxed = self.universe[mask_de]
+                if len(filtered_relaxed) >= min_after_filters:
+                    self.universe = filtered_relaxed
+                    print(f"   ↳ Filtre allégé D/E ≤ {relaxed_de}: {len(self.universe)} tickers")
         
         if verbose:
-            logger.info(
-                f"Filtres v2.3: {initial_count} → {after_liquidity} → {after_hard} tickers"
-            )
+            logger.info(f"Filtres v2.3 final: {initial_count} → {len(self.universe)} tickers")
         
         return self.universe
     
@@ -263,14 +293,14 @@ class SmartMoneyEngineV23(SmartMoneyEngineBase):
             DataFrame avec tous les scores
         """
         if self.universe.empty:
-            raise ValueError("Univers vide.")
+            raise ValueError("Univers vide après filtres. Vérifier les données ou relaxer les filtres.")
         
-        logger.info("\n" + "=" * 50)
-        logger.info("SCORING v2.3 (Buffett-Style)")
-        logger.info("=" * 50)
+        print("\n" + "=" * 50)
+        print("SCORING v2.3 (Buffett-Style)")
+        print("=" * 50)
         
         # 1. Scores de signaux (méthodes LOCALES, pas v2.2)
-        logger.info("\n1. Scores signaux (smart_money, insider, momentum)...")
+        print("\n1. Scores signaux (smart_money, insider, momentum)...")
         self._prepare_ranks()
         
         for idx, row in self.universe.iterrows():
@@ -279,34 +309,57 @@ class SmartMoneyEngineV23(SmartMoneyEngineBase):
             self.universe.loc[idx, "score_momentum"] = self.score_momentum(row)
         
         # 2. Score Value
-        logger.info("\n2. Score Value...")
-        self.universe = score_value(self.universe, sector_medians)
+        print("2. Score Value...")
+        try:
+            self.universe = score_value(self.universe, sector_medians)
+        except Exception as e:
+            logger.warning(f"Erreur score_value: {e}")
+            self.universe["score_value"] = 0.5  # Fallback neutre
         
         # 3. Score Quality
-        logger.info("\n3. Score Quality...")
-        self.universe = score_quality(self.universe, historical_data_map)
+        print("3. Score Quality...")
+        try:
+            self.universe = score_quality(self.universe, historical_data_map)
+        except Exception as e:
+            logger.warning(f"Erreur score_quality: {e}")
+            self.universe["score_quality_v23"] = 0.5  # Fallback neutre
         
         # 4. Score Risk (inversé)
-        logger.info("\n4. Score Risk (inversé)...")
-        self.universe = score_risk(self.universe)
+        print("4. Score Risk (inversé)...")
+        try:
+            self.universe = score_risk(self.universe)
+        except Exception as e:
+            logger.warning(f"Erreur score_risk: {e}")
+            self.universe["score_risk"] = 0.5  # Fallback neutre
         
         # 5. Composite v2.3
-        logger.info("\n5. Composite v2.3...")
-        self.universe = calculate_composite_score(
-            self.universe,
-            weights=self.weights,
-        )
+        print("5. Composite v2.3...")
+        try:
+            self.universe = calculate_composite_score(
+                self.universe,
+                weights=self.weights,
+            )
+        except Exception as e:
+            logger.warning(f"Erreur composite: {e}")
+            # Fallback: moyenne simple des scores disponibles
+            score_cols = ["score_sm", "score_insider", "score_momentum", 
+                         "score_value", "score_quality_v23", "score_risk"]
+            available = [c for c in score_cols if c in self.universe.columns]
+            if available:
+                self.universe["score_composite"] = self.universe[available].mean(axis=1)
+            else:
+                self.universe["score_composite"] = 0.5
         
         # Tri par score
         self.universe = self.universe.sort_values("score_composite", ascending=False)
         
-        logger.info("\n" + "=" * 50)
-        logger.info("SCORING v2.3 TERMINÉ")
-        logger.info(f"  Univers: {len(self.universe)} tickers")
-        logger.info(f"  Composite: mean={self.universe['score_composite'].mean():.3f}")
+        print("\n" + "=" * 50)
+        print("SCORING v2.3 TERMINÉ")
+        print(f"  Univers: {len(self.universe)} tickers")
+        print(f"  Composite: mean={self.universe['score_composite'].mean():.3f}")
         if "buffett_score" in self.universe.columns:
-            logger.info(f"  Buffett:   mean={self.universe['buffett_score'].mean():.3f}")
-        logger.info("=" * 50)
+            print(f"  Buffett:   mean={self.universe['buffett_score'].mean():.3f}")
+        print("=" * 50)
         
         return self.universe
     
@@ -320,20 +373,19 @@ class SmartMoneyEngineV23(SmartMoneyEngineBase):
         Returns:
             DataFrame trié par buffett_score
         """
-        if "buffett_score" not in self.universe.columns:
-            raise ValueError("Buffett score non calculé. Appeler calculate_scores_v23() d'abord.")
+        sort_col = "buffett_score" if "buffett_score" in self.universe.columns else "score_composite"
         
         cols = [
             "symbol", "company", "sector",
             "buffett_score", "score_composite",
-            "score_value", "score_quality", "score_risk",
+            "score_value", "score_quality_v23", "score_risk",
             "score_sm", "score_insider", "score_momentum",
         ]
         available_cols = [c for c in cols if c in self.universe.columns]
         
         return (
             self.universe[available_cols]
-            .sort_values("buffett_score", ascending=False)
+            .sort_values(sort_col, ascending=False)
             .head(n)
             .reset_index(drop=True)
         )
