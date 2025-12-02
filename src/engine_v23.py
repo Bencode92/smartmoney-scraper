@@ -1,12 +1,19 @@
-"""SmartMoney Engine v2.3 — Intégration
+"""SmartMoney Engine v2.3 — Buffett-Style Scoring
 
-Extension de engine.py avec les nouveaux scores v2.3.
+Hérite de SmartMoneyEngineBase (tronc commun) et implémente:
+- calculate_scores(): Scoring v2.3 (value/quality/risk + signaux)
+- apply_filters(): Filtres liquidité + hard filters + score minimum
 
 Changements vs v2.2:
-- Nouveaux poids (smart_money réduit, value/quality/risk ajoutés)
+- Nouveaux poids (smart_money réduit 45% → 15%, value/quality/risk ajoutés)
 - Filtres de liquidité et hard filters
-- Scoring Buffett-style
+- Scoring Buffett-style (value, quality, risk inversé)
 - Contrôle look-ahead
+
+Architecture:
+    SmartMoneyEngineBase (tronc commun)
+        ├── SmartMoneyEngineV22 (legacy)
+        └── SmartMoneyEngineV23 (Buffett-style) ← CE FICHIER
 
 Usage:
     from src.engine_v23 import SmartMoneyEngineV23
@@ -14,7 +21,9 @@ Usage:
     engine = SmartMoneyEngineV23()
     engine.load_data()
     engine.enrich(top_n=50)
-    engine.calculate_scores_v23()  # Nouveaux scores
+    engine.apply_filters_v23()      # Filtres liquidité + hard
+    engine.calculate_scores_v23()   # Nouveaux scores
+    engine.apply_filters()          # Filtre score minimum
     engine.optimize()
     engine.export(output_dir)
 
@@ -27,8 +36,8 @@ import logging
 from typing import Dict, Optional
 from pathlib import Path
 
-# Import du moteur v2.2
-from src.engine import SmartMoneyEngine
+# Import de la BASE (pas de v2.2 !)
+from src.engine_base import SmartMoneyEngineBase
 
 # Imports v2.3
 import sys
@@ -46,6 +55,11 @@ except ImportError:
         "max_weight": 0.12, "min_score": 0.40,
     }
 
+try:
+    from config import SCORING
+except ImportError:
+    SCORING = {"use_zscore": True, "sector_neutral_quality": True, "smart_money_dedup": True}
+
 from src.filters.liquidity import apply_liquidity_filters
 from src.filters.hard_filters import apply_hard_filters
 from src.scoring.value_composite import score_value
@@ -56,34 +70,152 @@ from src.scoring.composite import calculate_composite_score
 logger = logging.getLogger(__name__)
 
 
-class SmartMoneyEngineV23(SmartMoneyEngine):
+class SmartMoneyEngineV23(SmartMoneyEngineBase):
     """
-    Moteur SmartMoney v2.3.
+    Moteur SmartMoney v2.3 — Buffett-Style.
     
-    Hérite de SmartMoneyEngine v2.2 et ajoute:
+    Hérite de SmartMoneyEngineBase (PAS de v2.2) et ajoute:
     - Filtres de liquidité et hard filters
     - Scoring Value, Quality, Risk
-    - Poids v2.3 (smart_money réduit)
-    - Buffett score
+    - Poids v2.3 (smart_money réduit de 45% à 15%)
+    - Buffett score (moyenne value + quality + risk)
     
     Example:
         >>> engine = SmartMoneyEngineV23()
         >>> engine.load_data()
         >>> engine.enrich(top_n=50)
-        >>> engine.apply_filters_v23()  # Nouveaux filtres
-        >>> engine.calculate_scores_v23()  # Nouveaux scores
+        >>> engine.apply_filters_v23()      # Nouveaux filtres
+        >>> engine.calculate_scores_v23()   # Nouveaux scores
+        >>> engine.apply_filters()          # Score minimum
         >>> engine.optimize()
     """
     
+    version = "2.3"
+    
     def __init__(self):
         super().__init__()
-        self.version = "2.3"
-        self.weights = WEIGHTS_V23
-        self.constraints = CONSTRAINTS_V23
+        self.weights = WEIGHTS_V23.copy()
+        self.constraints = CONSTRAINTS_V23.copy()
+    
+    # =========================================================================
+    # MÉTHODES DE SCORING DE SIGNAUX (partagées avec v2.2)
+    # Copiées ici pour éviter l'héritage implicite de v2.2
+    # =========================================================================
+    
+    def _prepare_ranks(self):
+        """Prépare les rangs pour le scoring."""
+        if "gp_buys" in self.universe.columns:
+            self.universe["gp_buys_rank"] = self.universe["gp_buys"].rank(pct=True)
+        
+        if SCORING.get("sector_neutral_quality", True):
+            quality_cols = ["roe", "net_margin", "debt_equity", "current_ratio"]
+            for col in quality_cols:
+                if col in self.universe.columns:
+                    if col == "debt_equity":
+                        self.universe[f"{col}_rank"] = 1 - self.universe.groupby("sector")[col].rank(pct=True)
+                    else:
+                        self.universe[f"{col}_rank"] = self.universe.groupby("sector")[col].rank(pct=True)
+    
+    def score_smart_money(self, row) -> float:
+        """Score basé sur les positions des hedge funds (Dataroma)."""
+        score = 0
+        
+        # Tier (A=meilleur)
+        tier_map = {"A": 1.0, "B": 0.75, "C": 0.5, "D": 0.25}
+        score += tier_map.get(row.get("gp_tier", "D"), 0.25) * 0.25
+        
+        # Nombre d'achats
+        buys_rank = row.get("gp_buys_rank", 0.5)
+        if pd.isna(buys_rank):
+            buys_rank = min(row.get("gp_buys", 0) / 10, 1.0)
+        score += buys_rank * 0.50
+        
+        # Poids dans les portefeuilles
+        weight = min(row.get("gp_weight", 0) / 0.2, 1.0)
+        score += weight * 0.25
+        
+        return round(score, 3)
+    
+    def score_insider(self, row) -> float:
+        """Score basé sur les transactions d'initiés."""
+        buys = row.get("insider_buys", 0)
+        sells = row.get("insider_sells", 0)
+        net_value = row.get("insider_net_value", 0)
+        
+        # Ratio achats/ventes
+        ratio_score = buys / (buys + sells) if buys + sells > 0 else 0.5
+        
+        # Valeur nette des transactions
+        value_score = (min(max(net_value / 10_000_000, -1), 1) + 1) / 2
+        
+        return round(ratio_score * 0.6 + value_score * 0.4, 3)
+    
+    def score_momentum(self, row) -> float:
+        """Score momentum basé sur RSI et performance."""
+        score = 0
+        
+        # RSI (40-60 = zone neutre idéale)
+        rsi = row.get("rsi", 50) or 50
+        if 40 <= rsi <= 60:
+            rsi_score = 1.0
+        elif 30 <= rsi < 40 or 60 < rsi <= 70:
+            rsi_score = 0.7
+        elif rsi < 30:
+            rsi_score = 0.8  # Survente = opportunité
+        else:
+            rsi_score = 0.3  # Surachat
+        score += rsi_score * 0.4
+        
+        # Performance 3 mois
+        perf_3m = row.get("perf_3m", 0) or 0
+        if perf_3m > 15:
+            score += 0.3
+        elif perf_3m > 5:
+            score += 0.25
+        elif perf_3m > 0:
+            score += 0.2
+        elif perf_3m > -10:
+            score += 0.1
+        
+        return round(min(score, 1.0), 3)
+    
+    # =========================================================================
+    # MÉTHODES ABSTRAITES IMPLÉMENTÉES
+    # =========================================================================
+    
+    def calculate_scores(self) -> pd.DataFrame:
+        """
+        Implémentation requise par SmartMoneyEngineBase.
+        Redirige vers calculate_scores_v23().
+        """
+        return self.calculate_scores_v23()
+    
+    def apply_filters(self) -> pd.DataFrame:
+        """
+        Applique les filtres finaux v2.3 (après scoring).
+        """
+        before = len(self.universe)
+        
+        # Filtre score minimum
+        min_score = self.constraints.get("min_score", 0.40)
+        if "score_composite" in self.universe.columns:
+            self.universe = self.universe[self.universe["score_composite"] >= min_score]
+        
+        # Limiter au max_positions * 2 (pour laisser de la marge à HRP)
+        max_pos = self.constraints.get("max_positions", 20)
+        self.universe = self.universe.head(max_pos * 2)
+        
+        logger.info(f"Filtres finaux v2.3: {before} → {len(self.universe)} tickers")
+        return self.universe
+    
+    # =========================================================================
+    # MÉTHODES SPÉCIFIQUES V2.3
+    # =========================================================================
     
     def apply_filters_v23(self, verbose: bool = True) -> pd.DataFrame:
         """
         Applique les filtres v2.3 (liquidité + hard filters).
+        À appeler AVANT calculate_scores_v23().
         
         Returns:
             DataFrame filtré
@@ -103,7 +235,7 @@ class SmartMoneyEngineV23(SmartMoneyEngine):
         
         if verbose:
             logger.info(
-                f"Filtres v2.3: {initial_count} \u2192 {after_liquidity} \u2192 {after_hard} tickers"
+                f"Filtres v2.3: {initial_count} → {after_liquidity} → {after_hard} tickers"
             )
         
         return self.universe
@@ -116,6 +248,13 @@ class SmartMoneyEngineV23(SmartMoneyEngine):
         """
         Calcule les scores v2.3 (value, quality, risk + composite).
         
+        Pipeline:
+        1. Scores de signaux (smart_money, insider, momentum) - méthodes locales
+        2. Score Value (FCF yield, EV/EBIT, MoS)
+        3. Score Quality (ROIC, stabilité, FCF growth)
+        4. Score Risk inversé (leverage, coverage, volatility)
+        5. Composite v2.3 + Buffett Score
+        
         Args:
             sector_medians: Médianes EV/EBIT par secteur (optionnel)
             historical_data_map: Historiques par ticker (optionnel)
@@ -127,12 +266,11 @@ class SmartMoneyEngineV23(SmartMoneyEngine):
             raise ValueError("Univers vide.")
         
         logger.info("\n" + "=" * 50)
-        logger.info("SCORING v2.3")
+        logger.info("SCORING v2.3 (Buffett-Style)")
         logger.info("=" * 50)
         
-        # 1. Scores v2.2 (smart_money, insider, momentum)
-        # Utiliser les méthodes du parent
-        logger.info("\n1. Scores v2.2 (smart_money, insider, momentum)...")
+        # 1. Scores de signaux (méthodes LOCALES, pas v2.2)
+        logger.info("\n1. Scores signaux (smart_money, insider, momentum)...")
         self._prepare_ranks()
         
         for idx, row in self.universe.iterrows():
@@ -169,25 +307,6 @@ class SmartMoneyEngineV23(SmartMoneyEngine):
         if "buffett_score" in self.universe.columns:
             logger.info(f"  Buffett:   mean={self.universe['buffett_score'].mean():.3f}")
         logger.info("=" * 50)
-        
-        return self.universe
-    
-    def apply_filters(self) -> pd.DataFrame:
-        """
-        Override: applique les filtres v2.3 en plus des filtres de base.
-        """
-        # Filtres v2.2 de base
-        super().apply_filters()
-        
-        # Filtres v2.3 additionnels
-        min_score = self.constraints.get("min_score", 0.40)
-        self.universe = self.universe[self.universe["score_composite"] >= min_score]
-        
-        # Limiter au max_positions
-        max_pos = self.constraints.get("max_positions", 20)
-        self.universe = self.universe.head(max_pos * 2)
-        
-        logger.info(f"Après filtres v2.3: {len(self.universe)} tickers")
         
         return self.universe
     
