@@ -1,17 +1,22 @@
 {
-  "generated_at": "2025-12-02T14:54:27.535287",
+  "generated_at": "2025-12-02T15:27:38.980076",
   "count": 2,
+  "by_severity": {
+    "high": 2,
+    "medium": 0,
+    "low": 0
+  },
   "alerts": [
     {
       "type": "warning",
       "ticker": "CPRT",
-      "message": "Forte baisse YTD (-31%)",
+      "message": "Forte baisse YTD (-31%) - v\u00e9rifier les fondamentaux",
       "severity": "high"
     },
     {
       "type": "warning",
       "ticker": "LULU",
-      "message": "Forte baisse YTD (-51%)",
+      "message": "Forte baisse YTD (-51%) - v\u00e9rifier les fondamentaux",
       "severity": "high"
     }
   ]
