@@ -25,7 +25,8 @@ def parse_args():
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument("--output-dir", type=str, default=None)
     parser.add_argument("--skip-extras", action="store_true", help="Skip dashboard, memo, alerts")
-    parser.add_argument("--with-backtest", action="store_true", help="Run backtest (requires price data)")
+    parser.add_argument("--skip-backtest", action="store_true", help="Skip backtest")
+    parser.add_argument("--backtest-days", type=int, default=90, help="Backtest period in days")
     return parser.parse_args()
 
 
@@ -46,7 +47,6 @@ def generate_extras(portfolio_data: dict, output_dir: Path, engine_version: str)
         generate_buffett_memo(portfolio_data, output_dir)
         print("   ✓ memo.md (Buffett style)")
     except ImportError:
-        # Fallback basique
         try:
             generate_basic_memo(portfolio_data, output_dir, engine_version)
             print("   ✓ memo.md (basic)")
@@ -174,7 +174,7 @@ def generate_alerts(portfolio_data: dict, output_dir: Path):
                 "severity": "high"
             })
         
-        # FCF négatif (si disponible)
+        # FCF négatif
         fcf = pos.get("fcf")
         if fcf and fcf < 0:
             alerts.append({
@@ -211,97 +211,113 @@ def generate_alerts(portfolio_data: dict, output_dir: Path):
         json.dump(alerts_data, f, indent=2)
 
 
-def run_backtest(portfolio_data: dict, output_dir: Path, engine_version: str):
-    """Lance le backtest walk-forward."""
-    print("\n📈 Backtest walk-forward...")
+def run_real_backtest(portfolio_data: dict, output_dir: Path, days: int = 90) -> dict:
+    """
+    Lance le VRAI backtest walk-forward avec comparaison SPY/CAC.
+    
+    Returns:
+        dict avec résultats et validation
+    """
+    print("\n" + "="*60)
+    print("📈 BACKTEST RÉEL vs SPY & CAC40")
+    print("="*60)
     
     try:
-        from src.backtest import run_simple_backtest
+        from src.backtest import Backtester
         
-        # Extraire les symboles du portefeuille
         positions = portfolio_data.get("portfolio", [])
-        symbols = [p.get("symbol") for p in positions if p.get("symbol")]
-        weights = {p.get("symbol"): p.get("weight", 0) for p in positions}
         
-        if not symbols:
-            print("   ⚠️ Pas de symboles pour le backtest")
-            return
+        if not positions:
+            print("   ⚠️ Pas de positions pour le backtest")
+            return {"error": "No positions"}
         
-        # Lancer le backtest
-        results = run_simple_backtest(
-            symbols=symbols,
-            weights=weights,
-            lookback_days=252,
-            benchmark="SPY"
+        # Initialiser le backtester
+        backtester = Backtester()
+        
+        # Lancer le backtest complet avec validation
+        result = backtester.generate_report(
+            portfolio=positions,
+            output_dir=output_dir,
+            validate=True,
+            strict=True  # Doit battre SPY ET CAC
         )
         
-        # Sauvegarder les résultats
-        backtest_path = output_dir / "backtest.json"
-        with open(backtest_path, "w") as f:
-            json.dump(results, f, indent=2, default=str)
+        # Récupérer le résultat de validation
+        validation = result.get("validation", {})
         
-        print(f"   ✓ backtest.json")
+        print("\n" + "-"*60)
+        print("🎯 VERDICT")
+        print("-"*60)
         
-        # Afficher résumé
-        if results:
-            print(f"\n   📊 Résultats Backtest (1 an):")
-            print(f"      Return: {results.get('total_return', 'N/A')}%")
-            print(f"      Sharpe: {results.get('sharpe_ratio', 'N/A')}")
-            print(f"      Max DD: {results.get('max_drawdown', 'N/A')}%")
-            print(f"      vs SPY: {results.get('alpha_vs_spy', 'N/A')}%")
+        if validation:
+            if validation.get("valid"):
+                print("✅ PORTEFEUILLE VALIDÉ")
+            else:
+                print("⚠️ PORTEFEUILLE SOUS-PERFORME")
+            
+            print(f"\n   Portfolio:  {validation.get('portfolio_return', 0):+.2f}%")
+            print(f"   vs SPY:     {validation.get('alpha_spy', 0):+.2f}% {'✅' if validation.get('beats_spy') else '❌'}")
+            print(f"   vs CAC40:   {validation.get('alpha_cac', 0):+.2f}% {'✅' if validation.get('beats_cac') else '❌'}")
+        
+        return result
         
     except ImportError as e:
         print(f"   ⚠️ Module backtest non disponible: {e}")
-        # Générer un backtest placeholder
-        generate_backtest_placeholder(portfolio_data, output_dir)
+        return generate_backtest_fallback(portfolio_data, output_dir)
     except Exception as e:
         print(f"   ⚠️ Erreur backtest: {e}")
-        generate_backtest_placeholder(portfolio_data, output_dir)
+        import traceback
+        traceback.print_exc()
+        return generate_backtest_fallback(portfolio_data, output_dir)
 
 
-def generate_backtest_placeholder(portfolio_data: dict, output_dir: Path):
-    """Génère un placeholder backtest basé sur les perfs historiques."""
+def generate_backtest_fallback(portfolio_data: dict, output_dir: Path) -> dict:
+    """Génère un backtest estimé si le vrai échoue."""
+    print("   ↳ Génération backtest estimé (fallback)...")
+    
     positions = portfolio_data.get("portfolio", [])
     metrics = portfolio_data.get("metrics", {})
     
-    # Calculer des métriques approximatives
+    # Métriques approximatives
     perf_3m = metrics.get("perf_3m", 0) or 0
     perf_ytd = metrics.get("perf_ytd", 0) or 0
     vol = metrics.get("vol_30d", 20) or 20
     
-    # Estimation Sharpe (simplifié)
-    rf_rate = 4.5  # Taux sans risque
+    # Estimation Sharpe
+    rf_rate = 4.5
     excess_return = perf_ytd - rf_rate
     sharpe_estimate = excess_return / vol if vol > 0 else 0
     
     backtest = {
         "generated_at": datetime.now().isoformat(),
         "type": "estimated",
-        "note": "Backtest estimé basé sur les métriques actuelles (pas de données historiques complètes)",
+        "note": "Backtest estimé (pas de clé API ou erreur). Relancer avec --with-backtest pour données réelles.",
         "period": {
             "start": "N/A",
             "end": datetime.now().strftime("%Y-%m-%d")
         },
-        "metrics": {
-            "total_return_ytd": perf_ytd,
-            "return_3m": perf_3m,
-            "volatility_annualized": vol,
-            "sharpe_ratio_estimate": round(sharpe_estimate, 2),
-            "max_drawdown_estimate": round(-vol * 1.5, 1),  # Rule of thumb
+        "portfolio": {
+            "return_pct": perf_3m,
+            "return_ytd_pct": perf_ytd,
+            "volatility_pct": vol,
+            "sharpe_estimate": round(sharpe_estimate, 2),
+            "max_drawdown_estimate": round(-vol * 1.5, 1),
+            "positions": len(positions)
         },
-        "positions_count": len(positions),
+        "benchmarks": {
+            "SPY": {"note": "Données non disponibles"},
+            "CAC": {"note": "Données non disponibles"}
+        },
+        "validation": {
+            "valid": None,
+            "message": "Validation impossible sans données benchmark"
+        },
         "top_performers": [
-            {
-                "symbol": p.get("symbol"),
-                "perf_ytd": p.get("perf_ytd")
-            }
+            {"symbol": p.get("symbol"), "perf_ytd": p.get("perf_ytd")}
             for p in sorted(positions, key=lambda x: x.get("perf_ytd") or -999, reverse=True)[:5]
         ],
         "worst_performers": [
-            {
-                "symbol": p.get("symbol"),
-                "perf_ytd": p.get("perf_ytd")
-            }
+            {"symbol": p.get("symbol"), "perf_ytd": p.get("perf_ytd")}
             for p in sorted(positions, key=lambda x: x.get("perf_ytd") or 999)[:5]
         ]
     }
@@ -311,6 +327,7 @@ def generate_backtest_placeholder(portfolio_data: dict, output_dir: Path):
         json.dump(backtest, f, indent=2)
     
     print("   ✓ backtest.json (estimated)")
+    return {"report": backtest, "validation": None}
 
 
 def main():
@@ -371,7 +388,7 @@ def main():
     engine.optimize()
     
     print("\n" + "="*60)
-    print("📊 RÉSUMÉ")
+    print("📊 RÉSUMÉ PORTEFEUILLE")
     print("="*60)
     for k, v in engine.summary().items():
         print(f"  {k}: {v}")
@@ -379,6 +396,8 @@ def main():
     if args.engine == "v23" and hasattr(engine, 'get_top_buffett'):
         print("\n🏆 TOP 10 BUFFETT SCORE")
         print(engine.get_top_buffett(10).to_string())
+    
+    backtest_result = None
     
     if not args.dry_run:
         try:
@@ -395,20 +414,37 @@ def main():
                 print("\n📦 Génération des extras...")
                 generate_extras(portfolio_data, output_dir, args.engine.replace("v", ""))
             
-            # Backtest (optionnel ou par défaut)
-            if args.with_backtest or not args.skip_extras:
-                run_backtest(portfolio_data, output_dir, args.engine.replace("v", ""))
+            # BACKTEST RÉEL
+            if not args.skip_backtest:
+                backtest_result = run_real_backtest(
+                    portfolio_data, 
+                    output_dir, 
+                    days=args.backtest_days
+                )
             
         except ImportError:
             print("⚠️ Config OUTPUTS non trouvé")
     
+    # Résumé final
     print("\n" + "="*60)
     print("✅ TERMINÉ — Fichiers générés:")
+    print("="*60)
     print("   • portfolio.json / portfolio.csv")
     print("   • dashboard.html")
     print("   • memo.md (Buffett style)")
     print("   • alerts.json")
-    print("   • backtest.json")
+    print("   • backtest.json (vs SPY & CAC40)")
+    
+    # Verdict backtest
+    if backtest_result and backtest_result.get("validation"):
+        validation = backtest_result["validation"]
+        print("\n" + "-"*60)
+        if validation.get("valid"):
+            print("🎯 VALIDATION: ✅ Portefeuille bat les benchmarks!")
+        else:
+            print("🎯 VALIDATION: ⚠️ Portefeuille sous-performe")
+            print("   → Recommandation: Revoir la stratégie de sélection")
+    
     print("="*60)
     
     return 0
