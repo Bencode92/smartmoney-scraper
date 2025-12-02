@@ -9,10 +9,13 @@ Changements v2.3:
 - Filtres de liquidité
 - Contrôle look-ahead
 
+Changements v2.3.1:
+- Ajout mode Buffett (filtres, scoring, contraintes portefeuille)
+
 Validé: Claude + GPT - Décembre 2025
 """
 
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Any
 
 # =============================================================================
 # POIDS v2.3 (remplace WEIGHTS de config.py)
@@ -144,7 +147,7 @@ VALIDATION_V23: Dict[str, float] = {
 # BACKTEST v2.3
 # =============================================================================
 
-BACKTEST_V23: Dict[str, any] = {
+BACKTEST_V23: Dict[str, Any] = {
     "rebal_freq": "Q",          # Trimestriel (était M)
     "tc_bps": 12.0,             # Était 10
     "risk_free_rate": 0.045,
@@ -189,7 +192,7 @@ REQUIRED_FIELDS: List[str] = [
 
 SMOKE_TEST_MODE: bool = False
 
-SMOKE_TEST_CONFIG: Dict[str, any] = {
+SMOKE_TEST_CONFIG: Dict[str, Any] = {
     "start_date": "2018-01-01",
     "end_date": "2024-12-31",
     "disable_mos": True,
@@ -224,3 +227,67 @@ IMPACT ATTENDU:
 - Score Institutionnel: 0.62 → 0.85
 - Max Drawdown: < -25% (cible)
 """
+
+
+# =============================================================================
+# BUFFETT MODE v2.3.1 — Configuration séparée style Warren Buffett
+# =============================================================================
+
+BUFFETT_FILTERS: Dict[str, Any] = {
+    # --- CORE (toujours appliqués en mode Buffett) ---
+    "min_history_years": 7,         # Un cycle économique complet
+    "max_loss_years": 3,            # Max 3 années de pertes sur 10 ans
+    
+    # --- PREFERENCES (soft = pénalité, strict = exclusion) ---
+    "ideal_history_years": 10,      # Idéal pour évaluer le moat
+    "min_roe_avg": 0.10,            # ROE moyen > 10%
+    "min_roic_avg": 0.08,           # ROIC moyen > 8%
+    
+    # --- Cercle de compétence ---
+    "allowed_sectors": [
+        "Consumer Staples",
+        "Consumer Discretionary",
+        "Financials",
+        "Industrials",
+        "Healthcare",
+        "Technology",
+        "Communication Services",
+        "Energy",                   # Buffett a OXY
+    ],
+    "excluded_industries": [
+        "Biotechnology",            # Trop spéculatif, pas de moat prévisible
+        "Blank Checks",             # SPACs
+        "Shell Companies",
+    ],
+}
+
+BUFFETT_SCORING: Dict[str, float] = {
+    # Score Buffett = Quality × 60% + Valorisation × 40%
+    "quality_weight": 0.60,
+    "valuation_weight": 0.40,
+    
+    # Sous-composantes Quality (somme = 1.0)
+    "moat_weight": 0.40,            # ROIC + ROE + stabilité marges
+    "cash_quality_weight": 0.25,    # FCF/NI ratio + accruals bas
+    "solidity_weight": 0.20,        # D/E + coverage + current ratio
+    "cap_alloc_weight": 0.15,       # Buybacks + payout ratio
+}
+
+BUFFETT_PORTFOLIO: Dict[str, Any] = {
+    # Mode conservateur (défaut)
+    "min_positions": 10,
+    "max_positions": 20,
+    "max_weight": 0.15,             # Plus concentré que v2.3 (0.12)
+    "max_sector": 0.35,             # Plus tolérant que v2.3 (0.30)
+    "rebal_freq": "A",              # Annuel (vs Trimestriel pour v2.3)
+    
+    # Règles de vente Buffett (faible rotation)
+    "sell_score_threshold": 0.35,   # Vendre si score_buffett < 0.35
+    "sell_valuation_ceiling": 35,   # Vendre si EV/EBIT > 35
+    "hold_if_top_n": 40,            # Ne pas vendre si reste dans top 2×N
+}
+
+
+# Validation Buffett
+assert BUFFETT_SCORING["quality_weight"] + BUFFETT_SCORING["valuation_weight"] == 1.0, \
+    "Poids Buffett quality + valuation doivent sommer à 1.0"
