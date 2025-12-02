@@ -1,26 +1,18 @@
-[
-  {
-    "level": "warning",
-    "type": "concentration",
-    "symbol": null,
-    "message": "Alerte concentration: plusieurs positions d\u00e9passent 5.5% du portefeuille."
-  },
-  {
-    "level": "critical",
-    "type": "quality",
-    "symbol": "FISV",
-    "message": "Alerte qualit\u00e9: le score composite de Fiserv Inc. est inf\u00e9rieur \u00e0 0.4."
-  },
-  {
-    "level": "warning",
-    "type": "momentum",
-    "symbol": "FISV",
-    "message": "Alerte momentum extr\u00eame: le RSI de Fiserv Inc. est inf\u00e9rieur \u00e0 30."
-  },
-  {
-    "level": "warning",
-    "type": "sector",
-    "symbol": null,
-    "message": "Alerte sectorielle: plus de 3 positions dans le secteur technologique."
-  }
-]
+{
+  "generated_at": "2025-12-02T14:54:27.535287",
+  "count": 2,
+  "alerts": [
+    {
+      "type": "warning",
+      "ticker": "CPRT",
+      "message": "Forte baisse YTD (-31%)",
+      "severity": "high"
+    },
+    {
+      "type": "warning",
+      "ticker": "LULU",
+      "message": "Forte baisse YTD (-51%)",
+      "severity": "high"
+    }
+  ]
+}
