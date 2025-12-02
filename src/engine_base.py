@@ -211,11 +211,13 @@ class SmartMoneyEngineBase(ABC):
         
         self.universe = pd.DataFrame(list(stocks.values()))
         
+        # Colonnes par défaut - INCLUT SECTOR ET INDUSTRY
         defaults = {
             "gp_weight": 0, "gp_buys": 0, "gp_tier": "D",
             "hold_price": 0, "current_price": 0,
             "low_52w": 0, "high_52w": 0, "pct_above_52w_low": 0,
-            "insider_buys": 0, "insider_sells": 0, "insider_net_value": 0
+            "insider_buys": 0, "insider_sells": 0, "insider_net_value": 0,
+            "sector": "Unknown", "industry": "Unknown"  # Ajouté pour éviter KeyError
         }
         for col, default in defaults.items():
             if col not in self.universe.columns:
@@ -496,7 +498,7 @@ class SmartMoneyEngineBase(ABC):
         return result
     
     def _extract_fundamentals(self, stats: dict, balance: dict, income: dict, cashflow: dict) -> dict:
-        """Extract fundamentals from API responses."""
+        """Extrait les fondamentaux des réponses API."""
         result = {
             "roe": None, "roa": None, "debt_equity": None, "current_ratio": None,
             "gross_margin": None, "operating_margin": None, "net_margin": None,
@@ -504,7 +506,187 @@ class SmartMoneyEngineBase(ABC):
             "ebit": None, "total_debt": None, "cash": None, "interest_expense": None,
             "shares_outstanding": None, "total_equity": None
         }
-        # Implementation truncated for brevity - see full file
+
+        if income:
+            revenue = self._safe_float(
+                income.get("sales")
+                or income.get("revenue")
+                or income.get("total_revenue")
+            )
+            net_inc = self._safe_float(
+                income.get("net_income")
+                or income.get("net_income_common_stockholders")
+            )
+            gross_profit = self._safe_float(income.get("gross_profit"))
+            op_income = self._safe_float(
+                income.get("operating_income")
+                or income.get("operating_income_loss")
+            )
+            ebit = self._safe_float(income.get("ebit"))
+            interest = self._safe_float(income.get("interest_expense"))
+
+            result["revenue"] = revenue
+            result["net_income"] = net_inc
+            result["ebit"] = ebit or op_income
+            result["interest_expense"] = interest
+
+            if revenue and revenue > 0:
+                if gross_profit is not None:
+                    result["gross_margin"] = round(gross_profit / revenue * 100, 2)
+                if op_income is not None:
+                    result["operating_margin"] = round(op_income / revenue * 100, 2)
+                if net_inc is not None:
+                    result["net_margin"] = round(net_inc / revenue * 100, 2)
+
+        if balance:
+            assets = balance.get("assets", {}) or {}
+            liabilities = balance.get("liabilities", {}) or {}
+            equity = balance.get("shareholders_equity", {}) or {}
+
+            total_assets = self._safe_float(
+                assets.get("total_assets")
+                or balance.get("total_assets")
+            )
+
+            total_equity = self._safe_float(
+                equity.get("total_shareholders_equity")
+                or equity.get("total_stockholders_equity")
+                or equity.get("stockholders_equity")
+                or equity.get("total_equity")
+                or balance.get("total_equity")
+            )
+            result["total_equity"] = total_equity
+
+            current_assets_block = assets.get("current_assets", {}) or {}
+            current_assets = self._safe_float(
+                current_assets_block.get("total_current_assets")
+                or current_assets_block.get("current_assets")
+                or balance.get("total_current_assets")
+            )
+            
+            # Cash
+            cash = self._safe_float(
+                current_assets_block.get("cash_and_cash_equivalents")
+                or current_assets_block.get("cash")
+                or balance.get("cash")
+            )
+            result["cash"] = cash
+
+            current_liab_block = liabilities.get("current_liabilities", {}) or {}
+            current_liabilities = self._safe_float(
+                current_liab_block.get("total_current_liabilities")
+                or current_liab_block.get("current_liabilities")
+                or balance.get("total_current_liabilities")
+            )
+
+            non_current_liab_block = liabilities.get("non_current_liabilities", {}) or {}
+            short_term_debt = self._safe_float(current_liab_block.get("short_term_debt"))
+            long_term_debt = self._safe_float(non_current_liab_block.get("long_term_debt"))
+            
+            total_debt = None
+            if short_term_debt is not None or long_term_debt is not None:
+                total_debt = (short_term_debt or 0) + (long_term_debt or 0)
+            result["total_debt"] = total_debt
+
+            if current_assets is not None and current_liabilities and current_liabilities > 0:
+                result["current_ratio"] = round(current_assets / current_liabilities, 2)
+
+            if total_equity and total_equity > 0 and result["net_income"] is not None:
+                result["roe"] = round(result["net_income"] / total_equity * 100, 2)
+
+            if total_debt is not None and total_equity and total_equity > 0:
+                result["debt_equity"] = round(total_debt / total_equity, 2)
+
+            if total_assets and total_assets > 0 and result["net_income"] is not None:
+                result["roa"] = round(result["net_income"] / total_assets * 100, 2)
+
+        if cashflow:
+            op = cashflow.get("operating_activities", {}) or {}
+            inv = cashflow.get("investing_activities", {}) or {}
+
+            operating_cf = self._safe_float(
+                op.get("operating_cash_flow")
+                or op.get("net_cash_provided_by_operating_activities")
+                or op.get("cash_flow_from_operating_activities")
+            )
+            capex = self._safe_float(
+                inv.get("capital_expenditures")
+                or inv.get("capital_expenditure")
+            )
+            fcf_direct = self._safe_float(
+                cashflow.get("free_cash_flow")
+                or op.get("free_cash_flow")
+                or inv.get("free_cash_flow")
+            )
+
+            if capex is not None:
+                capex_abs = abs(capex)
+                if result["revenue"] and result["revenue"] > 0:
+                    result["capex_ratio"] = round(capex_abs / result["revenue"] * 100, 2)
+
+                if fcf_direct is not None:
+                    result["fcf"] = fcf_direct
+                elif operating_cf is not None:
+                    result["fcf"] = round(operating_cf - capex_abs, 0)
+            else:
+                if fcf_direct is not None:
+                    result["fcf"] = fcf_direct
+
+        if stats:
+            stats_root = stats.get("statistics") or stats.get("data") or stats
+            fin = stats_root.get("financials", {}) or {}
+            fin_bs = fin.get("balance_sheet", {}) or {}
+            
+            # Shares outstanding
+            shares = self._safe_float(
+                stats_root.get("shares_outstanding")
+                or fin.get("shares_outstanding")
+            )
+            result["shares_outstanding"] = shares
+
+            if result["roe"] is None:
+                roe_raw = self._safe_float(
+                    fin.get("return_on_equity_ttm")
+                    or fin.get("return_on_equity")
+                )
+                if roe_raw is not None:
+                    result["roe"] = round(roe_raw * 100, 2) if -1 < roe_raw < 1 else round(roe_raw, 2)
+
+            if result["roa"] is None:
+                roa_raw = self._safe_float(
+                    fin.get("return_on_assets_ttm")
+                    or fin.get("return_on_assets")
+                )
+                if roa_raw is not None:
+                    result["roa"] = round(roa_raw * 100, 2) if -1 < roa_raw < 1 else round(roa_raw, 2)
+
+            if result["current_ratio"] is None:
+                cr = self._safe_float(
+                    fin.get("current_ratio")
+                    or fin_bs.get("current_ratio")
+                    or fin_bs.get("current_ratio_mrq")
+                )
+                if cr is not None:
+                    result["current_ratio"] = round(cr, 2)
+
+            if result["gross_margin"] is None:
+                gm = self._safe_float(fin.get("gross_margin"))
+                if gm is not None:
+                    result["gross_margin"] = round(gm * 100, 2) if -1 < gm < 1 else round(gm, 2)
+
+            if result["operating_margin"] is None:
+                om = self._safe_float(fin.get("operating_margin"))
+                if om is not None:
+                    result["operating_margin"] = round(om * 100, 2) if -1 < om < 1 else round(om, 2)
+
+            if result["net_margin"] is None:
+                pm = self._safe_float(
+                    fin.get("profit_margin")
+                    or fin.get("net_margin")
+                )
+                if pm is not None:
+                    result["net_margin"] = round(pm * 100, 2) if -1 < pm < 1 else round(pm, 2)
+
         return result
     
     # =========================================================================
@@ -515,14 +697,163 @@ class SmartMoneyEngineBase(ABC):
         """Enrichissement via API Twelve Data (mode live)"""
         if self.universe.empty:
             self.load_data()
-        # Implementation truncated for brevity
+
+        candidates = self.universe[
+            (self.universe["gp_buys"] >= self.constraints.get("min_buys", 2)) |
+            (self.universe["insider_buys"] > 0)
+        ].head(top_n)
+
+        # Vérification clé API
+        if not TWELVE_DATA_KEY:
+            print("⚠️ Pas de clé API Twelve Data (API_TWELVEDATA)")
+            print("   Enrichissement ignoré, données brutes uniquement")
+            return self.universe
+
+        print(f"📊 Enrichissement de {len(candidates)} tickers via Twelve Data...")
+        print(f"   (Quote + Profile + RSI + TimeSeries + Statistics + Balance + Income + CashFlow)")
+        
+        # Estimation du temps
+        calls_per_ticker = 8
+        time_per_call = 60 / TWELVE_DATA_RATE_LIMIT
+        time_per_ticker = calls_per_ticker * time_per_call + TWELVE_DATA_TICKER_PAUSE
+        estimated_time = len(candidates) * time_per_ticker / 60
+        print(
+            f"   ⏱️  Temps estimé: ~{estimated_time:.1f} minutes "
+            f"(rate limit {TWELVE_DATA_RATE_LIMIT}/min + pause {TWELVE_DATA_TICKER_PAUSE}s/ticker)"
+        )
+
+        enriched = []
+        for idx, (_, row) in enumerate(candidates.iterrows(), 1):
+            symbol = row["symbol"]
+            print(f"\n  [{idx}/{len(candidates)}] {symbol}")
+
+            quote = self._fetch_quote(symbol)
+            row["td_price"] = float(quote.get("close", row.get("current_price", 0)) or 0)
+            row["td_change_pct"] = float(quote.get("percent_change", 0) or 0)
+            row["td_volume"] = int(quote.get("volume", 0) or 0)
+            row["td_avg_volume"] = int(quote.get("average_volume", 0) or 0)
+            ftw = quote.get("fifty_two_week", {}) or {}
+            row["td_high_52w"] = float(ftw.get("high", row.get("high_52w", 0)) or 0)
+            row["td_low_52w"] = float(ftw.get("low", row.get("low_52w", 0)) or 0)
+            print(f"    ✓ Quote: ${row['td_price']:.2f}")
+
+            profile = self._fetch_profile(symbol)
+            row["sector"] = profile.get("sector") or "Unknown"
+            row["industry"] = profile.get("industry") or "Unknown"
+            print(f"    ✓ Profile: {row['sector']}")
+
+            tech = self._fetch_technicals(symbol)
+            row["rsi"] = tech.get("rsi", 50.0)
+            print(f"    ✓ RSI: {row['rsi']:.1f}")
+
+            prices = self._fetch_time_series(symbol, 900)
+            perf_vol = self._calculate_perf_vol(prices)
+            row["perf_3m"] = perf_vol["perf_3m"]
+            row["perf_ytd"] = perf_vol["perf_ytd"]
+            row["vol_30d"] = perf_vol["vol_30d"]
+            ytd_str = f"{row['perf_ytd']}%" if row.get("perf_ytd") is not None else "N/A"
+            print(f"    ✓ Perf 3M: {row['perf_3m']}% | YTD: {ytd_str} | Vol: {row['vol_30d']}%")
+
+            stats = self._fetch_statistics(symbol)
+            balance = self._fetch_balance_sheet(symbol)
+            income = self._fetch_income_statement(symbol)
+            cashflow = self._fetch_cash_flow(symbol)
+
+            fundamentals = self._extract_fundamentals(stats, balance, income, cashflow)
+            for k, v in fundamentals.items():
+                row[k] = v
+
+            roe_str = f"{row['roe']:.1f}%" if row.get("roe") is not None else "N/A"
+            de_str = f"{row['debt_equity']:.2f}" if row.get("debt_equity") is not None else "N/A"
+            margin_str = f"{row['net_margin']:.1f}%" if row.get("net_margin") is not None else "N/A"
+            cr_str = f"{row['current_ratio']:.2f}" if row.get("current_ratio") is not None else "N/A"
+            print(f"    ✓ Fundamentals: ROE={roe_str} | D/E={de_str} | Margin={margin_str} | CR={cr_str}")
+
+            enriched.append(row)
+            
+            # Pause inter-ticker
+            time.sleep(TWELVE_DATA_TICKER_PAUSE)
+
+        self.universe = pd.DataFrame(enriched)
+
+        # Vérification couverture
+        fundamentals_cols = ["roe", "debt_equity", "net_margin", "current_ratio"]
+        existing_cols = [c for c in fundamentals_cols if c in self.universe.columns]
+        if existing_cols:
+            coverage = self.universe[existing_cols].notna().any(axis=1).mean()
+            print(f"\n📊 Coverage fondamentaux (≥1 ratio non nul): {coverage:.0%}")
+
+        print(f"\n✅ Enrichissement terminé: {len(self.universe)} tickers")
         return self.universe
     
     def enrich_from_history(self, prices_history: pd.DataFrame, fundamentals_cache: Dict[str, dict] = None) -> pd.DataFrame:
-        """Enrichit l'univers à partir d'un historique de prix pré-chargé."""
+        """Enrichit l'univers à partir d'un historique de prix pré-chargé (backtest)."""
         if self.universe.empty:
             self.load_data()
-        # Implementation truncated for brevity
+        
+        print(f"📊 Enrichissement depuis historique de prix ({len(prices_history)} jours)...")
+        
+        # Stocker les returns pour corrélations réelles
+        self._returns_history = prices_history.pct_change().dropna()
+        
+        enriched = []
+        valid_symbols = prices_history.columns.tolist()
+        
+        for _, row in self.universe.iterrows():
+            symbol = row["symbol"]
+            
+            if symbol not in valid_symbols:
+                continue
+            
+            prices = prices_history[symbol].dropna()
+            if len(prices) < 30:
+                continue
+            
+            row["td_price"] = prices.iloc[-1]
+            
+            if len(prices) >= 252:
+                row["td_high_52w"] = prices.iloc[-252:].max()
+                row["td_low_52w"] = prices.iloc[-252:].min()
+            else:
+                row["td_high_52w"] = prices.max()
+                row["td_low_52w"] = prices.min()
+            
+            if len(prices) >= 63:
+                row["perf_3m"] = round((prices.iloc[-1] / prices.iloc[-63] - 1) * 100, 2)
+            
+            current_year = prices.index[-1].year
+            year_start = f"{current_year}-01-01"
+            ytd_prices = prices.loc[year_start:]
+            if len(ytd_prices) > 1:
+                row["perf_ytd"] = round((ytd_prices.iloc[-1] / ytd_prices.iloc[0] - 1) * 100, 2)
+            
+            if len(prices) >= 30:
+                returns_30d = prices.pct_change().iloc[-30:]
+                row["vol_30d"] = round(returns_30d.std() * np.sqrt(252) * 100, 2)
+            
+            if len(prices) >= 15:
+                delta = prices.diff()
+                gain = delta.where(delta > 0, 0).rolling(14).mean()
+                loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
+                rs = gain.iloc[-1] / loss.iloc[-1] if loss.iloc[-1] != 0 else 100
+                row["rsi"] = round(100 - (100 / (1 + rs)), 1)
+            else:
+                row["rsi"] = 50.0
+            
+            if fundamentals_cache and symbol in fundamentals_cache:
+                for k, v in fundamentals_cache[symbol].items():
+                    row[k] = v
+            
+            if "sector" not in row or pd.isna(row.get("sector")):
+                row["sector"] = "Unknown"
+            if "industry" not in row or pd.isna(row.get("industry")):
+                row["industry"] = "Unknown"
+            
+            enriched.append(row)
+        
+        self.universe = pd.DataFrame(enriched)
+        
+        print(f"✅ {len(self.universe)} tickers enrichis depuis historique")
         return self.universe
     
     # =========================================================================
@@ -530,15 +861,24 @@ class SmartMoneyEngineBase(ABC):
     # =========================================================================
     
     def clean_universe(self, strict: bool = False):
+        """Nettoie l'univers en excluant les tickers sans données."""
         df = self.universe
+        
+        # S'assurer que la colonne sector existe
+        if "sector" not in df.columns:
+            print("⚠️ Colonne 'sector' manquante - ajout valeur par défaut")
+            df["sector"] = "Unknown"
         
         if not strict:
             mask_bad = df["sector"].eq("Unknown")
         else:
+            # Mode strict: exige aussi revenue et net_income
+            revenue_missing = df["revenue"].isna() if "revenue" in df.columns else pd.Series([True] * len(df))
+            income_missing = df["net_income"].isna() if "net_income" in df.columns else pd.Series([True] * len(df))
             mask_bad = (
                 df["sector"].eq("Unknown") |
-                df["revenue"].isna() |
-                df["net_income"].isna()
+                revenue_missing |
+                income_missing
             )
         
         bad_symbols = df.loc[mask_bad, "symbol"].tolist()
@@ -554,7 +894,42 @@ class SmartMoneyEngineBase(ABC):
     
     def _get_correlation_matrix(self, returns: pd.DataFrame = None, shrinkage: float = None) -> pd.DataFrame:
         """Calcule la matrice de corrélation."""
-        # Implementation truncated for brevity
+        n = len(self.universe)
+        symbols = self.universe["symbol"].tolist()
+        
+        use_real = CORRELATION.get("use_real_correlation", True)
+        
+        if returns is None and self._returns_history is not None:
+            returns = self._returns_history
+        
+        if use_real and returns is not None:
+            valid_cols = [s for s in symbols if s in returns.columns]
+            
+            if len(valid_cols) >= 2:
+                ret_subset = returns[valid_cols]
+                corr_real = ret_subset.corr()
+                
+                if shrinkage is None:
+                    shrinkage = CORRELATION.get("shrinkage", 0.2)
+                
+                if shrinkage > 0:
+                    identity = np.eye(len(corr_real))
+                    corr_real = (1 - shrinkage) * corr_real.values + shrinkage * identity
+                    corr_real = pd.DataFrame(corr_real, index=valid_cols, columns=valid_cols)
+                
+                full_corr = self._get_sector_correlation_fallback()
+                
+                for i, s1 in enumerate(valid_cols):
+                    for j, s2 in enumerate(valid_cols):
+                        if s1 in full_corr.index and s2 in full_corr.columns:
+                            if isinstance(corr_real, pd.DataFrame):
+                                full_corr.loc[s1, s2] = corr_real.loc[s1, s2]
+                            else:
+                                full_corr.loc[s1, s2] = corr_real[i, j]
+                
+                print(f"   📊 Corrélations réelles calculées ({len(valid_cols)} tickers, shrinkage={shrinkage})")
+                return full_corr
+        
         return self._get_sector_correlation_fallback()
     
     def _get_sector_correlation_fallback(self) -> pd.DataFrame:
@@ -634,6 +1009,10 @@ class SmartMoneyEngineBase(ABC):
         if n < min_pos:
             print(f"⚠️ Seulement {n} tickers, minimum {min_pos} requis")
         
+        if n == 0:
+            print("❌ Aucun ticker dans l'univers après filtres!")
+            return pd.DataFrame()
+        
         if "vol_30d" in self.universe.columns:
             vols = self.universe["vol_30d"].fillna(25).values / 100
         else:
@@ -690,12 +1069,32 @@ class SmartMoneyEngineBase(ABC):
                 sector_weights[sector] = sector_weights.get(sector, 0) + row["weight"]
             sector_weights = {k: round(v * 100, 1) for k, v in sector_weights.items()}
         
+        avg_roe = df["roe"].dropna().mean() if "roe" in df.columns and df["roe"].notna().any() else None
+        avg_de = df["debt_equity"].dropna().mean() if "debt_equity" in df.columns and df["debt_equity"].notna().any() else None
+        avg_margin = df["net_margin"].dropna().mean() if "net_margin" in df.columns and df["net_margin"].notna().any() else None
+        
         self.portfolio_metrics = {
             "positions": len(df),
             "perf_3m": round(perf_3m, 2) if perf_3m else None,
             "perf_ytd": round(perf_ytd, 2) if perf_ytd else None,
             "vol_30d": round(vol, 2) if vol else None,
             "sector_weights": sector_weights,
+            "avg_roe": round(avg_roe, 1) if avg_roe is not None else None,
+            "avg_debt_equity": round(avg_de, 2) if avg_de is not None else None,
+            "avg_net_margin": round(avg_margin, 1) if avg_margin is not None else None
+        }
+    
+    # =========================================================================
+    # SUMMARY
+    # =========================================================================
+    
+    def summary(self) -> dict:
+        """Retourne un résumé du portefeuille."""
+        return {
+            "engine_version": self.version,
+            "universe_size": len(self.universe),
+            "portfolio_size": len(self.portfolio),
+            **self.portfolio_metrics
         }
     
     # =========================================================================
@@ -712,7 +1111,11 @@ class SmartMoneyEngineBase(ABC):
         export_cols = [
             "symbol", "company", "sector", "industry", "weight",
             "score_composite", "score_sm", "score_insider", "score_momentum", "score_quality",
-            "perf_3m", "perf_ytd", "vol_30d"
+            "perf_3m", "perf_ytd", "vol_30d",
+            "gp_buys", "gp_tier", "insider_buys", "rsi", "td_price",
+            "roe", "roa", "debt_equity", "current_ratio",
+            "gross_margin", "operating_margin", "net_margin",
+            "capex_ratio", "fcf", "revenue", "net_income"
         ]
         
         # Ajouter colonnes v2.3 si présentes
