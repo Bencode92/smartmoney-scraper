@@ -1,4 +1,4 @@
-"""Configuration SmartMoney Engine v2.2"""
+"""Configuration SmartMoney Engine v2.3"""
 import os
 from pathlib import Path
 
@@ -77,25 +77,32 @@ TWELVE_DATA_BASE = "https://api.twelvedata.com"
 # TWELVE DATA API - Configuration par plan
 # =============================================================================
 # 
-# Plans disponibles:
-# - Free: 8 req/min, 800/jour
-# - Basic: 40 req/min, 8000/jour  
-# - Ultra: 120 req/min, 100000+/mois  <-- VOTRE PLAN
-# - Pro: 800 req/min, illimité
+# VOTRE PLAN: Ultra (2584 crédits/min)
 #
 # Crédits par endpoint:
-# - Quote, Profile, RSI = 1 crédit
-# - TimeSeries = 1-10 crédits selon taille
-# - Statistics, Balance Sheet, Income Statement, Cash Flow = ~10 crédits
+# - Quote, Profile, RSI = 1 crédit chacun
+# - TimeSeries (900 jours) = ~5 crédits
+# - Statistics = 10 crédits
+# - Balance Sheet = 10 crédits
+# - Income Statement = 10 crédits
+# - Cash Flow = 10 crédits
+# - TOTAL par ticker ≈ 48 crédits
 #
-# Avec 8 appels/ticker (~50 crédits/ticker), plan Ultra permet:
-# - ~120 req/min = ~15 tickers/min (avec marge sécurité)
-# - 500 tickers ≈ 35-40 minutes
+# Calcul optimal:
+# - 2584 crédits/min ÷ 48 crédits/ticker = ~54 tickers/min MAX
+# - Avec marge sécurité (10%): ~50 tickers/min
+# - 8 appels/ticker → 50 × 8 = 400 req/min théorique
+# - On utilise 50 req/min pour être safe (= ~6 tickers/min)
+#
+# Temps estimé:
+# - 70 tickers ≈ 12 minutes
+# - 200 tickers ≈ 35 minutes  
+# - 500 tickers ≈ 85 minutes (~1h25)
 # =============================================================================
 
-# Plan Ultra optimisé
-TWELVE_DATA_RATE_LIMIT = 100  # req/min (120 max, on garde marge)
-TWELVE_DATA_TICKER_PAUSE = 0.5  # pause minimale entre tickers (secondes)
+# Plan Ultra - Configuration conservative pour éviter les erreurs 429
+TWELVE_DATA_RATE_LIMIT = 50  # req/min (conservative pour éviter dépassement crédits)
+TWELVE_DATA_TICKER_PAUSE = 1.5  # pause entre tickers (secondes) - laisse respirer l'API
 
 # Mode d'enrichissement
 ENRICHMENT_MODE = os.getenv("ENRICHMENT_MODE", "sp500")  # "sp500" ou "smart_money"
