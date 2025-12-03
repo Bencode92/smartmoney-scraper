@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-12-03T09:39:06.336797",
+  "generated_at": "2025-12-03T14:46:27.370995",
   "type": "estimated",
   "note": "Backtest estim\u00e9 (pas de cl\u00e9 API ou erreur). Relancer avec --with-backtest pour donn\u00e9es r\u00e9elles.",
   "period": {
@@ -7,12 +7,12 @@
     "end": "2025-12-03"
   },
   "portfolio": {
-    "return_pct": -1.1,
-    "return_ytd_pct": 1.9,
-    "volatility_pct": 5.47,
-    "sharpe_estimate": -0.48,
-    "max_drawdown_estimate": -8.2,
-    "positions": 18
+    "return_pct": 0.14,
+    "return_ytd_pct": 6.84,
+    "volatility_pct": 4.66,
+    "sharpe_estimate": 0.5,
+    "max_drawdown_estimate": -7.0,
+    "positions": 20
   },
   "benchmarks": {
     "SPY": {
@@ -28,46 +28,46 @@
   },
   "top_performers": [
     {
-      "symbol": "APH",
-      "perf_ytd": 105.03
+      "symbol": "EA",
+      "perf_ytd": 39.3
     },
     {
-      "symbol": "AVGO",
-      "perf_ytd": 64.48
+      "symbol": "CBOE",
+      "perf_ytd": 29.48
     },
     {
-      "symbol": "ADI",
-      "perf_ytd": 29.16
+      "symbol": "MDT",
+      "perf_ytd": 27.19
     },
     {
-      "symbol": "AAPL",
-      "perf_ytd": 17.36
+      "symbol": "CME",
+      "perf_ytd": 19.24
     },
     {
-      "symbol": "ABT",
-      "perf_ytd": 11.35
+      "symbol": "MTD",
+      "perf_ytd": 18.54
     }
   ],
   "worst_performers": [
     {
-      "symbol": "ALGN",
-      "perf_ytd": -27.61
+      "symbol": "CPRT",
+      "perf_ytd": -30.82
     },
     {
-      "symbol": "ADBE",
-      "perf_ytd": -26.8
+      "symbol": "CRM",
+      "perf_ytd": -29.02
     },
     {
-      "symbol": "ACN",
-      "perf_ytd": -25.17
+      "symbol": "PG",
+      "perf_ytd": -12.12
     },
     {
-      "symbol": "AMP",
-      "perf_ytd": -13.81
+      "symbol": "SLB",
+      "perf_ytd": -5.44
     },
     {
-      "symbol": "ADP",
-      "perf_ytd": -11.21
+      "symbol": "FTV",
+      "perf_ytd": -5.23
     }
   ]
 }
