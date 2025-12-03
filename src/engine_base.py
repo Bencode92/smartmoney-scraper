@@ -1,7 +1,7 @@
 """SmartMoney Engine Base - Tronc commun pour v2.2 et v2.3
 
 Contient les méthodes partagées:
-- load_data(): Chargement des données JSON
+- load_data(): Chargement des données JSON (S&P 500 ou Smart Money)
 - enrich() / enrich_from_history(): Enrichissement API ou historique
 - clean_universe(): Nettoyage de l'univers
 - optimize(): Optimisation HRP
@@ -11,6 +11,8 @@ Les engines spécifiques (v2.2, v2.3) héritent de cette base
 et implémentent leur propre:
 - calculate_scores()
 - apply_filters()
+
+v2.4: Support mode S&P 500 (503 tickers) avec plan Ultra Twelve Data
 """
 import json
 import math
@@ -50,7 +52,14 @@ except ImportError:
         "fallback_intra_sector": 0.7,
         "fallback_inter_sector": 0.4,
     }
-    TWELVE_DATA_TICKER_PAUSE = 3
+    TWELVE_DATA_TICKER_PAUSE = 0.5
+
+# Import config S&P 500 avec fallback
+try:
+    from config import DATA_SP500, ENRICHMENT_MODE
+except ImportError:
+    DATA_SP500 = Path(__file__).parent.parent / "data" / "sp500.json"
+    ENRICHMENT_MODE = "smart_money"
 
 
 # === CUSTOM JSON ENCODER ===
@@ -113,7 +122,7 @@ class SmartMoneyEngineBase(ABC):
     """Classe de base pour les engines SmartMoney.
     
     Fournit les méthodes communes:
-    - Chargement de données
+    - Chargement de données (S&P 500 ou Smart Money)
     - Enrichissement (API ou historique)
     - Optimisation HRP
     - Export
@@ -132,6 +141,7 @@ class SmartMoneyEngineBase(ABC):
         self.portfolio_metrics = {}
         self._last_api_call = 0
         self._last_api_error = None
+        self._enrichment_mode = None  # Stocke le mode utilisé
         
         # Cache pour corrélations réelles (utilisé par backtest)
         self._real_correlation = None
@@ -155,12 +165,29 @@ class SmartMoneyEngineBase(ABC):
         pass
     
     # =========================================================================
-    # DATA LOADING
+    # DATA LOADING - SUPPORTE S&P 500 ET SMART MONEY
     # =========================================================================
     
-    def load_data(self) -> pd.DataFrame:
-        """Charge et fusionne toutes les sources JSON"""
+    def load_data(self, mode: str = None) -> pd.DataFrame:
+        """Charge les données selon le mode configuré.
+        
+        Modes:
+        - "sp500": Charge les 503 tickers du S&P 500, enrichit avec signaux smart money
+        - "smart_money": Mode legacy, charge uniquement les tickers avec signaux
+        
+        Args:
+            mode: Override du mode (sinon utilise ENRICHMENT_MODE de config ou env var)
+        """
+        # Déterminer le mode (CLI > env var > config)
+        mode = mode or os.getenv("ENRICHMENT_MODE", ENRICHMENT_MODE)
+        self._enrichment_mode = mode
+        
         stocks = {}
+        smart_money_data = {}  # Signaux à fusionner
+        
+        # =====================================================================
+        # Étape 1: Charger les signaux Smart Money (toujours, pour enrichir)
+        # =====================================================================
         
         # Grand Portfolio (Dataroma)
         gp_files = list((DATA_RAW / "dataroma" / "grand-portfolio").glob("*.json"))
@@ -170,9 +197,7 @@ class SmartMoneyEngineBase(ABC):
                 data = json.load(f)
             for s in data.get("stocks", []):
                 symbol = s["symbol"]
-                stocks[symbol] = {
-                    "symbol": symbol,
-                    "company": s.get("company_name", ""),
+                smart_money_data[symbol] = {
                     "gp_weight": s.get("portfolio_weight", 0),
                     "gp_buys": s.get("buys_6m", 0),
                     "gp_tier": s.get("buys_tier", "D"),
@@ -180,11 +205,13 @@ class SmartMoneyEngineBase(ABC):
                     "current_price": s.get("current_price", 0),
                     "low_52w": s.get("low_52w", 0),
                     "high_52w": s.get("high_52w", 0),
-                    "pct_above_52w_low": s.get("pct_above_52w_low", 0)
+                    "pct_above_52w_low": s.get("pct_above_52w_low", 0),
+                    "company": s.get("company_name", ""),
                 }
         
         # Insider Trades
         insider_files = list((DATA_RAW / "insider").glob("*.json"))
+        insider_data = {}
         if insider_files:
             latest = max(insider_files, key=lambda x: x.stat().st_mtime)
             with open(latest) as f:
@@ -193,21 +220,77 @@ class SmartMoneyEngineBase(ABC):
                 symbol = trade.get("symbol", trade.get("ticker", ""))
                 if not symbol:
                     continue
-                if symbol not in stocks:
-                    stocks[symbol] = {"symbol": symbol, "company": trade.get("company", "")}
-                
-                if "insider_buys" not in stocks[symbol]:
-                    stocks[symbol]["insider_buys"] = 0
-                    stocks[symbol]["insider_sells"] = 0
-                    stocks[symbol]["insider_net_value"] = 0
-                
+                if symbol not in insider_data:
+                    insider_data[symbol] = {
+                        "insider_buys": 0,
+                        "insider_sells": 0,
+                        "insider_net_value": 0,
+                        "company": trade.get("company", ""),
+                    }
                 value = trade.get("value", 0)
                 if trade.get("transaction_type", "").lower() in ["buy", "p-purchase", "purchase"]:
-                    stocks[symbol]["insider_buys"] += 1
-                    stocks[symbol]["insider_net_value"] += value
+                    insider_data[symbol]["insider_buys"] += 1
+                    insider_data[symbol]["insider_net_value"] += value
                 else:
-                    stocks[symbol]["insider_sells"] += 1
-                    stocks[symbol]["insider_net_value"] -= value
+                    insider_data[symbol]["insider_sells"] += 1
+                    insider_data[symbol]["insider_net_value"] -= value
+        
+        # Fusionner insider dans smart_money_data
+        for symbol, idata in insider_data.items():
+            if symbol in smart_money_data:
+                smart_money_data[symbol].update(idata)
+            else:
+                smart_money_data[symbol] = idata
+        
+        # =====================================================================
+        # Étape 2: Charger l'univers de base selon le mode
+        # =====================================================================
+        
+        if mode == "sp500":
+            # Mode S&P 500: charger les 503 tickers
+            sp500_path = Path(DATA_SP500) if isinstance(DATA_SP500, str) else DATA_SP500
+            if sp500_path.exists():
+                with open(sp500_path) as f:
+                    sp500_data = json.load(f)
+                
+                tickers = sp500_data.get("tickers", [])
+                print(f"📊 Mode S&P 500: {len(tickers)} tickers")
+                
+                for symbol in tickers:
+                    stocks[symbol] = {
+                        "symbol": symbol,
+                        "company": "",
+                        # Valeurs par défaut
+                        "gp_weight": 0, "gp_buys": 0, "gp_tier": "D",
+                        "hold_price": 0, "current_price": 0,
+                        "low_52w": 0, "high_52w": 0, "pct_above_52w_low": 0,
+                        "insider_buys": 0, "insider_sells": 0, "insider_net_value": 0,
+                    }
+                    # Enrichir avec signaux smart money si disponibles
+                    if symbol in smart_money_data:
+                        stocks[symbol].update(smart_money_data[symbol])
+                
+                # Stats smart money
+                sm_count = sum(1 for s in stocks.values() if s.get("gp_buys", 0) > 0)
+                insider_count = sum(1 for s in stocks.values() if s.get("insider_buys", 0) > 0)
+                print(f"   ├─ {sm_count} avec signaux smart money")
+                print(f"   └─ {insider_count} avec achats insiders")
+            else:
+                print(f"⚠️ Fichier S&P 500 non trouvé: {sp500_path}")
+                print("   Fallback vers mode smart_money")
+                mode = "smart_money"
+                self._enrichment_mode = mode
+        
+        if mode == "smart_money" or not stocks:
+            # Mode legacy: uniquement les tickers avec signaux
+            stocks = {
+                symbol: {
+                    "symbol": symbol,
+                    **sdata
+                }
+                for symbol, sdata in smart_money_data.items()
+            }
+            print(f"📊 Mode Smart Money: {len(stocks)} tickers")
         
         self.universe = pd.DataFrame(list(stocks.values()))
         
@@ -690,18 +773,38 @@ class SmartMoneyEngineBase(ABC):
         return result
     
     # =========================================================================
-    # ENRICHMENT
+    # ENRICHMENT - SUPPORTE S&P 500 ET SMART MONEY
     # =========================================================================
     
-    def enrich(self, top_n: int = 50) -> pd.DataFrame:
-        """Enrichissement via API Twelve Data (mode live)"""
+    def enrich(self, top_n: int = None) -> pd.DataFrame:
+        """Enrichissement via API Twelve Data (mode live)
+        
+        Args:
+            top_n: Nombre de tickers à enrichir. Si None, enrichit tous les tickers
+                   chargés (utile pour mode sp500).
+        """
         if self.universe.empty:
             self.load_data()
-
-        candidates = self.universe[
-            (self.universe["gp_buys"] >= self.constraints.get("min_buys", 2)) |
-            (self.universe["insider_buys"] > 0)
-        ].head(top_n)
+        
+        # Déterminer le mode actuel
+        mode = self._enrichment_mode or os.getenv("ENRICHMENT_MODE", ENRICHMENT_MODE)
+        
+        # Sélection des candidats selon le mode
+        if mode == "sp500":
+            # Mode S&P 500: enrichir tous les tickers (ou top_n si spécifié)
+            if top_n is None:
+                candidates = self.universe
+            else:
+                candidates = self.universe.head(top_n)
+        else:
+            # Mode smart_money: filtrer sur signaux puis limiter à top_n
+            filtered = self.universe[
+                (self.universe["gp_buys"] >= self.constraints.get("min_buys", 2)) |
+                (self.universe["insider_buys"] > 0)
+            ]
+            if top_n is None:
+                top_n = 40  # Défaut pour smart_money
+            candidates = filtered.head(top_n)
 
         # Vérification clé API
         if not TWELVE_DATA_KEY:
@@ -740,6 +843,7 @@ class SmartMoneyEngineBase(ABC):
             profile = self._fetch_profile(symbol)
             row["sector"] = profile.get("sector") or "Unknown"
             row["industry"] = profile.get("industry") or "Unknown"
+            row["company"] = profile.get("name") or row.get("company", "")
             print(f"    ✓ Profile: {row['sector']}")
 
             tech = self._fetch_technicals(symbol)
@@ -1116,6 +1220,7 @@ class SmartMoneyEngineBase(ABC):
         """Retourne un résumé du portefeuille."""
         return {
             "engine_version": self.version,
+            "enrichment_mode": self._enrichment_mode or "unknown",
             "universe_size": len(self.universe),
             "portfolio_size": len(self.portfolio),
             **self.portfolio_metrics
@@ -1157,6 +1262,7 @@ class SmartMoneyEngineBase(ABC):
                 "positions": len(df),
                 "total_weight": round(df["weight"].sum(), 4),
                 "engine_version": self.version,
+                "enrichment_mode": self._enrichment_mode or "unknown",
             },
             "metrics": self.portfolio_metrics,
             "portfolio": df.to_dict(orient="records")
