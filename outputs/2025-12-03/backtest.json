@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-12-03T09:21:12.242504",
+  "generated_at": "2025-12-03T09:39:06.336797",
   "type": "estimated",
   "note": "Backtest estim\u00e9 (pas de cl\u00e9 API ou erreur). Relancer avec --with-backtest pour donn\u00e9es r\u00e9elles.",
   "period": {
@@ -7,12 +7,12 @@
     "end": "2025-12-03"
   },
   "portfolio": {
-    "return_pct": 3.75,
-    "return_ytd_pct": 7.11,
-    "volatility_pct": 8.11,
-    "sharpe_estimate": 0.32,
-    "max_drawdown_estimate": -12.2,
-    "positions": 10
+    "return_pct": -1.1,
+    "return_ytd_pct": 1.9,
+    "volatility_pct": 5.47,
+    "sharpe_estimate": -0.48,
+    "max_drawdown_estimate": -8.2,
+    "positions": 18
   },
   "benchmarks": {
     "SPY": {
@@ -28,46 +28,46 @@
   },
   "top_performers": [
     {
-      "symbol": "GOOGL",
-      "perf_ytd": 66.72
+      "symbol": "APH",
+      "perf_ytd": 105.03
     },
     {
-      "symbol": "ASML",
-      "perf_ytd": 58.3
+      "symbol": "AVGO",
+      "perf_ytd": 64.48
     },
     {
-      "symbol": "TSM",
-      "perf_ytd": 44.9
+      "symbol": "ADI",
+      "perf_ytd": 29.16
     },
     {
-      "symbol": "NVDA",
-      "perf_ytd": 31.2
+      "symbol": "AAPL",
+      "perf_ytd": 17.36
     },
     {
-      "symbol": "MSFT",
-      "perf_ytd": 17.06
+      "symbol": "ABT",
+      "perf_ytd": 11.35
     }
   ],
   "worst_performers": [
     {
-      "symbol": "LULU",
-      "perf_ytd": -51.01
-    },
-    {
-      "symbol": "CPRT",
-      "perf_ytd": -30.82
+      "symbol": "ALGN",
+      "perf_ytd": -27.61
     },
     {
       "symbol": "ADBE",
       "perf_ytd": -26.8
     },
     {
-      "symbol": "PG",
-      "perf_ytd": -12.12
+      "symbol": "ACN",
+      "perf_ytd": -25.17
     },
     {
-      "symbol": "V",
-      "perf_ytd": 4.84
+      "symbol": "AMP",
+      "perf_ytd": -13.81
+    },
+    {
+      "symbol": "ADP",
+      "perf_ytd": -11.21
     }
   ]
 }
