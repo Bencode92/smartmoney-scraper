@@ -36,7 +36,7 @@ Ce portefeuille suit les principes de Warren Buffett :
 ## 🔬 Analyse Détaillée par Position
 
 
-### V — Visa Inc.
+### V — Visa Inc
 **Secteur:** Financial Services | **Poids:** 14.8% | **Buffett Score:** 0.562
 
 #### 📊 Scores v2.3
@@ -63,7 +63,7 @@ Ce portefeuille suit les principes de Warren Buffett :
 
 ---
 
-### TSM — Taiwan Semiconductor S.A.
+### TSM — Taiwan Semiconductor Manufactu
 **Secteur:** Technology | **Poids:** 14.8% | **Buffett Score:** 0.535
 
 #### 📊 Scores v2.3
@@ -90,7 +90,7 @@ Ce portefeuille suit les principes de Warren Buffett :
 
 ---
 
-### PG — Procter & Gamble
+### PG — Procter & Gamble Co.
 **Secteur:** Consumer Defensive | **Poids:** 14.8% | **Buffett Score:** 0.533
 
 #### 📊 Scores v2.3
@@ -198,7 +198,7 @@ Ce portefeuille suit les principes de Warren Buffett :
 
 ---
 
-### ASML — ASML Holding NV
+### ASML — ASML Holding N.V. New York Reg
 **Secteur:** Technology | **Poids:** 9.4% | **Buffett Score:** 0.535
 
 #### 📊 Scores v2.3
@@ -252,7 +252,7 @@ Ce portefeuille suit les principes de Warren Buffett :
 
 ---
 
-### NVDA — NVIDIA Corp.
+### NVDA — NVIDIA Corporation
 **Secteur:** Technology | **Poids:** 3.4% | **Buffett Score:** 0.515
 
 #### 📊 Scores v2.3
@@ -348,4 +348,4 @@ Ce portefeuille SmartMoney v2.3.1 combine :
 _"Be fearful when others are greedy, and greedy when others are fearful."_
 
 **Généré par SmartMoney Engine v2.3.1**  
-**Date :** 2025-12-03 08:44
+**Date :** 2025-12-03 09:21

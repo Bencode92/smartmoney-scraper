@@ -1,10 +1,11 @@
 {
   "metadata": {
-    "generated_at": "2025-12-03T08:44:01.344527",
+    "generated_at": "2025-12-03T09:21:12.221404",
     "date": "2025-12-03",
     "positions": 10,
     "total_weight": 0.9999,
-    "engine_version": "2.3.1"
+    "engine_version": "2.3.1",
+    "enrichment_mode": "smart_money"
   },
   "metrics": {
     "positions": 10,
@@ -26,7 +27,7 @@
   "portfolio": [
     {
       "symbol": "V",
-      "company": "Visa Inc.",
+      "company": "Visa Inc",
       "sector": "Financial Services",
       "industry": "Credit Services",
       "weight": 0.1479,
@@ -60,7 +61,7 @@
     },
     {
       "symbol": "TSM",
-      "company": "Taiwan Semiconductor S.A.",
+      "company": "Taiwan Semiconductor Manufacturing Co. Ltd. ADR",
       "sector": "Technology",
       "industry": "Semiconductors",
       "weight": 0.1479,
@@ -94,7 +95,7 @@
     },
     {
       "symbol": "PG",
-      "company": "Procter & Gamble",
+      "company": "Procter & Gamble Co.",
       "sector": "Consumer Defensive",
       "industry": "Household & Personal Products",
       "weight": 0.1479,
@@ -230,7 +231,7 @@
     },
     {
       "symbol": "ASML",
-      "company": "ASML Holding NV",
+      "company": "ASML Holding N.V. New York Registry Shares",
       "sector": "Technology",
       "industry": "Semiconductor Equipment & Materials",
       "weight": 0.0945,
@@ -298,7 +299,7 @@
     },
     {
       "symbol": "NVDA",
-      "company": "NVIDIA Corp.",
+      "company": "NVIDIA Corporation",
       "sector": "Technology",
       "industry": "Semiconductors",
       "weight": 0.0335,
