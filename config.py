@@ -5,6 +5,7 @@ from pathlib import Path
 # === CHEMINS ===
 ROOT = Path(__file__).parent
 DATA_RAW = ROOT / "data" / "raw"
+DATA_SP500 = ROOT / "data" / "sp500.json"
 OUTPUTS = ROOT / "outputs"
 OUTPUTS.mkdir(exist_ok=True)
 
@@ -72,22 +73,40 @@ VALIDATION = {
 # === TWELVE DATA API ===
 TWELVE_DATA_BASE = "https://api.twelvedata.com"
 
-# Rate limit TRÈS conservatif pour éviter les erreurs de crédits
-# Twelve Data compte différemment les crédits selon les endpoints:
-# - Quote, Profile, RSI = 1 crédit chacun
-# - TimeSeries = 1-10 crédits selon la taille
-# - Statistics, Balance Sheet, Income Statement, Cash Flow = ~10 crédits chacun
+# =============================================================================
+# TWELVE DATA API - Configuration par plan
+# =============================================================================
 # 
-# Avec 8 appels/ticker dont 4 endpoints coûteux (~40 crédits/ticker),
-# et un quota de ~2584 crédits/minute, on peut traiter ~6 tickers/minute max.
-# 
-# On met 20 appels/minute pour avoir de la marge (= ~2-3 tickers/minute).
-# Temps estimé: 40 tickers × 8 appels ÷ 20/min = ~16 minutes
-TWELVE_DATA_RATE_LIMIT = 40  # calls per minute (très conservatif)
+# Plans disponibles:
+# - Free: 8 req/min, 800/jour
+# - Basic: 40 req/min, 8000/jour  
+# - Ultra: 120 req/min, 100000+/mois  <-- VOTRE PLAN
+# - Pro: 800 req/min, illimité
+#
+# Crédits par endpoint:
+# - Quote, Profile, RSI = 1 crédit
+# - TimeSeries = 1-10 crédits selon taille
+# - Statistics, Balance Sheet, Income Statement, Cash Flow = ~10 crédits
+#
+# Avec 8 appels/ticker (~50 crédits/ticker), plan Ultra permet:
+# - ~120 req/min = ~15 tickers/min (avec marge sécurité)
+# - 500 tickers ≈ 35-40 minutes
+# =============================================================================
 
-# Pause additionnelle entre chaque ticker (en secondes)
-# Permet d'espacer les appels coûteux
-TWELVE_DATA_TICKER_PAUSE = 3  # pause de 3s entre chaque ticker
+# Plan Ultra optimisé
+TWELVE_DATA_RATE_LIMIT = 100  # req/min (120 max, on garde marge)
+TWELVE_DATA_TICKER_PAUSE = 0.5  # pause minimale entre tickers (secondes)
+
+# Mode d'enrichissement
+ENRICHMENT_MODE = os.getenv("ENRICHMENT_MODE", "sp500")  # "sp500" ou "smart_money"
+ENRICHMENT_TOP_N = int(os.getenv("ENRICHMENT_TOP_N", "500"))  # Nombre de tickers à enrichir
+
+# Cache pour éviter les appels redondants
+ENRICHMENT_CACHE = {
+    "enabled": True,
+    "cache_dir": ROOT / "cache",
+    "cache_days": 1,  # Durée de validité du cache (jours)
+}
 
 # === OPENAI ===
 OPENAI_MODEL = "gpt-4o"
