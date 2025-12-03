@@ -1,16 +1,31 @@
 name: Generate Portfolio
 
 on:
-  workflow_dispatch:  # Trigger manuel
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Mode de génération'
+        required: false
+        default: 'sp500'
+        type: choice
+        options:
+          - sp500
+          - smart_money
+      top_n:
+        description: 'Nombre de tickers à enrichir (vide = tous)'
+        required: false
+        default: ''
+        type: string
   schedule:
-    - cron: '0 8 * * 1'  # Lundi 8h UTC (optionnel)
+    - cron: '0 8 * * 1'  # Lundi 8h UTC
 
 permissions:
-  contents: write  # Autorise le push
+  contents: write
 
 jobs:
   generate:
     runs-on: ubuntu-latest
+    timeout-minutes: 60  # 60 min pour 500 tickers
     
     steps:
       - name: Checkout
@@ -28,12 +43,23 @@ jobs:
         env:
           API_TWELVEDATA: ${{ secrets.API_TWELVEDATA }}
           API_OPENAI: ${{ secrets.API_OPENAI }}
-        run: python main.py
+          ENRICHMENT_MODE: ${{ inputs.mode || 'sp500' }}
+        run: |
+          MODE="${{ inputs.mode || 'sp500' }}"
+          TOP_N="${{ inputs.top_n }}"
+          
+          if [ -n "$TOP_N" ]; then
+            echo "🚀 Lancement mode $MODE avec top-n=$TOP_N"
+            python main.py --mode "$MODE" --top-n "$TOP_N"
+          else
+            echo "🚀 Lancement mode $MODE (tous les tickers)"
+            python main.py --mode "$MODE"
+          fi
       
       - name: Commit outputs
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add outputs/
-          git commit -m "📊 Portfolio $(date +%Y-%m-%d)" || echo "No changes to commit"
+          git commit -m "📊 Portfolio $(date +%Y-%m-%d) [mode: ${{ inputs.mode || 'sp500' }}]" || echo "No changes to commit"
           git push
