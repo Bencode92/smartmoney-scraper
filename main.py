@@ -223,7 +223,8 @@ def run_real_backtest(portfolio_data: dict, output_dir: Path, days: int = 90) ->
     print("="*60)
     
     try:
-        from src.backtest import Backtester
+        # Import correct : BacktestEngine au lieu de Backtester
+        from src.backtest import BacktestEngine
         
         positions = portfolio_data.get("portfolio", [])
         
@@ -232,7 +233,7 @@ def run_real_backtest(portfolio_data: dict, output_dir: Path, days: int = 90) ->
             return {"error": "No positions"}
         
         # Initialiser le backtester
-        backtester = Backtester()
+        backtester = BacktestEngine()
         
         # Lancer le backtest complet avec validation
         result = backtester.generate_report(
