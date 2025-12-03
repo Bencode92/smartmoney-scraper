@@ -1,0 +1,29 @@
+{
+  "generated_at": "2025-12-03T08:30:13.555301",
+  "count": 3,
+  "by_severity": {
+    "high": 2,
+    "medium": 1,
+    "low": 0
+  },
+  "alerts": [
+    {
+      "type": "opportunity",
+      "ticker": "CPRT",
+      "message": "RSI survente (30) - opportunit\u00e9 potentielle",
+      "severity": "medium"
+    },
+    {
+      "type": "warning",
+      "ticker": "CPRT",
+      "message": "Forte baisse YTD (-31%) - v\u00e9rifier les fondamentaux",
+      "severity": "high"
+    },
+    {
+      "type": "warning",
+      "ticker": "LULU",
+      "message": "Forte baisse YTD (-51%) - v\u00e9rifier les fondamentaux",
+      "severity": "high"
+    }
+  ]
+}
