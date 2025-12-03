@@ -360,13 +360,19 @@ def generate_stress_report(suite: StressTestSuite) -> str:
     Returns:
         Rapport formaté
     """
+    # Définir les emojis en dehors de la f-string (Python 3.11 compatibilité)
+    check_mark = "✅"
+    cross_mark = "❌"
+    
+    status_text = f"{check_mark} PASS" if suite.overall_passed else f"{cross_mark} FAIL"
+    
     lines = [
         "=" * 70,
         "STRESS TESTS REPORT",
         "=" * 70,
         "",
         f"Résultats: {suite.passed_count}/{len(suite.results)} tests passés",
-        f"Statut global: {'\u2705 PASS' if suite.overall_passed else '\u274c FAIL'}",
+        f"Statut global: {status_text}",
         "",
         "-" * 70,
         "Détail par période:",
@@ -374,7 +380,7 @@ def generate_stress_report(suite: StressTestSuite) -> str:
     ]
     
     for r in suite.results:
-        status = "\u2705" if r.passed else "\u274c"
+        status = check_mark if r.passed else cross_mark
         lines.append(f"\n{status} {r.name}: {r.description}")
         lines.append(f"   Période: {r.start_date} → {r.end_date}")
         lines.append(f"   Portefeuille: Return={r.portfolio_return:+.1f}%, DD={r.portfolio_max_dd:.1f}%")
