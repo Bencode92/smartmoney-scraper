@@ -2,13 +2,14 @@
 """SmartMoney Portfolio Generator
 
 Usage:
-    python main.py --engine v23      # Buffett-style (default)
-    python main.py --engine v22      # Legacy smart-money dominant
-    python main.py --engine v23 --top-n 50 --dry-run
-    python main.py --engine v23 --with-backtest
+    python main.py                              # Mode smart_money (80 tickers)
+    python main.py --mode sp500                 # Mode S&P 500 (503 tickers)
+    python main.py --mode sp500 --top-n 100    # S&P 500, top 100 seulement
+    python main.py --engine v23 --dry-run
 """
 import argparse
 import json
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -19,7 +20,10 @@ sys.path.insert(0, str(Path(__file__).parent))
 def parse_args():
     parser = argparse.ArgumentParser(description="SmartMoney Portfolio Generator")
     parser.add_argument("--engine", choices=["v22", "v23"], default="v23")
-    parser.add_argument("--top-n", type=int, default=40)
+    parser.add_argument("--mode", choices=["smart_money", "sp500"], default=None,
+                       help="Mode: smart_money (80 tickers) ou sp500 (503 tickers)")
+    parser.add_argument("--top-n", type=int, default=None,
+                       help="Nombre de tickers à enrichir (défaut: 40 pour smart_money, 500 pour sp500)")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--strict", action="store_true")
     parser.add_argument("--verbose", action="store_true")
@@ -334,6 +338,18 @@ def generate_backtest_fallback(portfolio_data: dict, output_dir: Path) -> dict:
 def main():
     args = parse_args()
     
+    # Déterminer le mode (CLI > env var > config > default)
+    mode = args.mode or os.getenv("ENRICHMENT_MODE", "smart_money")
+    
+    # Définir top_n selon le mode si non spécifié
+    if args.top_n is None:
+        top_n = 500 if mode == "sp500" else 40
+    else:
+        top_n = args.top_n
+    
+    # Set env var pour que engine_base.py le voie
+    os.environ["ENRICHMENT_MODE"] = mode
+    
     print("="*60)
     print("🚀 SmartMoney Portfolio Generator")
     print("="*60)
@@ -356,17 +372,18 @@ def main():
             from src.engine import SmartMoneyEngine as Engine
             print("📊 Engine: v2.2 (Legacy - engine.py)")
     
-    print(f"   Top-N: {args.top_n} tickers")
-    print(f"   Mode: {'DRY-RUN' if args.dry_run else 'PRODUCTION'}")
+    mode_emoji = "🌐" if mode == "sp500" else "🎯"
+    print(f"   {mode_emoji} Mode: {mode.upper()} ({top_n} tickers)")
+    print(f"   📁 Mode: {'DRY-RUN' if args.dry_run else 'PRODUCTION'}")
     print("="*60)
     
     engine = Engine()
     
     print("\n📂 Étape 1/6: Chargement des données...")
-    engine.load_data()
+    engine.load_data(mode=mode)
     
-    print(f"\n📊 Étape 2/6: Enrichissement ({args.top_n} tickers)...")
-    engine.enrich(top_n=args.top_n)
+    print(f"\n📊 Étape 2/6: Enrichissement ({top_n} tickers)...")
+    engine.enrich(top_n=top_n)
     
     print(f"\n🧹 Étape 3/6: Nettoyage univers...")
     engine.clean_universe(strict=args.strict)
