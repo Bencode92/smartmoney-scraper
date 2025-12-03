@@ -217,7 +217,7 @@ class SmartMoneyEngineBase(ABC):
             "hold_price": 0, "current_price": 0,
             "low_52w": 0, "high_52w": 0, "pct_above_52w_low": 0,
             "insider_buys": 0, "insider_sells": 0, "insider_net_value": 0,
-            "sector": "Unknown", "industry": "Unknown"  # Ajouté pour éviter KeyError
+            "sector": "Unknown", "industry": "Unknown"
         }
         for col, default in defaults.items():
             if col not in self.universe.columns:
@@ -775,6 +775,12 @@ class SmartMoneyEngineBase(ABC):
             time.sleep(TWELVE_DATA_TICKER_PAUSE)
 
         self.universe = pd.DataFrame(enriched)
+        
+        # S'assurer que sector et industry existent après enrichissement
+        if "sector" not in self.universe.columns:
+            self.universe["sector"] = "Unknown"
+        if "industry" not in self.universe.columns:
+            self.universe["industry"] = "Unknown"
 
         # Vérification couverture
         fundamentals_cols = ["roe", "debt_equity", "net_margin", "current_ratio"]
@@ -853,6 +859,12 @@ class SmartMoneyEngineBase(ABC):
         
         self.universe = pd.DataFrame(enriched)
         
+        # S'assurer que sector et industry existent
+        if "sector" not in self.universe.columns:
+            self.universe["sector"] = "Unknown"
+        if "industry" not in self.universe.columns:
+            self.universe["industry"] = "Unknown"
+        
         print(f"✅ {len(self.universe)} tickers enrichis depuis historique")
         return self.universe
     
@@ -862,30 +874,42 @@ class SmartMoneyEngineBase(ABC):
     
     def clean_universe(self, strict: bool = False):
         """Nettoie l'univers en excluant les tickers sans données."""
-        df = self.universe
+        # S'assurer que le DataFrame n'est pas vide
+        if self.universe.empty:
+            print("⚠️ Univers vide, rien à nettoyer")
+            return
         
-        # S'assurer que la colonne sector existe
-        if "sector" not in df.columns:
+        # S'assurer que les colonnes essentielles existent AVANT tout accès
+        if "sector" not in self.universe.columns:
             print("⚠️ Colonne 'sector' manquante - ajout valeur par défaut")
-            df["sector"] = "Unknown"
+            self.universe["sector"] = "Unknown"
+        else:
+            # Remplacer les NaN par "Unknown"
+            self.universe["sector"] = self.universe["sector"].fillna("Unknown")
         
+        if "industry" not in self.universe.columns:
+            self.universe["industry"] = "Unknown"
+        else:
+            self.universe["industry"] = self.universe["industry"].fillna("Unknown")
+        
+        # Maintenant on peut accéder à sector en toute sécurité
         if not strict:
-            mask_bad = df["sector"].eq("Unknown")
+            mask_bad = self.universe["sector"].eq("Unknown")
         else:
             # Mode strict: exige aussi revenue et net_income
-            revenue_missing = df["revenue"].isna() if "revenue" in df.columns else pd.Series([True] * len(df))
-            income_missing = df["net_income"].isna() if "net_income" in df.columns else pd.Series([True] * len(df))
+            revenue_missing = self.universe["revenue"].isna() if "revenue" in self.universe.columns else pd.Series([True] * len(self.universe), index=self.universe.index)
+            income_missing = self.universe["net_income"].isna() if "net_income" in self.universe.columns else pd.Series([True] * len(self.universe), index=self.universe.index)
             mask_bad = (
-                df["sector"].eq("Unknown") |
+                self.universe["sector"].eq("Unknown") |
                 revenue_missing |
                 income_missing
             )
         
-        bad_symbols = df.loc[mask_bad, "symbol"].tolist()
+        bad_symbols = self.universe.loc[mask_bad, "symbol"].tolist()
         if bad_symbols:
             print(f"⚠️ Exclusion {len(bad_symbols)} tickers: {bad_symbols[:10]}{'...' if len(bad_symbols) > 10 else ''}")
         
-        self.universe = df[~mask_bad].reset_index(drop=True)
+        self.universe = self.universe[~mask_bad].reset_index(drop=True)
         print(f"✅ Univers nettoyé: {len(self.universe)} tickers restants")
     
     # =========================================================================
