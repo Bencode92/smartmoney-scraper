@@ -1454,19 +1454,26 @@
     }
 
     async function findDataPath() {
-      // Try latest first
-      try {
-        const res = await fetch(`${OUTPUTS_BASE}/latest/portfolio.json`, { method: 'HEAD' });
-        if (res.ok) return `${OUTPUTS_BASE}/latest`;
-      } catch (e) {}
-
-      // Try dated folders
+      // PRIORITY: Try dated folders FIRST (most recent first)
+      // This ensures we always get the latest data, even if 'latest' symlink is outdated
       for (const date of getRecentDates(30)) {
         try {
           const res = await fetch(`${OUTPUTS_BASE}/${date}/portfolio.json`, { method: 'HEAD' });
-          if (res.ok) return `${OUTPUTS_BASE}/${date}`;
+          if (res.ok) {
+            console.log(`📅 Found latest data: ${date}`);
+            return `${OUTPUTS_BASE}/${date}`;
+          }
         } catch (e) {}
       }
+
+      // Fallback to 'latest' folder (if symlink/copy exists)
+      try {
+        const res = await fetch(`${OUTPUTS_BASE}/latest/portfolio.json`, { method: 'HEAD' });
+        if (res.ok) {
+          console.log("📁 Using /latest fallback");
+          return `${OUTPUTS_BASE}/latest`;
+        }
+      } catch (e) {}
 
       throw new Error("No data found");
     }
