@@ -1,6 +1,6 @@
-"""Configuration SmartMoney Engine v2.3
+"""Configuration SmartMoney Engine v2.4
 
-Extension de config.py avec nouveaux paramètres v2.3.
+Extension de config.py avec nouveaux paramètres v2.3 et v2.4.
 Importer avec: from config_v23 import *
 
 Changements v2.3:
@@ -12,10 +12,16 @@ Changements v2.3:
 Changements v2.3.1:
 - Ajout mode Buffett (filtres, scoring, contraintes portefeuille)
 
+Changements v2.4:
+- Contraintes de poids RÉELLEMENT enforced dans optimize()
+- Score Value cross-sectionnel (percentiles vs seuils absolus)
+- Documentation des expositions factorielles
+- Tests unitaires pour contraintes
+
 Validé: Claude + GPT - Décembre 2025
 """
 
-from typing import Dict, List, Tuple, Any
+from typing import Dict, List, Tuple, Any, Literal
 
 # =============================================================================
 # POIDS v2.3 (remplace WEIGHTS de config.py)
@@ -51,6 +57,31 @@ VALUE_COMPONENTS: Dict[str, float] = {
     "ev_ebit_vs_sector": 0.40,  # Comparable, relatif
     "mos_simple": 0.20,         # P/E vs historique (pas DCF)
 }
+
+# =============================================================================
+# MODE DE SCORING VALUE (v2.4 - NOUVEAU)
+# =============================================================================
+
+VALUE_SCORING_MODE: Literal["absolute", "cross_sectional", "sector_neutral"] = "cross_sectional"
+"""
+Mode de calcul du score Value:
+
+- "absolute": Seuils fixes (legacy v2.3)
+  FCF Yield > 8% = 1.0, > 5% = 0.75, etc.
+  Problème: Scores uniformes (~0.7) pour les megacaps similaires
+
+- "cross_sectional": Percentiles globaux (v2.4, DÉFAUT)
+  Score = percentile dans l'univers
+  Avantage: Distribution uniforme [0, 1], meilleure discrimination
+
+- "sector_neutral": Percentiles intra-secteur
+  Score = percentile au sein du secteur
+  Avantage: Compare aux pairs directs, évite biais sectoriels
+"""
+
+# =============================================================================
+# QUALITY COMPONENTS
+# =============================================================================
 
 QUALITY_COMPONENTS: Dict[str, float] = {
     "roic_avg": 0.35,           # Rentabilité du capital (5 ans)
@@ -99,15 +130,15 @@ LOOK_AHEAD: Dict[str, int] = {
 
 
 # =============================================================================
-# CONTRAINTES v2.3 (étend CONSTRAINTS de config.py)
+# CONTRAINTES v2.4 (étend CONSTRAINTS de config.py)
 # =============================================================================
 
 CONSTRAINTS_V23: Dict[str, float] = {
     # Positions
     "min_positions": 12,        # Était 15
     "max_positions": 20,        # Était 25
-    "max_weight": 0.12,         # Était 0.06
-    "max_sector": 0.30,
+    "max_weight": 0.12,         # Était 0.06 — v2.4: RÉELLEMENT enforced
+    "max_sector": 0.30,         # v2.4: RÉELLEMENT enforced (était ignoré)
     "min_sectors": 4,
     "min_score": 0.40,          # Était 0.30
     
@@ -203,29 +234,35 @@ SMOKE_TEST_CONFIG: Dict[str, Any] = {
 
 
 # =============================================================================
-# COMPARAISON v2.2 vs v2.3
+# COMPARAISON v2.2 vs v2.3 vs v2.4
 # =============================================================================
 
 """
 TRANSFORMATION DES POIDS:
 
-              v2.2    v2.3    Δ
-              ----    ----    ---
-smart_money   0.45    0.15   -67%
-insider       0.15    0.10   -33%
-momentum      0.25    0.05   -80%
-quality       0.15    0.00   remplacé
+              v2.2    v2.3    v2.4    Δ
+              ----    ----    ----    ---
+smart_money   0.45    0.15    0.15    =
+insider       0.15    0.10    0.10    =
+momentum      0.25    0.05    0.05    =
+quality       0.15    0.00    0.00    remplacé
 
-value         0.00    0.30   NOUVEAU
-quality       0.00    0.25   NOUVEAU (différent de v2.2)
-risk          0.00    0.15   NOUVEAU
-              ----    ----
-TOTAL         1.00    1.00
+value         0.00    0.30    0.30    = (mais cross-sectional)
+quality       0.00    0.25    0.25    = 
+risk          0.00    0.15    0.15    =
+              ----    ----    ----
+TOTAL         1.00    1.00    1.00
+
+CHANGEMENTS v2.4:
+- Contraintes max_weight et max_sector RÉELLEMENT enforced
+- Score Value cross-sectionnel (percentiles)
+- Tests unitaires ajoutés
 
 IMPACT ATTENDU:
 - Score Buffett: 0.55 → 0.80
 - Score Institutionnel: 0.62 → 0.85
 - Max Drawdown: < -25% (cible)
+- Meilleure discrimination Value (std ~0.25 vs ~0.05)
 """
 
 
@@ -291,3 +328,26 @@ BUFFETT_PORTFOLIO: Dict[str, Any] = {
 # Validation Buffett
 assert BUFFETT_SCORING["quality_weight"] + BUFFETT_SCORING["valuation_weight"] == 1.0, \
     "Poids Buffett quality + valuation doivent sommer à 1.0"
+
+
+# =============================================================================
+# EXPOSITIONS FACTORIELLES v2.4 — Métriques de suivi
+# =============================================================================
+
+FACTOR_EXPOSURE_TARGETS: Dict[str, Tuple[float, float]] = {
+    # (min, max) - fourchette cible
+    "beta_vs_spy": (0.90, 1.15),
+    "value_tilt": (0.05, 0.20),      # Positif = tilt Value
+    "quality_tilt": (0.10, 0.30),    # Positif = tilt Quality
+    "size_tilt": (-0.15, 0.05),      # Négatif = biais Large Cap
+    "momentum_tilt": (-0.05, 0.10),  # Légèrement positif
+}
+
+FACTOR_ETF_PROXIES: Dict[str, str] = {
+    "value": "IVE",      # iShares S&P 500 Value
+    "quality": "QUAL",   # iShares MSCI USA Quality
+    "momentum": "MTUM",  # iShares MSCI USA Momentum
+    "low_vol": "SPLV",   # Invesco S&P 500 Low Volatility
+    "size_small": "IWM", # iShares Russell 2000
+    "market": "SPY",     # S&P 500 (benchmark)
+}
