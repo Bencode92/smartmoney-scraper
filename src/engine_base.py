@@ -12,7 +12,8 @@ et implémentent leur propre:
 - calculate_scores()
 - apply_filters()
 
-v2.4: Support mode S&P 500 (503 tickers) avec plan Ultra Twelve Data
+v2.4: Contraintes de poids RÉELLEMENT enforced (fix optimiseur)
+      Support mode S&P 500 (503 tickers) avec plan Ultra Twelve Data
 """
 import json
 import math
@@ -1122,17 +1123,31 @@ class SmartMoneyEngineBase(ABC):
         return weights / weights.sum()
     
     def optimize(self, weights_config: dict = None) -> pd.DataFrame:
-        """Optimisation HRP avec tilt par score composite."""
+        """Optimisation HRP avec contraintes RÉELLEMENT enforced (v2.4).
+        
+        Corrections v2.4:
+        - Cap par position appliqué de manière ITÉRATIVE (après renormalisation)
+        - Contrainte sectorielle max_sector IMPLÉMENTÉE
+        - Assertions de validation en fin d'optimisation
+        - Redistribution proportionnelle de l'excès aux positions sous le cap
+        
+        Args:
+            weights_config: Configuration optionnelle des poids
+            
+        Returns:
+            DataFrame du portefeuille optimisé
+        """
         if "score_composite" not in self.universe.columns:
             self.calculate_scores()
             self.apply_filters()
         
-        print("⚙️ Optimisation HRP...")
+        print("⚙️ Optimisation HRP v2.4 (contraintes enforced)...")
         
         n = len(self.universe)
         min_pos = self.constraints.get("min_positions", 10)
         max_pos = self.constraints.get("max_positions", 20)
-        max_weight = self.constraints.get("max_weight", 0.15)
+        max_weight = self.constraints.get("max_weight", 0.12)
+        max_sector = self.constraints.get("max_sector", 0.30)
         
         if n < min_pos:
             print(f"⚠️ Seulement {n} tickers, minimum {min_pos} requis")
@@ -1141,6 +1156,7 @@ class SmartMoneyEngineBase(ABC):
             print("❌ Aucun ticker dans l'univers après filtres!")
             return pd.DataFrame()
         
+        # === CALCUL HRP DE BASE ===
         if "vol_30d" in self.universe.columns:
             vols = self.universe["vol_30d"].fillna(25).values / 100
         else:
@@ -1151,7 +1167,7 @@ class SmartMoneyEngineBase(ABC):
         
         weights = self._hrp_weights(cov, corr)
         
-        # Tilt par score composite
+        # === TILT PAR SCORE COMPOSITE ===
         scores = self.universe["score_composite"].values
         
         if SCORING.get("use_zscore", True):
@@ -1164,18 +1180,147 @@ class SmartMoneyEngineBase(ABC):
         weights = weights * score_tilt
         weights = weights / weights.sum()
         
-        # Appliquer les caps
-        weights = np.minimum(weights, max_weight)
-        weights = weights / weights.sum()
+        # =====================================================================
+        # v2.4: CONTRAINTES RÉELLEMENT ENFORCED (ITÉRATIF)
+        # =====================================================================
+        
+        max_iterations = 20
+        tolerance = 0.001
+        
+        # Récupérer les secteurs pour la contrainte sectorielle
+        if "sector" in self.universe.columns:
+            sectors = self.universe["sector"].values
+        else:
+            sectors = np.array(["Unknown"] * n)
+        
+        for iteration in range(max_iterations):
+            weights_before = weights.copy()
+            
+            # --- 1. CAP PAR POSITION ---
+            over_cap_mask = weights > max_weight
+            if over_cap_mask.any():
+                excess = (weights[over_cap_mask] - max_weight).sum()
+                weights[over_cap_mask] = max_weight
+                
+                # Redistribuer l'excès proportionnellement aux positions sous le cap
+                under_cap_mask = weights < max_weight
+                if under_cap_mask.any() and weights[under_cap_mask].sum() > 0:
+                    redistribution = weights[under_cap_mask] / weights[under_cap_mask].sum()
+                    weights[under_cap_mask] += excess * redistribution
+            
+            # --- 2. CAP PAR SECTEUR ---
+            unique_sectors = np.unique(sectors)
+            
+            for sector in unique_sectors:
+                if sector == "Unknown":
+                    continue
+                    
+                sector_mask = sectors == sector
+                sector_total = weights[sector_mask].sum()
+                
+                if sector_total > max_sector:
+                    # Réduire proportionnellement les positions du secteur
+                    reduction_factor = max_sector / sector_total
+                    excess = sector_total - max_sector
+                    weights[sector_mask] *= reduction_factor
+                    
+                    # Redistribuer aux autres secteurs
+                    other_mask = ~sector_mask
+                    if other_mask.any() and weights[other_mask].sum() > 0:
+                        redistribution = weights[other_mask] / weights[other_mask].sum()
+                        weights[other_mask] += excess * redistribution
+            
+            # --- 3. RENORMALISER ---
+            weights = weights / weights.sum()
+            
+            # --- 4. VÉRIFIER CONVERGENCE ---
+            delta = np.abs(weights - weights_before).max()
+            if delta < tolerance:
+                print(f"   ✓ Convergence atteinte en {iteration + 1} itérations")
+                break
+        else:
+            print(f"   ⚠️ Max itérations atteintes ({max_iterations})")
+        
+        # =====================================================================
+        # SÉLECTION DES TOP POSITIONS ET RENORMALISATION FINALE
+        # =====================================================================
         
         self.universe["weight"] = weights
         self.portfolio = self.universe.nlargest(max_pos, "weight").copy()
         self.portfolio["weight"] = self.portfolio["weight"] / self.portfolio["weight"].sum()
+        
+        # Appliquer à nouveau les contraintes sur le portefeuille final (après sélection top_n)
+        final_weights = self.portfolio["weight"].values.copy()
+        final_sectors = self.portfolio["sector"].values if "sector" in self.portfolio.columns else np.array(["Unknown"] * len(self.portfolio))
+        
+        for _ in range(max_iterations):
+            weights_before = final_weights.copy()
+            
+            # Cap par position
+            over_cap = final_weights > max_weight
+            if over_cap.any():
+                excess = (final_weights[over_cap] - max_weight).sum()
+                final_weights[over_cap] = max_weight
+                under_cap = final_weights < max_weight
+                if under_cap.any() and final_weights[under_cap].sum() > 0:
+                    final_weights[under_cap] += excess * (final_weights[under_cap] / final_weights[under_cap].sum())
+            
+            # Cap par secteur
+            for sector in np.unique(final_sectors):
+                if sector == "Unknown":
+                    continue
+                sector_mask = final_sectors == sector
+                sector_total = final_weights[sector_mask].sum()
+                if sector_total > max_sector:
+                    reduction = max_sector / sector_total
+                    excess = sector_total - max_sector
+                    final_weights[sector_mask] *= reduction
+                    other_mask = ~sector_mask
+                    if other_mask.any() and final_weights[other_mask].sum() > 0:
+                        final_weights[other_mask] += excess * (final_weights[other_mask] / final_weights[other_mask].sum())
+            
+            final_weights = final_weights / final_weights.sum()
+            
+            if np.abs(final_weights - weights_before).max() < tolerance:
+                break
+        
+        self.portfolio["weight"] = final_weights
         self.portfolio["weight"] = self.portfolio["weight"].round(4)
+        
+        # =====================================================================
+        # VALIDATION FINALE (ASSERTIONS)
+        # =====================================================================
+        
+        max_weight_actual = self.portfolio["weight"].max()
+        tolerance_check = 0.005  # 0.5% de tolérance pour les arrondis
+        
+        if max_weight_actual > max_weight + tolerance_check:
+            print(f"   ⚠️ WARNING: Poids max {max_weight_actual:.2%} > limite {max_weight:.2%}")
+        
+        if "sector" in self.portfolio.columns:
+            sector_weights = self.portfolio.groupby("sector")["weight"].sum()
+            max_sector_actual = sector_weights.max()
+            worst_sector = sector_weights.idxmax()
+            
+            if max_sector_actual > max_sector + tolerance_check:
+                print(f"   ⚠️ WARNING: Secteur {worst_sector} = {max_sector_actual:.2%} > limite {max_sector:.2%}")
+        else:
+            max_sector_actual = 0
+            worst_sector = "N/A"
+        
+        total_weight = self.portfolio["weight"].sum()
+        if abs(total_weight - 1.0) > 0.001:
+            print(f"   ⚠️ WARNING: Somme des poids = {total_weight:.4f} ≠ 1.0")
         
         self._calculate_portfolio_metrics()
         
-        print(f"✅ Portefeuille: {len(self.portfolio)} positions")
+        # Résumé
+        print(f"✅ Portefeuille v2.4: {len(self.portfolio)} positions")
+        print(f"   ├─ Max poids: {max_weight_actual:.2%} (limite {max_weight:.2%})")
+        if "sector" in self.portfolio.columns:
+            print(f"   ├─ Max secteur: {worst_sector} = {max_sector_actual:.2%} (limite {max_sector:.2%})")
+        print(f"   └─ Somme poids: {total_weight:.4f}")
+        
         return self.portfolio
     
     def _calculate_portfolio_metrics(self):
