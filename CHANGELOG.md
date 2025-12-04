@@ -1,101 +1,90 @@
-# Changelog
+# Changelog SmartMoney
 
-Toutes les modifications notables de SmartMoney sont documentées ici.
+## [3.0.0] - 2025-12-04
 
-Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
+### 🚀 Version Majeure: "Buffett-Quant"
 
----
-
-## [2.4.0] - 2025-12-04
-
-### 🎯 "Version Institutionnalisable"
-
-Première version avec contraintes réellement enforced, backtest walk-forward,
-et documentation complète pour présentation Investment Committee.
-
-### Added
-
-#### Étape 1 — Hygiène technique
-- ✅ Contraintes `max_weight` et `max_sector` RÉELLEMENT enforced dans l'optimiseur
-- ✅ Tests unitaires complets (`tests/test_constraints.py`)
-- ✅ Validation automatique des contraintes
-
-#### Étape 2 — Clarification factorielle
-- ✅ Score Value **cross-sectionnel** (percentiles vs seuils absolus)
-- ✅ 3 modes de scoring : `absolute`, `cross_sectional`, `sector_neutral`
-- ✅ Documentation des expositions factorielles (`docs/factor_exposures.md`)
-- ✅ Paramètre `VALUE_SCORING_MODE` dans config
-
-#### Étape 3 — Backtest sérieux
-- ✅ Walk-forward backtest out-of-sample (`src/backtest_walkforward.py`)
-- ✅ Price loader multi-sources (`src/price_loader.py`)
-- ✅ Générateur de rapport (`src/generate_backtest_report.py`)
-- ✅ Méthodologie documentée (`docs/backtest_methodology.md`)
-- ✅ Tests unitaires backtest (`tests/test_backtest.py`)
-
-#### Étape 4 — Usage "pro"
-- ✅ Investment Memo 5 pages (`docs/investment_memo.md`)
-- ✅ Slide deck 20 slides (`docs/slides_investment_committee.md`)
-- ✅ Résumé exécutif automatique
+Refonte complète de la philosophie d'investissement suite au feedback ChatGPT:
+> "Si ton vrai ADN mental est Buffett, c'est incohérent d'avoir un moteur factoriel générique."
 
 ### Changed
-- Score Value utilise maintenant les percentiles par défaut (meilleure discrimination)
-- Configuration v2.4 avec `FACTOR_EXPOSURE_TARGETS` et `FACTOR_ETF_PROXIES`
-- Requirements mis à jour avec `yfinance`
 
-### Fixed
-- 🐛 Optimiseur ignorait les contraintes `max_sector` (corrigé)
-- 🐛 Clustering des scores Value sur univers homogène (corrigé)
+**Poids Composite:**
+- Value: 30% → 45%
+- Quality: 25% → 35%
+- Risk: 15% → 20%
+- Smart Money: 15% → 0% (indicateur seulement)
+- Insider: 10% → 0% (tie-breaker seulement)
+- Momentum: 5% → 0% (supprimé)
 
-### Documentation
-- Investment Memo complet (5 pages)
-- Slide deck Investment Committee (20 slides)
-- Méthodologie backtest détaillée
-- Expositions factorielles documentées
+**Quality Scorer:**
+- AVANT: Seuils absolus (ROE > 15% = bon)
+- APRÈS: Sector-relative (ROE ranké dans le secteur) + stabilité 5 ans
+
+**Value Scorer:**
+- AVANT: Seuils absolus (FCF yield > 8% = excellent)
+- APRÈS: Cross-section (cheap vs pairs) + Margin of Safety vs historique
+
+**Risk Scorer:**
+- AVANT: Low vol académique
+- APRÈS: Éviter perte permanente de capital (levier, coverage, drawdown)
+
+### Added
+
+- `config_v30.py` — Configuration Buffett-Quant complète
+- `src/scoring/quality_v30.py` — Quality sector-relative
+- `src/scoring/value_v30.py` — Value avec Margin of Safety
+- `src/scoring/risk_v30.py` — Risk perte permanente
+- `src/scoring/composite_v30.py` — Agrégation 45/35/20
+- `docs/investment_guidelines_v30.md` — Document IC 12 sections
+- `MIGRATION_V30.md` — Guide de migration
+- `src/scoring/legacy/` — Wrappers rétrocompatibilité
+
+### Deprecated
+
+- `config_v23.py` → Utiliser `config_v30.py`
+- `config_v25.py` → Utiliser `config_v30.py`
+- `src/scoring/value_composite.py` → Utiliser `value_v30.py`
+- `src/scoring/quality_composite.py` → Utiliser `quality_v30.py`
+- `src/scoring/risk_score.py` → Utiliser `risk_v30.py`
+- `src/scoring/composite.py` → Utiliser `composite_v30.py`
 
 ---
 
-## [2.3.0] - 2025-11
+## [2.5.0] - 2025-12-03 (jamais déployé)
 
-### Added
-- Refonte du scoring multi-factoriel
-- Ajout des facteurs Value et Quality
-- Réduction du poids Smart Money (45% → 15%)
+Version intermédiaire "IC Ready" remplacée par v3.0.
+
+---
+
+## [2.4.0] - 2025-12-01
 
 ### Changed
-- `WEIGHTS_V23` avec nouvelle répartition
-- Contraintes déclarées (mais non enforced)
+- Score Value cross-sectionnel (percentiles vs seuils absolus)
+- Contraintes max_weight et max_sector réellement enforced
+- Tests unitaires pour contraintes
 
 ---
 
-## [2.2.0] - 2025-10
+## [2.3.1] - 2025-11-28
 
 ### Added
-- Scoring Smart Money initial
-- Pipeline de données 13F
-- Insider tracking
+- Mode Buffett (filtres, scoring, contraintes portefeuille)
+- Score Buffett séparé (60% qualité + 40% valorisation)
 
 ---
 
-## [2.1.0] - 2025-09
+## [2.3.0] - 2025-11-15
 
-### Added
-- Structure de base du projet
-- Scraping données financières
-- Configuration initiale
-
----
-
-## Roadmap v3.0
-
-| Amélioration | Priorité | Timeline |
-|--------------|----------|----------|
-| Constituants historiques S&P | Haute | Q1 2026 |
-| Coûts de transaction explicites | Haute | Q1 2026 |
-| Attribution factorielle | Moyenne | Q2 2026 |
-| Stress tests automatisés | Moyenne | Q2 2026 |
-| Extension Mid Cap | Basse | Q3 2026 |
+### Changed
+- Nouveaux poids (smart_money réduit de 45% à 15%)
+- Ajout facteurs Value, Quality, Risk
+- Hard filters (D/E, coverage, ND/EBITDA)
+- Filtres de liquidité
 
 ---
 
-*Maintenu par l'équipe SmartMoney*
+## [2.2.0] - 2025-10-01
+
+### Initial
+- Première version avec Smart Money 45%, Insider 15%, Momentum 25%, Quality 15%
