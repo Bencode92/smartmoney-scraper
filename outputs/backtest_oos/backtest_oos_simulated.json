@@ -1,0 +1,70 @@
+{
+  "generated_at": "2025-12-04T15:54:32.001459",
+  "methodology": "Simulation basée sur factor premiums académiques et rendements SPY réels",
+  "period": "2019-Q1 → 2024-Q3",
+  "n_periods": 23,
+  "benchmark": {
+    "name": "SPY",
+    "total_return": 115.58,
+    "cagr": 14.29
+  },
+  "configs": {
+    "core": {
+      "config_name": "Core (Quality/Value)",
+      "total_return": 169.67,
+      "benchmark_return": 115.58,
+      "cagr": 18.83,
+      "benchmark_cagr": 14.29,
+      "total_alpha": 22.53,
+      "hit_rate": 87.0,
+      "sharpe": 1.23,
+      "max_drawdown": -20.38,
+      "information_ratio": 9.26,
+      "n_periods": 23,
+      "annual_alpha": 3.92
+    },
+    "core_sm": {
+      "config_name": "Core + Smart Money (15%)",
+      "total_return": 160.8,
+      "benchmark_return": 115.58,
+      "cagr": 18.14,
+      "benchmark_cagr": 14.29,
+      "total_alpha": 19.17,
+      "hit_rate": 82.6,
+      "sharpe": 1.15,
+      "max_drawdown": -21.1,
+      "information_ratio": 9.24,
+      "n_periods": 23,
+      "annual_alpha": 3.33
+    },
+    "sm_reduced": {
+      "config_name": "Smart Money Réduit (5%)",
+      "total_return": 165.36,
+      "benchmark_return": 115.58,
+      "cagr": 18.5,
+      "benchmark_cagr": 14.29,
+      "total_alpha": 20.9,
+      "hit_rate": 87.0,
+      "sharpe": 1.19,
+      "max_drawdown": -20.71,
+      "information_ratio": 9.4,
+      "n_periods": 23,
+      "annual_alpha": 3.63
+    }
+  },
+  "smart_money_analysis": {
+    "sm_15pct": {
+      "alpha_contribution": -3.36,
+      "alpha_per_year": -0.58,
+      "sharpe_contribution": -0.08,
+      "ir_contribution": -0.02
+    },
+    "sm_5pct": {
+      "alpha_contribution": -1.63,
+      "sharpe_contribution": -0.04
+    },
+    "verdict": "❌ Smart Money N'AJOUTE PAS de valeur",
+    "recommendation": "Réduire à 0-5% ou supprimer"
+  },
+  "disclaimer": "SIMULATION - À valider avec données réelles via Twelve Data ou yfinance"
+}
