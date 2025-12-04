@@ -1,44 +1,55 @@
-"""Configuration SmartMoney Engine v2.4
+"""⚠️  [DEPRECATED] Configuration SmartMoney Engine v2.3/v2.4
 
-Extension de config.py avec nouveaux paramètres v2.3 et v2.4.
-Importer avec: from config_v23 import *
+╔══════════════════════════════════════════════════════════════════════╗
+║  CE FICHIER EST DÉPRÉCIÉ — Utiliser config_v30.py à la place         ║
+╠══════════════════════════════════════════════════════════════════════╣
+║                                                                      ║
+║  Migration:                                                          ║
+║    AVANT:  from config_v23 import WEIGHTS_V23, CONSTRAINTS_V23       ║
+║    APRÈS:  from config_v30 import WEIGHTS_V30, CONSTRAINTS_V30       ║
+║                                                                      ║
+║  Voir MIGRATION_V30.md pour le guide complet.                        ║
+║                                                                      ║
+╚══════════════════════════════════════════════════════════════════════╝
 
-Changements v2.3:
-- Nouveaux poids (smart_money réduit, value/quality/risk ajoutés)
-- Hard filters (D/E, coverage, ND/EBITDA)
-- Filtres de liquidité
-- Contrôle look-ahead
+Différences clés v2.3 vs v3.0:
+- v2.3: Smart Money 15%, Insider 10%, Momentum 5%
+- v3.0: Smart Money 0%, Insider 0%, Momentum 0% (indicateurs only)
 
-Changements v2.3.1:
-- Ajout mode Buffett (filtres, scoring, contraintes portefeuille)
+Ce fichier reste disponible pour rétrocompatibilité mais émettra
+des warnings de dépréciation dans une future version.
 
-Changements v2.4:
-- Contraintes de poids RÉELLEMENT enforced dans optimize()
-- Score Value cross-sectionnel (percentiles vs seuils absolus)
-- Documentation des expositions factorielles
-- Tests unitaires pour contraintes
-
-Validé: Claude + GPT - Décembre 2025
+Date de dépréciation: Décembre 2025
 """
+
+import warnings
+
+# Émettre un warning à l'import
+warnings.warn(
+    "config_v23 est déprécié. Utiliser config_v30 pour la nouvelle logique Buffett-Quant. "
+    "Voir MIGRATION_V30.md pour le guide de migration.",
+    DeprecationWarning,
+    stacklevel=2
+)
 
 from typing import Dict, List, Tuple, Any, Literal
 
 # =============================================================================
-# POIDS v2.3 (remplace WEIGHTS de config.py)
+# POIDS v2.3 (DÉPRÉCIÉ — utiliser WEIGHTS_V30)
 # =============================================================================
 
 WEIGHTS_V23: Dict[str, float] = {
     # Signaux de marché (30% vs 85% en v2.2)
-    "smart_money": 0.15,    # Était 0.45
-    "insider": 0.10,        # Était 0.15
-    "momentum": 0.05,       # Était 0.25
+    "smart_money": 0.15,    # → 0% en v3.0
+    "insider": 0.10,        # → 0% en v3.0
+    "momentum": 0.05,       # → 0% en v3.0
     
     # Fondamentaux Buffett (55% - NOUVEAU)
-    "value": 0.30,          # FCF yield, EV/EBIT, MoS
-    "quality": 0.25,        # ROIC, marges, croissance, discipline
+    "value": 0.30,          # → 45% en v3.0
+    "quality": 0.25,        # → 35% en v3.0
     
     # Garde-fou (15% - NOUVEAU)
-    "risk": 0.15,           # INVERSÉ: score élevé = faible risque = bonus
+    "risk": 0.15,           # → 20% en v3.0
 }
 
 # Validation
@@ -49,147 +60,98 @@ assert all(w >= 0 for w in WEIGHTS_V23.values()), \
 
 
 # =============================================================================
-# SOUS-COMPOSANTES DES NOUVEAUX FACTEURS
+# SOUS-COMPOSANTES DES FACTEURS (DÉPRÉCIÉ)
 # =============================================================================
 
 VALUE_COMPONENTS: Dict[str, float] = {
-    "fcf_yield": 0.40,          # Robuste, observable
-    "ev_ebit_vs_sector": 0.40,  # Comparable, relatif
-    "mos_simple": 0.20,         # P/E vs historique (pas DCF)
+    "fcf_yield": 0.40,
+    "ev_ebit_vs_sector": 0.40,
+    "mos_simple": 0.20,
 }
 
-# =============================================================================
-# MODE DE SCORING VALUE (v2.4 - NOUVEAU)
-# =============================================================================
-
 VALUE_SCORING_MODE: Literal["absolute", "cross_sectional", "sector_neutral"] = "cross_sectional"
-"""
-Mode de calcul du score Value:
-
-- "absolute": Seuils fixes (legacy v2.3)
-  FCF Yield > 8% = 1.0, > 5% = 0.75, etc.
-  Problème: Scores uniformes (~0.7) pour les megacaps similaires
-
-- "cross_sectional": Percentiles globaux (v2.4, DÉFAUT)
-  Score = percentile dans l'univers
-  Avantage: Distribution uniforme [0, 1], meilleure discrimination
-
-- "sector_neutral": Percentiles intra-secteur
-  Score = percentile au sein du secteur
-  Avantage: Compare aux pairs directs, évite biais sectoriels
-"""
-
-# =============================================================================
-# QUALITY COMPONENTS
-# =============================================================================
 
 QUALITY_COMPONENTS: Dict[str, float] = {
-    "roic_avg": 0.35,           # Rentabilité du capital (5 ans)
-    "margin_stability": 0.25,   # Stabilité des marges op
-    "fcf_growth": 0.20,         # Croissance FCF/action
-    "capital_discipline": 0.20, # Buybacks + levier prudent
+    "roic_avg": 0.35,
+    "margin_stability": 0.25,
+    "fcf_growth": 0.20,
+    "capital_discipline": 0.20,
 }
 
 RISK_COMPONENTS: Dict[str, float] = {
-    "leverage_safe": 0.50,      # D/E, ND/EBITDA
-    "coverage_safe": 0.30,      # Interest coverage
-    "volatility_low": 0.20,     # Vol annuelle
+    "leverage_safe": 0.50,
+    "coverage_safe": 0.30,
+    "volatility_low": 0.20,
 }
 
 
 # =============================================================================
-# HARD FILTERS (Exclusion binaire - NOUVEAU)
+# HARD FILTERS (DÉPRÉCIÉ — utiliser HARD_FILTERS_V30)
 # =============================================================================
 
 HARD_FILTERS: Dict[str, float] = {
-    "max_debt_equity": 3.0,         # D/E > 3 = exclu
-    "max_debt_ebitda": 4.0,         # ND/EBITDA > 4 = exclu
-    "min_interest_coverage": 2.5,   # Coverage < 2.5 = exclu
+    "max_debt_equity": 3.0,
+    "max_debt_ebitda": 4.0,
+    "min_interest_coverage": 2.5,
 }
 
 
 # =============================================================================
-# FILTRES DE LIQUIDITÉ (NOUVEAU)
+# FILTRES DE LIQUIDITÉ (DÉPRÉCIÉ — utiliser LIQUIDITY_V30)
 # =============================================================================
 
 LIQUIDITY: Dict[str, float] = {
-    "min_market_cap": 2_000_000_000,    # $2B minimum
-    "min_adv_usd": 5_000_000,           # $5M ADV minimum
-    "max_position_vs_adv": 0.02,        # Position max = 2% de l'ADV
+    "min_market_cap": 2_000_000_000,    # → $10B en v3.0
+    "min_adv_usd": 5_000_000,
+    "max_position_vs_adv": 0.02,        # → 5% en v3.0
 }
 
 
 # =============================================================================
-# CONTRÔLE LOOK-AHEAD (NOUVEAU)
-# =============================================================================
-
-LOOK_AHEAD: Dict[str, int] = {
-    "publication_lag_days": 60,     # Délai publication 10-K
-    "quarterly_lag_days": 45,       # Délai publication 10-Q
-}
-
-
-# =============================================================================
-# CONTRAINTES v2.4 (étend CONSTRAINTS de config.py)
+# CONTRAINTES v2.3 (DÉPRÉCIÉ — utiliser CONSTRAINTS_V30)
 # =============================================================================
 
 CONSTRAINTS_V23: Dict[str, float] = {
-    # Positions
-    "min_positions": 12,        # Était 15
-    "max_positions": 20,        # Était 25
-    "max_weight": 0.12,         # Était 0.06 — v2.4: RÉELLEMENT enforced
-    "max_sector": 0.30,         # v2.4: RÉELLEMENT enforced (était ignoré)
+    "min_positions": 12,        # → 15 en v3.0
+    "max_positions": 20,
+    "max_weight": 0.12,         # → 10% en v3.0
+    "max_sector": 0.30,
     "min_sectors": 4,
-    "min_score": 0.40,          # Était 0.30
-    
-    # Historique requis
+    "min_score": 0.40,
     "min_history_years": 5,
 }
 
 
 # =============================================================================
-# GESTION DU RISQUE (NOUVEAU)
+# AUTRES CONFIGS (gardées pour rétrocompatibilité)
 # =============================================================================
 
+LOOK_AHEAD: Dict[str, int] = {
+    "publication_lag_days": 60,
+    "quarterly_lag_days": 45,
+}
+
 RISK_MANAGEMENT: Dict[str, float] = {
-    # Drawdown
-    "max_dd_target": -0.25,     # Objectif
-    "max_dd_warning": -0.20,    # Alerte
-    "max_dd_hard": -0.35,       # Limite absolue
-    
-    # Beta (optionnel)
+    "max_dd_target": -0.25,
+    "max_dd_warning": -0.20,
+    "max_dd_hard": -0.35,
     "max_beta_vs_spy": 1.3,
 }
 
-
-# =============================================================================
-# VALIDATION v2.3
-# =============================================================================
-
 VALIDATION_V23: Dict[str, float] = {
-    "min_sharpe": 0.55,         # Était 0.50
+    "min_sharpe": 0.55,
     "min_sortino": 0.70,
     "min_calmar": 0.45,
-    "max_turnover_annual": 1.50,  # 150% max
+    "max_turnover_annual": 1.50,
 }
 
-
-# =============================================================================
-# BACKTEST v2.3
-# =============================================================================
-
 BACKTEST_V23: Dict[str, Any] = {
-    "rebal_freq": "Q",          # Trimestriel (était M)
-    "tc_bps": 12.0,             # Était 10
+    "rebal_freq": "Q",
+    "tc_bps": 12.0,
     "risk_free_rate": 0.045,
     "start_date": "2010-01-01",
     "end_date": "2024-12-31",
 }
-
-
-# =============================================================================
-# DATA VALIDATOR - Bornes acceptables
-# =============================================================================
 
 DATA_BOUNDS: Dict[str, Tuple[float, float]] = {
     "revenue": (0, 1e13),
@@ -216,11 +178,6 @@ REQUIRED_FIELDS: List[str] = [
     "total_debt",
 ]
 
-
-# =============================================================================
-# MODE SMOKE TEST
-# =============================================================================
-
 SMOKE_TEST_MODE: bool = False
 
 SMOKE_TEST_CONFIG: Dict[str, Any] = {
@@ -232,55 +189,13 @@ SMOKE_TEST_CONFIG: Dict[str, Any] = {
     "disable_volatility": True,
 }
 
-
-# =============================================================================
-# COMPARAISON v2.2 vs v2.3 vs v2.4
-# =============================================================================
-
-"""
-TRANSFORMATION DES POIDS:
-
-              v2.2    v2.3    v2.4    Δ
-              ----    ----    ----    ---
-smart_money   0.45    0.15    0.15    =
-insider       0.15    0.10    0.10    =
-momentum      0.25    0.05    0.05    =
-quality       0.15    0.00    0.00    remplacé
-
-value         0.00    0.30    0.30    = (mais cross-sectional)
-quality       0.00    0.25    0.25    = 
-risk          0.00    0.15    0.15    =
-              ----    ----    ----
-TOTAL         1.00    1.00    1.00
-
-CHANGEMENTS v2.4:
-- Contraintes max_weight et max_sector RÉELLEMENT enforced
-- Score Value cross-sectionnel (percentiles)
-- Tests unitaires ajoutés
-
-IMPACT ATTENDU:
-- Score Buffett: 0.55 → 0.80
-- Score Institutionnel: 0.62 → 0.85
-- Max Drawdown: < -25% (cible)
-- Meilleure discrimination Value (std ~0.25 vs ~0.05)
-"""
-
-
-# =============================================================================
-# BUFFETT MODE v2.3.1 — Configuration séparée style Warren Buffett
-# =============================================================================
-
+# Buffett mode (gardé pour rétrocompatibilité)
 BUFFETT_FILTERS: Dict[str, Any] = {
-    # --- CORE (toujours appliqués en mode Buffett) ---
-    "min_history_years": 7,         # Un cycle économique complet
-    "max_loss_years": 3,            # Max 3 années de pertes sur 10 ans
-    
-    # --- PREFERENCES (soft = pénalité, strict = exclusion) ---
-    "ideal_history_years": 10,      # Idéal pour évaluer le moat
-    "min_roe_avg": 0.10,            # ROE moyen > 10%
-    "min_roic_avg": 0.08,           # ROIC moyen > 8%
-    
-    # --- Cercle de compétence ---
+    "min_history_years": 7,
+    "max_loss_years": 3,
+    "ideal_history_years": 10,
+    "min_roe_avg": 0.10,
+    "min_roic_avg": 0.08,
     "allowed_sectors": [
         "Consumer Staples",
         "Consumer Discretionary",
@@ -289,65 +204,48 @@ BUFFETT_FILTERS: Dict[str, Any] = {
         "Healthcare",
         "Technology",
         "Communication Services",
-        "Energy",                   # Buffett a OXY
+        "Energy",
     ],
     "excluded_industries": [
-        "Biotechnology",            # Trop spéculatif, pas de moat prévisible
-        "Blank Checks",             # SPACs
+        "Biotechnology",
+        "Blank Checks",
         "Shell Companies",
     ],
 }
 
 BUFFETT_SCORING: Dict[str, float] = {
-    # Score Buffett = Quality × 60% + Valorisation × 40%
     "quality_weight": 0.60,
     "valuation_weight": 0.40,
-    
-    # Sous-composantes Quality (somme = 1.0)
-    "moat_weight": 0.40,            # ROIC + ROE + stabilité marges
-    "cash_quality_weight": 0.25,    # FCF/NI ratio + accruals bas
-    "solidity_weight": 0.20,        # D/E + coverage + current ratio
-    "cap_alloc_weight": 0.15,       # Buybacks + payout ratio
+    "moat_weight": 0.40,
+    "cash_quality_weight": 0.25,
+    "solidity_weight": 0.20,
+    "cap_alloc_weight": 0.15,
 }
 
 BUFFETT_PORTFOLIO: Dict[str, Any] = {
-    # Mode conservateur (défaut)
     "min_positions": 10,
     "max_positions": 20,
-    "max_weight": 0.15,             # Plus concentré que v2.3 (0.12)
-    "max_sector": 0.35,             # Plus tolérant que v2.3 (0.30)
-    "rebal_freq": "A",              # Annuel (vs Trimestriel pour v2.3)
-    
-    # Règles de vente Buffett (faible rotation)
-    "sell_score_threshold": 0.35,   # Vendre si score_buffett < 0.35
-    "sell_valuation_ceiling": 35,   # Vendre si EV/EBIT > 35
-    "hold_if_top_n": 40,            # Ne pas vendre si reste dans top 2×N
+    "max_weight": 0.15,
+    "max_sector": 0.35,
+    "rebal_freq": "A",
+    "sell_score_threshold": 0.35,
+    "sell_valuation_ceiling": 35,
+    "hold_if_top_n": 40,
 }
 
-
-# Validation Buffett
-assert BUFFETT_SCORING["quality_weight"] + BUFFETT_SCORING["valuation_weight"] == 1.0, \
-    "Poids Buffett quality + valuation doivent sommer à 1.0"
-
-
-# =============================================================================
-# EXPOSITIONS FACTORIELLES v2.4 — Métriques de suivi
-# =============================================================================
-
 FACTOR_EXPOSURE_TARGETS: Dict[str, Tuple[float, float]] = {
-    # (min, max) - fourchette cible
     "beta_vs_spy": (0.90, 1.15),
-    "value_tilt": (0.05, 0.20),      # Positif = tilt Value
-    "quality_tilt": (0.10, 0.30),    # Positif = tilt Quality
-    "size_tilt": (-0.15, 0.05),      # Négatif = biais Large Cap
-    "momentum_tilt": (-0.05, 0.10),  # Légèrement positif
+    "value_tilt": (0.05, 0.20),
+    "quality_tilt": (0.10, 0.30),
+    "size_tilt": (-0.15, 0.05),
+    "momentum_tilt": (-0.05, 0.10),
 }
 
 FACTOR_ETF_PROXIES: Dict[str, str] = {
-    "value": "IVE",      # iShares S&P 500 Value
-    "quality": "QUAL",   # iShares MSCI USA Quality
-    "momentum": "MTUM",  # iShares MSCI USA Momentum
-    "low_vol": "SPLV",   # Invesco S&P 500 Low Volatility
-    "size_small": "IWM", # iShares Russell 2000
-    "market": "SPY",     # S&P 500 (benchmark)
+    "value": "IVE",
+    "quality": "QUAL",
+    "momentum": "MTUM",
+    "low_vol": "SPLV",
+    "size_small": "IWM",
+    "market": "SPY",
 }
