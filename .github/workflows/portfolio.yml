@@ -56,6 +56,23 @@ jobs:
             python main.py --mode "$MODE"
           fi
       
+      - name: Update latest symlink
+        run: |
+          cd outputs
+          # Trouver le dossier le plus récent (format YYYY-MM-DD)
+          LATEST_DIR=$(ls -d 20??-??-?? 2>/dev/null | sort -r | head -1)
+          
+          if [ -n "$LATEST_DIR" ]; then
+            echo "📁 Latest directory: $LATEST_DIR"
+            # Supprimer l'ancien latest (dossier ou lien)
+            rm -rf latest
+            # Copier le contenu du dernier dossier dans latest
+            cp -r "$LATEST_DIR" latest
+            echo "✅ Latest updated to $LATEST_DIR"
+          else
+            echo "⚠️ No dated directory found"
+          fi
+      
       - name: Commit outputs
         run: |
           git config user.name "GitHub Actions"
